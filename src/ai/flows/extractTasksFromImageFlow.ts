@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview An AI flow to extract task titles from an image of a handwritten list.
+ * @fileOverview An AI flow to extract a parent task title and subtask items from an image of a handwritten list.
  *
  * - extractTasksFromImage - A function that handles the task extraction from an image.
  * - ExtractTasksFromImageInput - The input type for the extractTasksFromImage function.
@@ -20,14 +20,19 @@ const ExtractTasksFromImageInputSchema = z.object({
 });
 export type ExtractTasksFromImageInput = z.infer<typeof ExtractTasksFromImageInputSchema>;
 
-const ExtractedTaskSchema = z.object({
-  title: z.string().describe("The title of an extracted task."),
+const ExtractedSubtaskSchema = z.object({
+  title: z.string().describe("The title of an extracted subtask item."),
 });
 
 const ExtractTasksFromImageOutputSchema = z.object({
-  extractedTasks: z
-    .array(ExtractedTaskSchema)
-    .describe("A list of tasks extracted from the image."),
+  parentTaskTitle: z
+    .string()
+    .describe(
+      "A concise and descriptive title for the main list, summarizing its content (e.g., 'Grocery Run', 'Weekend Chores', 'Project X Todos'). If a clear theme isn't obvious, use a generic title like 'Imported Task List'."
+    ),
+  extractedSubtasks: z
+    .array(ExtractedSubtaskSchema)
+    .describe("A list of subtask items extracted from the image."),
 });
 export type ExtractTasksFromImageOutput = z.infer<typeof ExtractTasksFromImageOutputSchema>;
 
@@ -39,11 +44,14 @@ const prompt = ai.definePrompt({
   name: 'extractTasksFromImagePrompt',
   input: {schema: ExtractTasksFromImageInputSchema},
   output: {schema: ExtractTasksFromImageOutputSchema},
-  prompt: `You are an AI assistant specialized in interpreting images of handwritten notes and converting them into a structured list of tasks.
-Analyze the provided image, identify distinct handwritten task items, and extract the text for each task.
-Focus on clear, actionable task titles. Ignore any unrelated drawings, numbers, or text that does not seem like a task item.
-Return the tasks as a list of objects, where each object has a "title" field containing the task text.
-If no tasks are found, return an empty list for "extractedTasks".
+  prompt: `You are an AI assistant specialized in interpreting images of handwritten notes and converting them into a structured list.
+Your goal is to:
+1.  Determine a concise and descriptive overall title for the list itself (e.g., "Grocery Run for Weekend", "Meeting Action Items", "Home Renovation Todos"). This will be the 'parentTaskTitle'. If the image does not seem to contain a list or if a clear theme isn't obvious, use a generic title like "Imported Tasks from Image".
+2.  Analyze the provided image to identify distinct handwritten items. These will be the 'extractedSubtasks'.
+3.  Extract the text for each item, focusing on clear, actionable titles. Ignore any unrelated drawings, numbers, or text that does not seem like a task item.
+
+Return the result with "parentTaskTitle" and an array of "extractedSubtasks", where each subtask object has a "title" field.
+If no specific items are found but a general context can be determined for a list (e.g., an empty shopping list), still provide a 'parentTaskTitle' and an empty 'extractedSubtasks' array. If the image is not a list at all, use a parentTaskTitle like "No list found in image" and an empty 'extractedSubtasks' array.
 
 Image: {{media url=imageDataUri}}`,
 });
@@ -57,6 +65,6 @@ const extractTasksFlow = ai.defineFlow(
   async (input: ExtractTasksFromImageInput) => {
     const {output} = await prompt(input);
     // Ensure output is not null and conforms to the schema, providing a default if necessary.
-    return output || { extractedTasks: [] };
+    return output || { parentTaskTitle: "Error processing image", extractedSubtasks: [] };
   }
 );

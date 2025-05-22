@@ -8,7 +8,7 @@ import {
   getTasksFromFirebase,
   updateTaskInFirebase,
   deleteTaskFromFirebase,
-  updateSubtaskInFirebase, // Combined function for add, update, delete subtasks by passing the whole array
+  updateSubtaskInFirebase, 
   isFirebaseConfigured,
 } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -20,18 +20,16 @@ export const useTasks = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load initial tasks
   useEffect(() => {
     const loadTasks = async () => {
       setIsLoading(true);
       let initialTasks: Task[] = [];
       
-      // Try local storage first as a quick cache
       try {
         const localTasks = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (localTasks) {
           initialTasks = JSON.parse(localTasks);
-          setTasks(initialTasks); // Show local tasks immediately
+          setTasks(initialTasks); 
         }
       } catch (error) {
         console.error("Error loading tasks from local storage:", error);
@@ -49,11 +47,9 @@ export const useTasks = () => {
             description: "Could not load tasks from cloud. Displaying local data if available.",
             variant: "destructive",
           });
-          // If Firebase fails, we've already set tasks from localStorage if available
         }
       } else {
-         // If Firebase is not configured, rely on local storage only
-        if (initialTasks.length === 0) { // If local storage was also empty
+        if (initialTasks.length === 0) { 
             toast({
                 title: "Firebase Not Configured",
                 description: "Firebase is not configured. Tasks will be saved locally only. Please configure Firebase in src/lib/firebaseConfig.ts for cloud storage.",
@@ -66,11 +62,10 @@ export const useTasks = () => {
     };
     loadTasks();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]); // toast is stable
+  }, [toast]); 
 
-  // Save tasks to local storage whenever they change (if Firebase is not configured)
   useEffect(() => {
-    if (!isFirebaseConfigured() && !isLoading) { // only save to LS if firebase not configured and initial load done
+    if (!isFirebaseConfigured() && !isLoading) { 
         try {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
         } catch (error) {
@@ -80,19 +75,20 @@ export const useTasks = () => {
   }, [tasks, isLoading]);
 
 
-  const addTask = async (taskData: Omit<Task, "id" | "completed" | "subtasks" | "createdAt">) => {
+  const addTask = async (taskData: Omit<Task, "id" | "completed" | "subtasks" | "createdAt">): Promise<Task | undefined> => {
     const newTaskBase: Omit<Task, "id" | "createdAt"> = {
       ...taskData,
       completed: false,
       subtasks: [],
     };
+    let createdTask: Task | undefined = undefined;
 
     if (isFirebaseConfigured()) {
       try {
-        const addedTask = await addTaskToFirebase(newTaskBase); // This returns the full task with ID and server timestamp
+        const addedTaskFromFirebase = await addTaskToFirebase(newTaskBase); 
+        createdTask = addedTaskFromFirebase;
         setTasks(prevTasks => {
-          const newTasks = [addedTask, ...prevTasks];
-          // Update local storage cache if Firebase is used
+          const newTasks = [addedTaskFromFirebase, ...prevTasks];
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
           return newTasks;
         });
@@ -100,18 +96,19 @@ export const useTasks = () => {
       } catch (error) {
         console.error("Error adding task to Firebase:", error);
         toast({ title: "Error", description: "Could not add task.", variant: "destructive" });
+        return undefined;
       }
     } else {
-      // Local storage only
-      const newTask: Task = { 
+      const newTaskForLocal: Task = { 
         ...newTaskBase, 
-        id: crypto.randomUUID(), // Use crypto.randomUUID for unique IDs
+        id: crypto.randomUUID(), 
         createdAt: new Date().toISOString() 
       };
-      setTasks(prevTasks => [newTask, ...prevTasks]);
-      // Local storage will be updated by the useEffect watching `tasks` for non-Firebase scenario
+      createdTask = newTaskForLocal;
+      setTasks(prevTasks => [newTaskForLocal, ...prevTasks]);
       toast({ title: "Success", description: "Task added locally." });
     }
+    return createdTask;
   };
 
   const updateTask = async (taskId: string, updates: Partial<Task>) => {
@@ -129,7 +126,6 @@ export const useTasks = () => {
         toast({ title: "Error", description: "Could not update task.", variant: "destructive" });
       }
     } else {
-      // Local storage only
       const updatedTasks = tasks.map((task) =>
         task.id === taskId ? { ...task, ...updates } : task
       );
@@ -151,7 +147,6 @@ export const useTasks = () => {
         toast({ title: "Error", description: "Could not delete task.", variant: "destructive" });
       }
     } else {
-      // Local storage only
       const newTasks = tasks.filter((task) => task.id !== taskId);
       setTasks(newTasks);
       toast({ title: "Success", description: "Task deleted locally." });
@@ -160,7 +155,11 @@ export const useTasks = () => {
 
   const manageSubtasks = async (taskId: string, newSubtasks: Subtask[]) => {
     const taskToUpdate = tasks.find(task => task.id === taskId);
-    if (!taskToUpdate) return;
+    if (!taskToUpdate) {
+      console.error("Task not found for managing subtasks:", taskId);
+      toast({ title: "Error", description: "Parent task not found.", variant: "destructive" });
+      return;
+    }
 
     if (isFirebaseConfigured()) {
       try {
@@ -176,7 +175,6 @@ export const useTasks = () => {
         toast({ title: "Error", description: "Could not update subtasks.", variant: "destructive" });
       }
     } else {
-       // Local storage only
       const updatedTasks = tasks.map(task => 
         task.id === taskId ? { ...task, subtasks: newSubtasks } : task
       );

@@ -16,14 +16,14 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input"; // Added for file input
-import { Label } from "@/components/ui/label"; // Added for file input styling
+import { Input } from "@/components/ui/input"; 
+import { Label } from "@/components/ui/label"; 
 import { ListChecks, AlertTriangle, Plus, ImageUp, Loader2 } from "lucide-react";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useEffect, useState, useRef } from "react";
-import type { Task } from "@/types/task";
-import Image from "next/image"; // For image preview
-import { useToast } from "@/hooks/use-toast"; // For feedback
+import type { Task, Subtask } from "@/types/task";
+import Image from "next/image"; 
+import { useToast } from "@/hooks/use-toast"; 
 import { extractTasksFromImage, type ExtractTasksFromImageInput } from "@/ai/flows/extractTasksFromImageFlow";
 
 
@@ -67,6 +67,15 @@ export default function Home() {
     }
   };
 
+  const resetImportDialog = () => {
+    setSelectedImageFile(null);
+    setImagePreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; 
+    }
+    setIsImportDialogOpen(false);
+  };
+
   const handleExtractTasks = async () => {
     if (!selectedImageFile) {
       toast({ title: "No Image", description: "Please select an image first.", variant: "destructive" });
@@ -79,32 +88,54 @@ export default function Home() {
       const input: ExtractTasksFromImageInput = { imageDataUri };
       const result = await extractTasksFromImage(input);
 
-      if (result.extractedTasks && result.extractedTasks.length > 0) {
-        for (const task of result.extractedTasks) {
-          if (task.title && task.title.trim() !== "") {
-            await addTask({ title: task.title.trim() }); // addTask already shows a toast
-          }
+      if (result && result.parentTaskTitle) {
+        const parentTitle = result.parentTaskTitle.trim();
+        
+        if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
+          toast({ title: "No Usable List Found", description: "The AI determined the image does not contain a task list.", variant: "default" });
+          resetImportDialog();
+          setIsProcessingImage(false);
+          return;
         }
-        toast({ title: "Import Successful", description: `${result.extractedTasks.length} tasks were processed from the image.` });
+
+        const newParentTask = await addTask({ title: parentTitle });
+
+        if (newParentTask && newParentTask.id) {
+          if (result.extractedSubtasks && result.extractedSubtasks.length > 0) {
+            const subtasksToAdd: Subtask[] = result.extractedSubtasks
+              .filter(st => st.title && st.title.trim() !== "")
+              .map(st => ({
+                id: crypto.randomUUID(),
+                title: st.title.trim(),
+                completed: false,
+              }));
+
+            if (subtasksToAdd.length > 0) {
+              await manageSubtasks(newParentTask.id, subtasksToAdd);
+              toast({ title: "Import Successful", description: `List "${newParentTask.title}" with ${subtasksToAdd.length} item(s) imported.` });
+            } else {
+              toast({ title: "List Created", description: `List "${newParentTask.title}" created. No specific items were extracted or valid.` });
+            }
+          } else {
+            toast({ title: "List Created", description: `List "${newParentTask.title}" created. The AI found no specific items in the image.` });
+          }
+        } else {
+          toast({ title: "Import Error", description: "Could not create the main task for the list.", variant: "destructive" });
+        }
       } else {
-        toast({ title: "No Tasks Found", description: "The AI could not find any tasks in the image.", variant: "default" });
+        toast({ title: "Import Error", description: "The AI could not process the image or determine a list title.", variant: "destructive" });
       }
     } catch (error) {
       console.error("Error extracting tasks from image:", error);
-      toast({ title: "Import Error", description: "Could not extract tasks from the image.", variant: "destructive" });
+      toast({ title: "Import Error", description: "An unexpected error occurred while processing the image.", variant: "destructive" });
     } finally {
       setIsProcessingImage(false);
-      setIsImportDialogOpen(false);
-      setSelectedImageFile(null);
-      setImagePreviewUrl(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""; // Reset file input
-      }
+      resetImportDialog();
     }
   };
   
   const renderTasks = () => {
-    if (isLoading && !isFirebaseConfigured() && tasks.length === 0) { // Show skeleton only on initial load if no local tasks
+    if (isLoading && !isFirebaseConfigured() && tasks.length === 0) { 
       return Array.from({ length: 3 }).map((_, index) => (
         <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
           <div className="flex items-center space-x-3 mb-3">
@@ -161,10 +192,8 @@ export default function Home() {
             <h2 id="task-list-heading" className="text-2xl font-semibold text-center sm:text-left">Your Tasks</h2>
             <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
               setIsImportDialogOpen(isOpen);
-              if (!isOpen) { // Reset on close
-                setSelectedImageFile(null);
-                setImagePreviewUrl(null);
-                if (fileInputRef.current) fileInputRef.current.value = "";
+              if (!isOpen) { 
+                resetImportDialog();
               }
             }}>
               <DialogTrigger asChild>
@@ -177,7 +206,7 @@ export default function Home() {
                 <DialogHeader>
                   <DialogTitle>Import Tasks from Image</DialogTitle>
                   <DialogDescription>
-                    Upload an image of your handwritten task list. The AI will try to extract the tasks.
+                    Upload an image of your handwritten task list. The AI will create a new list with these items.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -194,7 +223,7 @@ export default function Home() {
                   </div>
                   {imagePreviewUrl && (
                     <div className="mt-4 border rounded-md overflow-hidden max-h-60 flex justify-center items-center bg-muted/20">
-                       <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="image preview"/>
+                       <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="handwritten list"/>
                     </div>
                   )}
                 </div>
@@ -204,7 +233,7 @@ export default function Home() {
                   </DialogClose>
                   <Button onClick={handleExtractTasks} disabled={!selectedImageFile || isProcessingImage}>
                     {isProcessingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isProcessingImage ? "Processing..." : "Extract & Add Tasks"}
+                    {isProcessingImage ? "Processing..." : "Extract & Add List"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
