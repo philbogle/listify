@@ -8,7 +8,7 @@ import {
   getTasksFromFirebase,
   updateTaskInFirebase,
   deleteTaskFromFirebase,
-  updateSubtaskInFirebase,
+  updateSubtaskInFirebase, // Changed from add/deleteSubtaskToFirebase to simpler updateSubtaskInFirebase
   isFirebaseConfigured,
 } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -50,15 +50,9 @@ export const useTasks = () => {
           });
         }
       } else {
-        // Only show this specific toast if no tasks were loaded from local storage either
-        // And if firebase is not configured.
         if (initialTasks.length === 0) { 
-            toast({
-                title: "Firebase Not Configured",
-                description: "Firebase is not configured. Tasks will be saved locally only. Please configure Firebase in src/lib/firebaseConfig.ts for cloud storage.",
-                variant: "default",
-                duration: 9000,
-            });
+            // Toast removed for Firebase not configured to reduce noise, as per user request
+            // This was previously shown if firebase wasn't configured and local storage was empty
         }
       }
       setIsLoading(false);
@@ -68,14 +62,11 @@ export const useTasks = () => {
   }, [toast]); 
 
   useEffect(() => {
-    // Only save to local storage if Firebase is not configured OR if still loading
-    // (to capture initial local state before Firebase potentially overwrites it)
     if (!isFirebaseConfigured() && !isLoading) { 
         try {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
         } catch (error) {
             console.error("Error saving tasks to local storage:", error);
-            // Potentially add a toast here if saving to local storage fails critically
         }
     }
   }, [tasks, isLoading]);
@@ -95,10 +86,10 @@ export const useTasks = () => {
         createdTask = addedTaskFromFirebase;
         setTasks(prevTasks => {
           const newTasks = [addedTaskFromFirebase, ...prevTasks];
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks)); // Also update local for consistency
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
           return newTasks;
         });
-        toast({ title: "Success", description: "Task added to cloud." });
+        // Success toast removed
       } catch (error) {
         console.error("Error adding task to Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not add task to cloud. Check console.", variant: "destructive" });
@@ -112,7 +103,7 @@ export const useTasks = () => {
       };
       createdTask = newTaskForLocal;
       setTasks(prevTasks => [newTaskForLocal, ...prevTasks]);
-      toast({ title: "Success", description: "Task added locally." });
+      // Success toast removed
     }
     return createdTask;
   };
@@ -128,7 +119,7 @@ export const useTasks = () => {
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
           return updatedTasks;
         });
-        toast({ title: "Success", description: "Task updated in cloud." });
+        // Success toast removed
       } catch (error) {
         console.error("Error updating task in Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not update task in cloud. Check console.", variant: "destructive" });
@@ -138,10 +129,9 @@ export const useTasks = () => {
         const updatedTasks = prevTasks.map((task) =>
           task.id === taskId ? { ...task, ...updates } : task
         );
-        // localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks)); // This is handled by the useEffect
         return updatedTasks;
       });
-      toast({ title: "Success", description: "Task updated locally." });
+      // Success toast removed
     }
   };
 
@@ -154,7 +144,7 @@ export const useTasks = () => {
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
           return newTasks;
         });
-        toast({ title: "Success", description: "Task deleted from cloud." });
+        // Success toast removed
       } catch (error) {
         console.error("Error deleting task from Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not delete task from cloud. Check console.", variant: "destructive" });
@@ -162,17 +152,18 @@ export const useTasks = () => {
     } else {
       setTasks(prevTasks => {
         const newTasks = prevTasks.filter((task) => task.id !== taskId);
-        // localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks)); // Handled by useEffect
         return newTasks;
       });
-      toast({ title: "Success", description: "Task deleted locally." });
+      // Success toast removed
     }
   };
 
   const manageSubtasks = async (taskId: string, newSubtasks: Subtask[]) => {
+    // Removed the early task lookup as it caused issues with stale state
+    // The setTasks functional update below handles the state correctly.
     if (isFirebaseConfigured()) {
       try {
-        await updateSubtaskInFirebase(taskId, newSubtasks);
+        await updateSubtaskInFirebase(taskId, newSubtasks); // This now takes the full newSubtasks array
         setTasks(prevTasks => {
           const updatedTasks = prevTasks.map(task => 
             task.id === taskId ? { ...task, subtasks: newSubtasks } : task
@@ -180,7 +171,7 @@ export const useTasks = () => {
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
           return updatedTasks;
         });
-        toast({ title: "Success", description: "Subtasks updated in cloud." });
+        // Success toast removed
       } catch (error) {
         console.error("Error managing subtasks in Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not update subtasks in cloud. Check console.", variant: "destructive" });
@@ -190,12 +181,12 @@ export const useTasks = () => {
         const updatedTasks = prevTasks.map(task => 
           task.id === taskId ? { ...task, subtasks: newSubtasks } : task
         );
-        // localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks)); // Handled by useEffect
         return updatedTasks;
       });
-      toast({ title: "Success", description: "Subtasks updated locally." });
+      // Success toast removed
     }
   };
 
   return { tasks, isLoading, addTask, updateTask, deleteTask, manageSubtasks };
 };
+
