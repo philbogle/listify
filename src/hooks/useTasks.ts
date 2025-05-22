@@ -8,7 +8,7 @@ import {
   getTasksFromFirebase,
   updateTaskInFirebase,
   deleteTaskFromFirebase,
-  updateSubtaskInFirebase, 
+  updateSubtaskInFirebase,
   isFirebaseConfigured,
 } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -115,21 +115,26 @@ export const useTasks = () => {
     if (isFirebaseConfigured()) {
       try {
         await updateTaskInFirebase(taskId, updates);
-        const updatedTasks = tasks.map((task) =>
-          task.id === taskId ? { ...task, ...updates } : task
-        );
-        setTasks(updatedTasks);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
+        setTasks(prevTasks => {
+          const updatedTasks = prevTasks.map((task) =>
+            task.id === taskId ? { ...task, ...updates } : task
+          );
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
+          return updatedTasks;
+        });
         toast({ title: "Success", description: "Task updated." });
       } catch (error) {
         console.error("Error updating task in Firebase:", error);
         toast({ title: "Error", description: "Could not update task.", variant: "destructive" });
       }
     } else {
-      const updatedTasks = tasks.map((task) =>
-        task.id === taskId ? { ...task, ...updates } : task
-      );
-      setTasks(updatedTasks);
+      setTasks(prevTasks => {
+        const updatedTasks = prevTasks.map((task) =>
+          task.id === taskId ? { ...task, ...updates } : task
+        );
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
+        return updatedTasks;
+      });
       toast({ title: "Success", description: "Task updated locally." });
     }
   };
@@ -138,47 +143,55 @@ export const useTasks = () => {
     if (isFirebaseConfigured()) {
       try {
         await deleteTaskFromFirebase(taskId);
-        const newTasks = tasks.filter((task) => task.id !== taskId);
-        setTasks(newTasks);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
+        setTasks(prevTasks => {
+          const newTasks = prevTasks.filter((task) => task.id !== taskId);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
+          return newTasks;
+        });
         toast({ title: "Success", description: "Task deleted." });
       } catch (error) {
         console.error("Error deleting task from Firebase:", error);
         toast({ title: "Error", description: "Could not delete task.", variant: "destructive" });
       }
     } else {
-      const newTasks = tasks.filter((task) => task.id !== taskId);
-      setTasks(newTasks);
+      setTasks(prevTasks => {
+        const newTasks = prevTasks.filter((task) => task.id !== taskId);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
+        return newTasks;
+      });
       toast({ title: "Success", description: "Task deleted locally." });
     }
   };
 
   const manageSubtasks = async (taskId: string, newSubtasks: Subtask[]) => {
-    const taskToUpdate = tasks.find(task => task.id === taskId);
-    if (!taskToUpdate) {
-      console.error("Task not found for managing subtasks:", taskId);
-      toast({ title: "Error", description: "Parent task not found.", variant: "destructive" });
-      return;
-    }
+    // The check `tasks.find(task => task.id === taskId)` was removed
+    // because `tasks` here can be stale when `manageSubtasks` is called
+    // immediately after `addTask`. The `setTasks` functional update below
+    // will use the correct `prevTasks`.
 
     if (isFirebaseConfigured()) {
       try {
         await updateSubtaskInFirebase(taskId, newSubtasks);
-        const updatedTasks = tasks.map(task => 
-          task.id === taskId ? { ...task, subtasks: newSubtasks } : task
-        );
-        setTasks(updatedTasks);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
+        setTasks(prevTasks => {
+          const updatedTasks = prevTasks.map(task => 
+            task.id === taskId ? { ...task, subtasks: newSubtasks } : task
+          );
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
+          return updatedTasks;
+        });
         toast({ title: "Success", description: "Subtasks updated." });
       } catch (error) {
         console.error("Error managing subtasks in Firebase:", error);
         toast({ title: "Error", description: "Could not update subtasks.", variant: "destructive" });
       }
     } else {
-      const updatedTasks = tasks.map(task => 
-        task.id === taskId ? { ...task, subtasks: newSubtasks } : task
-      );
-      setTasks(updatedTasks);
+      setTasks(prevTasks => {
+        const updatedTasks = prevTasks.map(task => 
+          task.id === taskId ? { ...task, subtasks: newSubtasks } : task
+        );
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedTasks));
+        return updatedTasks;
+      });
       toast({ title: "Success", description: "Subtasks updated locally." });
     }
   };
