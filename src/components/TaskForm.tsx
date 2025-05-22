@@ -32,9 +32,10 @@ type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 interface TaskFormProps {
   onSubmit: (data: Omit<Task, "id" | "completed" | "subtasks" | "createdAt">) => Promise<void>;
+  onTaskAdded?: () => void; // Callback to close dialog
 }
 
-const TaskForm: FC<TaskFormProps> = ({ onSubmit }) => {
+const TaskForm: FC<TaskFormProps> = ({ onSubmit, onTaskAdded }) => {
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
@@ -50,11 +51,12 @@ const TaskForm: FC<TaskFormProps> = ({ onSubmit }) => {
       dueDate: data.dueDate ? data.dueDate.toISOString() : undefined,
     });
     form.reset();
+    onTaskAdded?.(); // Call the callback to close the dialog
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 p-4 border rounded-lg shadow-md bg-card">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 pt-4">
         <FormField
           control={form.control}
           name="title"
