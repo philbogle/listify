@@ -24,7 +24,6 @@ try {
   db = getFirestore(app);
 } catch (error) {
   console.error("Error initializing Firebase:", error);
-  // Provide dummy functions or throw if Firebase is essential and config is missing
   if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
     console.warn(
       "Firebase is not configured. Please update src/lib/firebaseConfig.ts. Using mock data."
@@ -34,17 +33,13 @@ try {
 
 const TASKS_COLLECTION = "tasks";
 
-// Ensure db is initialized before using it
 const getDb = () => {
   if (!db) {
-    // This case should ideally not be hit if init is successful or an error is thrown.
-    // However, as a fallback for environments where init might be delayed or conditional:
     try {
       const currentApp = initializeApp(firebaseConfig);
       db = getFirestore(currentApp);
     } catch (e) {
        console.error("Critical Firebase initialization error:", e);
-       // Depending on app requirements, throw error or return a dummy/mock implementation
        throw new Error("Firebase could not be initialized. Check your firebaseConfig.ts.");
     }
   }
@@ -57,22 +52,29 @@ export const addTaskToFirebase = async (taskData: Omit<Task, "id" | "createdAt">
     ...taskData,
     createdAt: serverTimestamp(),
   });
-  return { ...taskData, id: docRef.id, createdAt: new Date() }; // Approximate createdAt for immediate use
+  return { ...taskData, id: docRef.id, createdAt: new Date() }; 
 };
 
 export const getTasksFromFirebase = async (): Promise<Task[]> => {
   if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
-    return []; // Return empty if Firebase is not configured
+    console.warn("Firebase not configured, returning empty array for tasks.");
+    return []; 
   }
   const currentDb = getDb();
-  const q = query(collection(currentDb, TASKS_COLLECTION), orderBy("createdAt", "desc"));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    // Ensure subtasks is always an array
-    subtasks: doc.data().subtasks || [],
-  } as Task));
+  try {
+    const q = query(collection(currentDb, TASKS_COLLECTION), orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      subtasks: doc.data().subtasks || [],
+    } as Task));
+  } catch (error) {
+    console.error("Error fetching tasks from Firebase:", error);
+    console.error("This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
+    console.error("Specifically, ensure you have an index on the 'tasks' collection for 'createdAt' in descending order.");
+    throw error; // Re-throw the error to be caught by the calling function
+  }
 };
 
 export const updateTaskInFirebase = async (taskId: string, updates: Partial<Task>): Promise<void> => {
@@ -86,7 +88,6 @@ export const deleteTaskFromFirebase = async (taskId: string): Promise<void> => {
   await deleteDoc(doc(currentDb, TASKS_COLLECTION, taskId));
 };
 
-// Subtask specific functions (modify the subtasks array within the task document)
 export const addSubtaskToFirebase = async (taskId: string, existingSubtasks: Subtask[], newSubtask: Subtask): Promise<void> => {
   const currentDb = getDb();
   const taskRef = doc(currentDb, TASKS_COLLECTION, taskId);
@@ -101,12 +102,13 @@ export const updateSubtaskInFirebase = async (taskId: string, subtasks: Subtask[
 };
 
 export const deleteSubtaskFromFirebase = async (taskId: string, subtasks: Subtask[]): Promise<void> => {
-  // Firestore update is the same as updateSubtask, just with the specific subtask removed from the array
   await updateSubtaskInFirebase(taskId, subtasks);
 };
 
-// Helper to check if Firebase is configured
 export const isFirebaseConfigured = (): boolean => {
-  return !!firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
+  const configured = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.projectId !== "YOUR_PROJECT_ID";
+  if (!configured) {
+    console.warn("Firebase configuration is missing or using placeholder values in src/lib/firebaseConfig.ts. Features requiring Firebase will not work correctly.");
+  }
+  return configured;
 };
-
