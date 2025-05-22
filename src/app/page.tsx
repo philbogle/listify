@@ -74,13 +74,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      <header className="w-full max-w-3xl mb-8 text-center">
-        <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-          <ListChecks className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">TaskFlow</h1>
-        </div>
-        <p className="hidden sm:block text-muted-foreground mt-2">Organize your work, simplify your life.</p>
-      </header>
+      {/* Header removed */}
 
       {!firebaseReady && !isLoading && (
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
@@ -95,8 +89,7 @@ export default function Home() {
         </div>
       )}
       
-      <main className="w-full max-w-2xl grid grid-cols-1 gap-10">
-        {/* TaskForm removed from here */}
+      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-8"> {/* Added mt-8 for spacing */}
         <section aria-labelledby="task-list-heading" className="mt-2">
           <h2 id="task-list-heading" className="text-2xl font-semibold mb-6 text-center sm:text-left">Your Tasks</h2>
           <div className="space-y-4">
@@ -128,7 +121,6 @@ export default function Home() {
             }} 
             onTaskAdded={handleTaskAdded} 
           />
-          {/* Footer can be removed if TaskForm handles its own submit button */}
         </DialogContent>
       </Dialog>
 
