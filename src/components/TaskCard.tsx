@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; // For editing description
-import { CalendarDays, CheckCircle2, Circle, Edit3, FileText, ListChecks, Plus, Save, Trash2, X } from "lucide-react";
+import { CalendarDays, FileText, ListChecks, Plus, Save, Trash2, X } from "lucide-react";
 import SubtaskItem from "./SubtaskItem";
 import { format, parseISO } from "date-fns";
 import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
@@ -40,7 +40,7 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   const handleAddSubtask = () => {
     if (newSubtaskTitle.trim() === "") return;
     const newSubtask: Subtask = {
-      id: crypto.randomUUID(), // Use crypto.randomUUID for unique IDs
+      id: crypto.randomUUID(), 
       title: newSubtaskTitle.trim(),
       completed: false,
     };
@@ -68,6 +68,9 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   };
 
   const handleEdit = () => {
+    setEditedTitle(task.title); // Reset to current task title when starting edit
+    setEditedDescription(task.description || "");
+    setEditedDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
     setIsEditing(true);
   };
 
@@ -79,10 +82,15 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   };
 
   const handleSaveEdit = async () => {
-    if (editedTitle.trim() === "") return; // Title is required
+    if (editedTitle.trim() === "") {
+        // Optionally, add a toast message here if title is required
+        setEditedTitle(task.title); // Revert to original title if empty
+        setIsEditing(false);
+        return;
+    }
     await onUpdateTask(task.id, {
-      title: editedTitle,
-      description: editedDescription,
+      title: editedTitle.trim(), // Ensure to trim
+      description: editedDescription.trim(), // Ensure to trim
       dueDate: editedDueDate ? editedDueDate.toISOString() : undefined,
     });
     setIsEditing(false);
@@ -92,31 +100,34 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   return (
     <Card className={`mb-4 shadow-lg transition-all duration-300 ${task.completed ? "opacity-70 bg-secondary/30" : "bg-card"}`}>
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-3">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-grow min-w-0">
           <Checkbox
             id={`task-${task.id}`}
             checked={task.completed}
             onCheckedChange={(checked) => handleToggleComplete(!!checked)}
-            className="h-6 w-6"
+            className="h-6 w-6 flex-shrink-0"
             aria-label={task.completed ? "Mark task as incomplete" : "Mark task as complete"}
           />
           {isEditing ? (
              <Input 
                 value={editedTitle} 
                 onChange={(e) => setEditedTitle(e.target.value)} 
-                className="text-xl font-semibold leading-none tracking-tight h-9"
+                className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
                 autoFocus
+                onBlur={handleSaveEdit} // Save on blur
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
               />
           ) : (
             <CardTitle 
-              className={`text-xl font-semibold leading-none tracking-tight cursor-pointer ${task.completed ? "line-through" : ""}`}
-              onClick={() => handleToggleComplete(!task.completed)} // Allow toggling by clicking title
+              className={`text-xl font-semibold leading-none tracking-tight cursor-pointer truncate ${task.completed ? "line-through" : ""}`}
+              onClick={handleEdit}
+              title={task.title} // Show full title on hover for truncated text
             >
               {task.title}
             </CardTitle>
           )}
         </div>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 flex-shrink-0">
           {isEditing ? (
             <>
               <Button variant="ghost" size="icon" onClick={handleSaveEdit} className="h-8 w-8" aria-label="Save changes">
@@ -128,9 +139,7 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
             </>
           ) : (
             <>
-              <Button variant="ghost" size="icon" onClick={handleEdit} className="h-8 w-8" aria-label="Edit task">
-                <Edit3 className="h-4 w-4" />
-              </Button>
+              {/* Edit button removed, click on title to edit */}
               <Button variant="ghost" size="icon" onClick={() => onDeleteTask(task.id)} className="h-8 w-8 text-destructive hover:text-destructive" aria-label="Delete task">
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -179,10 +188,10 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
           </>
         ) : (
           <>
-            {task.description && (
+            {(task.description || (task.description === "" && isEditing)) && ( // Show even if empty when editing, else only if content
               <div className="flex items-start space-x-2 text-sm text-muted-foreground">
                 <FileText className="h-4 w-4 mt-0.5 shrink-0" />
-                <p className="whitespace-pre-wrap">{task.description}</p>
+                <p className="whitespace-pre-wrap">{task.description || <span className="italic">No description</span>}</p>
               </div>
             )}
             {task.dueDate && (
