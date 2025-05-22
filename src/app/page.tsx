@@ -18,9 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label"; 
-import { ListChecks, AlertTriangle, Plus, ImageUp, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ListChecks, AlertTriangle, Plus, ImageUp, Loader2, Camera, RefreshCw } from "lucide-react";
 import { isFirebaseConfigured } from "@/lib/firebase";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import type { Task, Subtask } from "@/types/task";
 import Image from "next/image"; 
 import { useToast } from "@/hooks/use-toast"; 
@@ -39,6 +40,8 @@ export default function Home() {
   const { tasks, isLoading, addTask, updateTask, deleteTask, manageSubtasks } = useTasks();
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  
+  // Import Dialog States
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -46,10 +49,61 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Camera States
+  const [isCameraMode, setIsCameraMode] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
   }, []);
+
+  const stopCameraStream = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [stream]);
+
+  useEffect(() => {
+    if (isImportDialogOpen && isCameraMode && hasCameraPermission === null) { // only request if not already determined
+      const getCameraPermission = async () => {
+        try {
+          const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          setStream(mediaStream);
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings.',
+          });
+        }
+      };
+      getCameraPermission();
+    } else if ((!isImportDialogOpen || !isCameraMode) && stream) {
+      stopCameraStream();
+    }
+
+    return () => {
+      if (stream && (!isImportDialogOpen || !isCameraMode)) { // ensure stream is stopped on component unmount if active
+         stopCameraStream();
+      }
+    };
+  }, [isImportDialogOpen, isCameraMode, hasCameraPermission, stream, stopCameraStream, toast]);
+
 
   const handleTaskAdded = () => {
     setIsFormDialogOpen(false);
@@ -66,19 +120,55 @@ export default function Home() {
       setImagePreviewUrl(null);
     }
   };
+  
+  const handleCaptureImage = async () => {
+    if (!videoRef.current || !canvasRef.current || !stream) return;
+    setIsCapturing(true);
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
 
-  const resetImportDialog = () => {
+    // Set canvas dimensions to video stream dimensions
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+        toast({ title: "Capture Error", description: "Could not get canvas context.", variant: "destructive" });
+        setIsCapturing(false);
+        return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    canvas.toBlob(async (blob) => {
+        if (blob) {
+            const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            setSelectedImageFile(capturedFile);
+            setImagePreviewUrl(URL.createObjectURL(capturedFile));
+            stopCameraStream(); // Stop stream after capture
+            setIsCameraMode(false); // Switch back to preview/upload mode implicitly
+        } else {
+            toast({ title: "Capture Error", description: "Could not create image blob.", variant: "destructive" });
+        }
+        setIsCapturing(false);
+    }, 'image/jpeg', 0.9); // 0.9 quality
+  };
+
+
+  const resetImportDialog = useCallback(() => {
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = ""; 
     }
+    stopCameraStream();
+    setIsCameraMode(false);
+    setHasCameraPermission(null); // Reset permission status so it's checked next time
     setIsImportDialogOpen(false);
-  };
+  }, [stopCameraStream]);
 
   const handleExtractTasks = async () => {
     if (!selectedImageFile) {
-      toast({ title: "No Image", description: "Please select an image first.", variant: "destructive" });
+      toast({ title: "No Image", description: "Please select or capture an image first.", variant: "destructive" });
       return;
     }
 
@@ -187,7 +277,7 @@ export default function Home() {
       )}
       
       <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-8">
-        <section aria-labelledby="task-list-heading" className="mt-2">
+         <section aria-labelledby="task-list-heading" className="mt-2">
           <div className="flex justify-between items-center mb-6">
             <h2 id="task-list-heading" className="text-2xl font-semibold text-center sm:text-left">Your Tasks</h2>
             <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
@@ -199,29 +289,71 @@ export default function Home() {
               <DialogTrigger asChild>
                 <Button variant="outline">
                   <ImageUp className="mr-2 h-4 w-4" />
-                  Import from Image
+                  Import
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                   <DialogTitle>Import Tasks from Image</DialogTitle>
                   <DialogDescription>
-                    Upload an image of your handwritten task list. The AI will create a new list with these items.
+                    Upload an image or take a picture of your handwritten task list. The AI will create a new list with these items.
                   </DialogDescription>
                 </DialogHeader>
+                
+                <div className="flex justify-center gap-2 my-4">
+                    <Button variant={!isCameraMode ? "default" : "outline"} onClick={() => { setSelectedImageFile(null); setImagePreviewUrl(null); setIsCameraMode(false); stopCameraStream(); }}>
+                        <ImageUp className="mr-2 h-4 w-4" /> Upload File
+                    </Button>
+                    <Button variant={isCameraMode ? "default" : "outline"} onClick={() => { setSelectedImageFile(null); setImagePreviewUrl(null); setIsCameraMode(true); setHasCameraPermission(null); /* reset to trigger useEffect */ }}>
+                        <Camera className="mr-2 h-4 w-4" /> Take Photo
+                    </Button>
+                </div>
+
                 <div className="grid gap-4 py-4">
-                  <div className="grid w-full max-w-sm items-center gap-1.5">
-                    <Label htmlFor="picture">Picture of your list</Label>
-                    <Input 
-                      id="picture" 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleImageFileChange}
-                      ref={fileInputRef}
-                      className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                    />
-                  </div>
-                  {imagePreviewUrl && (
+                  {!isCameraMode && (
+                    <div className="grid w-full max-w-sm items-center gap-1.5">
+                      <Label htmlFor="picture">Picture of your list</Label>
+                      <Input 
+                        id="picture" 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleImageFileChange}
+                        ref={fileInputRef}
+                        className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                      />
+                    </div>
+                  )}
+
+                  {isCameraMode && (
+                    <div className="space-y-4">
+                      <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                        <video ref={videoRef} className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} autoPlay playsInline muted />
+                        {hasCameraPermission === false && (
+                           <Alert variant="destructive" className="m-4">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Camera Access Denied</AlertTitle>
+                            <AlertDescription>
+                              Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                      </div>
+                       {stream && !imagePreviewUrl && hasCameraPermission &&(
+                        <Button onClick={handleCaptureImage} disabled={isCapturing || !stream} className="w-full">
+                          {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                          {isCapturing ? "Capturing..." : "Capture Photo"}
+                        </Button>
+                      )}
+                      {imagePreviewUrl && isCameraMode && ( // Captured image preview while still in "camera path"
+                        <Button onClick={() => {setImagePreviewUrl(null); setSelectedImageFile(null); setIsCameraMode(true); setHasCameraPermission(null);}} variant="outline" className="w-full">
+                            <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  
+                  {imagePreviewUrl && (!isCameraMode || (isCameraMode && selectedImageFile)) && ( // Show preview if file uploaded OR if photo captured
                     <div className="mt-4 border rounded-md overflow-hidden max-h-60 flex justify-center items-center bg-muted/20">
                        <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="handwritten list"/>
                     </div>
@@ -231,11 +363,12 @@ export default function Home() {
                   <DialogClose asChild>
                     <Button variant="outline">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={handleExtractTasks} disabled={!selectedImageFile || isProcessingImage}>
+                  <Button onClick={handleExtractTasks} disabled={!selectedImageFile || isProcessingImage || (isCameraMode && !imagePreviewUrl)}>
                     {isProcessingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isProcessingImage ? "Processing..." : "Extract & Add List"}
                   </Button>
                 </DialogFooter>
+                <canvas ref={canvasRef} className="hidden"></canvas>
               </DialogContent>
             </Dialog>
           </div>
@@ -279,3 +412,4 @@ export default function Home() {
     </div>
   );
 }
+
