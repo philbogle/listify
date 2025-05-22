@@ -8,10 +8,8 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, PlusCircle } from "lucide-react";
-import { format } from "date-fns";
+// Popover, Calendar, CalendarIcon, format removed as dueDate is removed
+import { PlusCircle } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -25,7 +23,7 @@ import type { Task } from "@/types/task";
 const taskFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title is too long"),
   description: z.string().max(500, "Description is too long").optional(),
-  dueDate: z.date().optional(),
+  // dueDate: z.date().optional(), // REMOVED
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -48,7 +46,7 @@ const TaskForm: FC<TaskFormProps> = ({ onSubmit, onTaskAdded }) => {
     await onSubmit({
       title: data.title,
       description: data.description,
-      dueDate: data.dueDate ? data.dueDate.toISOString() : undefined,
+      // dueDate: data.dueDate ? data.dueDate.toISOString() : undefined, // REMOVED
     });
     form.reset();
     onTaskAdded?.(); // Call the callback to close the dialog
@@ -83,39 +81,7 @@ const TaskForm: FC<TaskFormProps> = ({ onSubmit, onTaskAdded }) => {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="dueDate"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Due Date (Optional)</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant="outline"
-                      className={`w-full justify-start text-left font-normal ${
-                        !field.value ? "text-muted-foreground" : ""
-                      }`}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Due Date FormField REMOVED */}
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
           <PlusCircle className="mr-2 h-5 w-5" />
           {form.formState.isSubmitting ? "Adding Task..." : "Add Task"}

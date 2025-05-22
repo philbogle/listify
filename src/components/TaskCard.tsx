@@ -2,19 +2,17 @@
 "use client";
 
 import type { FC } from "react";
-import { useState, useEffect } from "react";
+import { useState } from "react"; // useEffect removed as parseISO is no longer needed here
 import type { Task, Subtask } from "@/types/task";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; // For editing description
-import { CalendarDays, FileText, Plus, Save, Trash2, X } from "lucide-react";
+import { FileText, Plus, Save, Trash2, X } from "lucide-react"; // CalendarDays removed
 import SubtaskItem from "./SubtaskItem";
-import { format, parseISO } from "date-fns";
-import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
-import { Calendar } from "./ui/calendar";
-// Separator removed from imports
+// format, parseISO removed
+// Popover, PopoverTrigger, PopoverContent, Calendar removed
 
 interface TaskCardProps {
   task: Task;
@@ -28,9 +26,7 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || "");
-  const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(
-    task.dueDate ? parseISO(task.dueDate) : undefined
-  );
+  // editedDueDate state removed
 
   const handleToggleComplete = (completed: boolean) => {
     onUpdateTask(task.id, { completed });
@@ -67,30 +63,29 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   };
 
   const handleEdit = () => {
-    setEditedTitle(task.title); // Reset to current task title when starting edit
+    setEditedTitle(task.title); 
     setEditedDescription(task.description || "");
-    setEditedDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+    // editedDueDate reset removed
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     setEditedTitle(task.title);
     setEditedDescription(task.description || "");
-    setEditedDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+    // editedDueDate reset removed
     setIsEditing(false);
   };
 
   const handleSaveEdit = async () => {
     if (editedTitle.trim() === "") {
-        // Optionally, add a toast message here if title is required
-        setEditedTitle(task.title); // Revert to original title if empty
+        setEditedTitle(task.title); 
         setIsEditing(false);
         return;
     }
     await onUpdateTask(task.id, {
-      title: editedTitle.trim(), // Ensure to trim
-      description: editedDescription.trim(), // Ensure to trim
-      dueDate: editedDueDate ? editedDueDate.toISOString() : undefined,
+      title: editedTitle.trim(), 
+      description: editedDescription.trim(), 
+      // dueDate removed from update
     });
     setIsEditing(false);
   };
@@ -113,14 +108,14 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
                 onChange={(e) => setEditedTitle(e.target.value)} 
                 className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
                 autoFocus
-                onBlur={handleSaveEdit} // Save on blur
+                onBlur={handleSaveEdit} 
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
               />
           ) : (
             <CardTitle 
               className={`text-xl font-semibold leading-none tracking-tight cursor-pointer truncate ${task.completed ? "line-through" : ""}`}
               onClick={handleEdit}
-              title={task.title} // Show full title on hover for truncated text
+              title={task.title} 
             >
               {task.title}
             </CardTitle>
@@ -138,7 +133,6 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
             </>
           ) : (
             <>
-              {/* Edit button removed, click on title to edit */}
               <Button variant="ghost" size="icon" onClick={() => onDeleteTask(task.id)} className="h-8 w-8 text-destructive hover:text-destructive" aria-label="Delete task">
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -160,51 +154,23 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
                 className="min-h-[60px]"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">Due Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={`w-full justify-start text-left font-normal ${
-                      !editedDueDate ? "text-muted-foreground" : ""
-                    }`}
-                  >
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    {editedDueDate ? format(editedDueDate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={editedDueDate}
-                    onSelect={setEditedDueDate}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+            {/* Due date editing UI REMOVED */}
           </>
         ) : (
           <>
-            {(task.description || (task.description === "" && isEditing)) && ( // Show even if empty when editing, else only if content
+            {(task.description || (task.description === "" && isEditing)) && ( 
               <div className="flex items-start space-x-2 text-sm text-muted-foreground">
                 <FileText className="h-4 w-4 mt-0.5 shrink-0" />
                 <p className="whitespace-pre-wrap">{task.description || <span className="italic">No description</span>}</p>
               </div>
             )}
-            {task.dueDate && (
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <CalendarDays className="h-4 w-4 shrink-0" />
-                <span>Due: {format(parseISO(task.dueDate), "PPP")}</span>
-              </div>
-            )}
+            {/* Due date display REMOVED */}
           </>
         )}
         
         {task.subtasks.length > 0 && (
           <div className="space-y-1 pt-2">
-            <div className="pl-2 space-y-0.5"> {/* Removed max-h-48, overflow-y-auto, pr-1 */}
+            <div className="pl-2 space-y-0.5"> 
               {task.subtasks.map((subtask) => (
                 <SubtaskItem
                   key={subtask.id}

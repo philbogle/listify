@@ -16,9 +16,8 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-// Removed Input and Label as file input is removed
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw } from "lucide-react"; // ImageUp removed
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw } from "lucide-react";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { Task, Subtask } from "@/types/task";
@@ -40,16 +39,12 @@ export default function Home() {
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   
-  // Import Dialog States
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [capturedImageFile, setCapturedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
-  // fileInputRef removed as file input is removed
   const { toast } = useToast();
 
-  // Camera States
-  // isCameraMode removed as it's always camera mode now
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -72,7 +67,7 @@ export default function Home() {
   }, [stream]);
 
   useEffect(() => {
-    if (isImportDialogOpen && hasCameraPermission === null) { // only request if not already determined
+    if (isImportDialogOpen && hasCameraPermission === null) { 
       const getCameraPermission = async () => {
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -107,8 +102,6 @@ export default function Home() {
   const handleTaskAdded = () => {
     setIsFormDialogOpen(false);
   };
-
-  // handleImageFileChange removed
   
   const handleCaptureImage = async () => {
     if (!videoRef.current || !canvasRef.current || !stream) return;
@@ -148,7 +141,6 @@ export default function Home() {
     stopCameraStream();
     setHasCameraPermission(null); 
     setIsImportDialogOpen(false);
-    // No need to reset isCameraMode as it's always camera mode or implied
   }, [stopCameraStream]);
 
   const handleExtractTasks = async () => {
@@ -187,12 +179,7 @@ export default function Home() {
 
             if (subtasksToAdd.length > 0) {
               await manageSubtasks(newParentTask.id, subtasksToAdd);
-              // Success toast removed: toast({ title: "Import Successful", description: `List "${newParentTask.title}" with ${subtasksToAdd.length} item(s) imported.` });
-            } else {
-              // Success toast removed: toast({ title: "List Created", description: `List "${newParentTask.title}" created. No specific items were extracted or valid.` });
             }
-          } else {
-            // Success toast removed: toast({ title: "List Created", description: `List "${newParentTask.title}" created. The AI found no specific items in the image.` });
           }
         } else {
           toast({ title: "Import Error", description: "Could not create the main task for the list.", variant: "destructive" });
@@ -285,12 +272,7 @@ export default function Home() {
                   </DialogDescription>
                 </DialogHeader>
                 
-                {/* Removed Upload/Take Photo toggle buttons */}
-
                 <div className="grid gap-4 py-4">
-                  {/* File input removed */}
-
-                  {/* Camera Mode is now default */}
                   <div className="space-y-4">
                     <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
                       <video ref={videoRef} className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} autoPlay playsInline muted />
@@ -312,7 +294,7 @@ export default function Home() {
                       </Button>
                     )}
                     {imagePreviewUrl && ( 
-                      <Button onClick={() => {setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null); /* re-trigger camera */}} variant="outline" className="w-full">
+                      <Button onClick={() => {setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null);}} variant="outline" className="w-full">
                           <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
                       </Button>
                     )}
@@ -377,4 +359,3 @@ export default function Home() {
     </div>
   );
 }
-
