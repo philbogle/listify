@@ -89,10 +89,13 @@ export const useTasks = () => {
 
     if (isFirebaseConfigured()) {
       try {
-        const addedTask = await addTaskToFirebase(newTaskBase);
-        const newTasks = [addedTask, ...tasks];
-        setTasks(newTasks);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
+        const addedTask = await addTaskToFirebase(newTaskBase); // This returns the full task with ID and server timestamp
+        setTasks(prevTasks => {
+          const newTasks = [addedTask, ...prevTasks];
+          // Update local storage cache if Firebase is used
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTasks));
+          return newTasks;
+        });
         toast({ title: "Success", description: "Task added." });
       } catch (error) {
         console.error("Error adding task to Firebase:", error);
@@ -101,9 +104,8 @@ export const useTasks = () => {
     } else {
       // Local storage only
       const newTask: Task = { ...newTaskBase, id: Date.now().toString(), createdAt: new Date().toISOString() };
-      const newTasks = [newTask, ...tasks];
-      setTasks(newTasks);
-      // Local storage will be updated by the useEffect watching tasks
+      setTasks(prevTasks => [newTask, ...prevTasks]);
+      // Local storage will be updated by the useEffect watching `tasks` for non-Firebase scenario
       toast({ title: "Success", description: "Task added locally." });
     }
   };
