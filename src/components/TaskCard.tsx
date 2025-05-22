@@ -201,13 +201,10 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
             )}
           </>
         )}
-
-        {/* Separator and subtask count removed */}
         
         {task.subtasks.length > 0 && (
-          <div className="space-y-1 pt-2"> {/* Added some padding-top to visually separate from description/due date */}
-            {/* Subtask count display removed */}
-            <div className="pl-2 space-y-0.5 max-h-48 overflow-y-auto pr-1">
+          <div className="space-y-1 pt-2">
+            <div className="pl-2 space-y-0.5"> {/* Removed max-h-48, overflow-y-auto, pr-1 */}
               {task.subtasks.map((subtask) => (
                 <SubtaskItem
                   key={subtask.id}
