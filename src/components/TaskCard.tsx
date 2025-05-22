@@ -207,9 +207,8 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
         
         {task.subtasks.length > 0 && (
           <div className="space-y-1">
-            <h4 className="text-sm font-medium flex items-center text-muted-foreground mb-1">
-              <ListChecks className="h-4 w-4 mr-2" />
-              Subtasks ({task.subtasks.filter(st => st.completed).length}/{task.subtasks.length})
+            <h4 className="text-sm font-medium flex items-center justify-end text-muted-foreground mb-1 pr-1">
+              ({task.subtasks.filter(st => st.completed).length}/{task.subtasks.length})
             </h4>
             <div className="pl-2 space-y-0.5 max-h-48 overflow-y-auto pr-1">
               {task.subtasks.map((subtask) => (
