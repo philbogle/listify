@@ -75,11 +75,11 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
       <header className="w-full max-w-3xl mb-8 text-center">
-        <div className="flex items-center justify-center space-x-3">
-          <ListChecks className="h-10 w-10 text-primary" />
-          <h1 className="text-4xl font-bold tracking-tight">TaskFlow</h1>
+        <div className="flex items-center justify-center space-x-2 sm:space-x-3">
+          <ListChecks className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">TaskFlow</h1>
         </div>
-        <p className="text-muted-foreground mt-2">Organize your work, simplify your life.</p>
+        <p className="hidden sm:block text-muted-foreground mt-2">Organize your work, simplify your life.</p>
       </header>
 
       {!firebaseReady && !isLoading && (
