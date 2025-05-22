@@ -103,7 +103,11 @@ export const useTasks = () => {
       }
     } else {
       // Local storage only
-      const newTask: Task = { ...newTaskBase, id: Date.now().toString(), createdAt: new Date().toISOString() };
+      const newTask: Task = { 
+        ...newTaskBase, 
+        id: crypto.randomUUID(), // Use crypto.randomUUID for unique IDs
+        createdAt: new Date().toISOString() 
+      };
       setTasks(prevTasks => [newTask, ...prevTasks]);
       // Local storage will be updated by the useEffect watching `tasks` for non-Firebase scenario
       toast({ title: "Success", description: "Task added locally." });

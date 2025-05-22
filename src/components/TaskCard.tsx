@@ -40,7 +40,7 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   const handleAddSubtask = () => {
     if (newSubtaskTitle.trim() === "") return;
     const newSubtask: Subtask = {
-      id: Date.now().toString(), // Simple ID generation
+      id: crypto.randomUUID(), // Use crypto.randomUUID for unique IDs
       title: newSubtaskTitle.trim(),
       completed: false,
     };
