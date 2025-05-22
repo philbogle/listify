@@ -9,13 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; // For editing description
-import { CalendarDays, FileText, ListChecks, Plus, Save, Trash2, X } from "lucide-react";
+import { CalendarDays, FileText, Plus, Save, Trash2, X } from "lucide-react";
 import SubtaskItem from "./SubtaskItem";
 import { format, parseISO } from "date-fns";
 import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
-import { Separator } from "./ui/separator";
-
+// Separator removed from imports
 
 interface TaskCardProps {
   task: Task;
@@ -203,13 +202,11 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
           </>
         )}
 
-        {task.subtasks.length > 0 && <Separator className="my-3"/>}
+        {/* Separator and subtask count removed */}
         
         {task.subtasks.length > 0 && (
-          <div className="space-y-1">
-            <h4 className="text-sm font-medium flex items-center justify-end text-muted-foreground mb-1 pr-1">
-              ({task.subtasks.filter(st => st.completed).length}/{task.subtasks.length})
-            </h4>
+          <div className="space-y-1 pt-2"> {/* Added some padding-top to visually separate from description/due date */}
+            {/* Subtask count display removed */}
             <div className="pl-2 space-y-0.5 max-h-48 overflow-y-auto pr-1">
               {task.subtasks.map((subtask) => (
                 <SubtaskItem
