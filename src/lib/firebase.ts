@@ -12,7 +12,7 @@ import {
   orderBy,
   serverTimestamp,
   type Firestore,
-  deleteField,
+  // deleteField, // No longer used
   where, 
   type DocumentData,
   type QuerySnapshot,
@@ -25,22 +25,31 @@ import {
   onAuthStateChanged,
   type User,
 } from "firebase/auth";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytesResumable,
+  getDownloadURL,
+  type FirebaseStorage,
+} from "firebase/storage";
 import type { List, Subitem } from "@/types/list";
 import { firebaseConfig } from "./firebaseConfig";
 
 let app: FirebaseApp;
 let db: Firestore;
 let auth: ReturnType<typeof getAuth>;
+let storage: FirebaseStorage; // Added Firebase Storage
 
 try {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   auth = getAuth(app);
+  storage = getStorage(app); // Initialize Firebase Storage
 } catch (error) {
   console.error("Error initializing Firebase:", error);
   if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
     console.warn(
-      "Firebase is not configured. Please update src/lib/firebaseConfig.ts. Auth and Firestore features will not work."
+      "Firebase is not configured. Please update src/lib/firebaseConfig.ts. Auth, Firestore, and Storage features will not work."
     );
   }
 }
@@ -50,11 +59,11 @@ const LISTS_COLLECTION = "tasks";
 const getDb = () => {
   if (!db) {
     try {
-      const currentApp = initializeApp(firebaseConfig); // Should reuse 'app' if already initialized
+      const currentApp = initializeApp(firebaseConfig); 
       db = getFirestore(currentApp);
     } catch (e) {
-      console.error("Critical Firebase initialization error:", e);
-      throw new Error("Firebase could not be initialized. Check your firebaseConfig.ts.");
+      console.error("Critical Firebase initialization error (Firestore):", e);
+      throw new Error("Firebase Firestore could not be initialized. Check your firebaseConfig.ts.");
     }
   }
   return db;
@@ -63,13 +72,25 @@ const getDb = () => {
 const getFirebaseAuth = () => {
   if (!auth) {
     try {
-      auth = getAuth(app); // app should be initialized at module scope
+      auth = getAuth(app); 
     } catch (e) {
       console.error("Critical Firebase Auth initialization error:", e);
       throw new Error("Firebase Auth could not be initialized.");
     }
   }
   return auth;
+}
+
+const getFirebaseStorage = () => {
+  if (!storage) {
+    try {
+      storage = getStorage(app);
+    } catch (e) {
+      console.error("Critical Firebase Storage initialization error:", e);
+      throw new Error("Firebase Storage could not be initialized.");
+    }
+  }
+  return storage;
 }
 
 // Authentication Functions
@@ -85,7 +106,6 @@ export const signInWithGoogle = async (): Promise<User | null> => {
     return result.user;
   } catch (error) {
     console.error("Error during Google Sign-In:", error);
-    // Handle specific errors (e.g., popup closed by user) if needed
     return null;
   }
 };
@@ -106,8 +126,8 @@ export const signOutUser = async (): Promise<void> => {
 export const onAuthUserChanged = (callback: (user: User | null) => void): (() => void) => {
   if (!isFirebaseConfigured()) {
     console.warn("Firebase not configured. Auth state changes won't be monitored.");
-    callback(null); // Immediately call back with null user
-    return () => {}; // Return a no-op unsubscribe function
+    callback(null); 
+    return () => {}; 
   }
   const firebaseAuth = getFirebaseAuth();
   return onAuthStateChanged(firebaseAuth, callback);
@@ -115,15 +135,17 @@ export const onAuthUserChanged = (callback: (user: User | null) => void): (() =>
 
 
 // List Functions
-export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">, userId: string): Promise<List> => {
+export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt" | "scanImageUrl">, userId: string): Promise<List> => {
   const currentDb = getDb();
-  const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), {
+  const docData: any = {
     title: listData.title,
     completed: listData.completed,
     subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })),
     createdAt: serverTimestamp(),
-    userId: userId, // Add userId
-  });
+    userId: userId,
+  };
+  // scanImageUrl will be added in a subsequent update after image upload
+  const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), docData);
   return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString() };
 };
 
@@ -140,7 +162,7 @@ export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
   try {
     const q = query(
         collection(currentDb, LISTS_COLLECTION),
-        where("userId", "==", userId), // Filter by userId
+        where("userId", "==", userId), 
         orderBy("createdAt", "desc")
     );
     const querySnapshot: QuerySnapshot<DocumentData> = await getDocs(q);
@@ -150,16 +172,17 @@ export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
         id: doc.id,
         title: data.title,
         completed: data.completed,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(), // Handle Timestamp
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
         subitems: (data.subtasks || []).map((st: any) => ({
           id: st.id || crypto.randomUUID(),
           title: st.title,
           completed: st.completed
         })),
         userId: data.userId,
+        scanImageUrl: data.scanImageUrl, // Include scanImageUrl
       } as List;
     });
-  } catch (error: any) { // Added :any to access error.code
+  } catch (error: any) { 
     console.error("Error fetching lists from Firebase:", error);
     if (error.code === 'permission-denied') {
       console.error("FIREBASE PERMISSION DENIED: Please check your Firestore security rules in the Firebase console. Ensure that authenticated users are allowed to read documents from the 'tasks' collection where their userId matches the document's userId field.");
@@ -185,10 +208,10 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
   if (updates.createdAt === undefined && firebaseUpdates.createdAt !== undefined) {
     delete firebaseUpdates.createdAt;
   }
-  if (updates.userId === undefined && firebaseUpdates.userId !== undefined) { // Don't allow changing userId via this function
+  if (updates.userId === undefined && firebaseUpdates.userId !== undefined) { 
     delete firebaseUpdates.userId;
   }
-
+  // scanImageUrl can be directly in updates
 
   await updateDoc(listRef, firebaseUpdates);
 };
@@ -196,6 +219,8 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
 export const deleteListFromFirebase = async (listId: string): Promise<void> => {
   const currentDb = getDb();
   await deleteDoc(doc(currentDb, LISTS_COLLECTION, listId));
+  // Note: Deleting the associated image from Firebase Storage is not handled here.
+  // That would require additional logic and knowledge of the image path.
 };
 
 export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem[]): Promise<void> => {
@@ -205,12 +230,42 @@ export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem
   await updateDoc(listRef, { subtasks: subtasksForFirebase });
 };
 
+// Firebase Storage Function
+export const uploadScanImageToFirebase = async (file: File, userId: string, listId: string): Promise<string> => {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Firebase not configured. Image upload unavailable.");
+  }
+  const currentStorage = getFirebaseStorage();
+  const filePath = `scans/${userId}/${listId}/${file.name}`;
+  const imageRef = storageRef(currentStorage, filePath);
+
+  const uploadTask = uploadBytesResumable(imageRef, file);
+
+  return new Promise((resolve, reject) => {
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        // Optional: handle progress (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+      },
+      (error) => {
+        console.error("Error uploading image to Firebase Storage:", error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve(downloadURL);
+        } catch (error) {
+          console.error("Error getting download URL:", error);
+          reject(error);
+        }
+      }
+    );
+  });
+};
+
 
 export const isFirebaseConfigured = (): boolean => {
   const configured = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.projectId !== "YOUR_PROJECT_ID";
-  if (!configured && (typeof window !== 'undefined')) { // Check for window to avoid SSR console warnings
-    // console.warn("Firebase configuration is missing or using placeholder values in src/lib/firebaseConfig.ts. Features requiring Firebase will not work correctly.");
-  }
   return configured;
 };
-

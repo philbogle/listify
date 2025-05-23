@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react";
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye } from "lucide-react"; // Added Eye
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -18,7 +18,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { generateSubitemsForList, type GenerateSubitemsInput } from "@/ai/flows/generateSubitemsFlow";
-// import { useToast } from "@/hooks/use-toast"; // Replaced by prop
 
 
 interface ListCardProps {
@@ -28,15 +27,15 @@ interface ListCardProps {
   onManageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
   startInEditMode?: boolean;
   onInitialEditDone?: (listId: string) => void;
-  toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void; // Added toast prop
+  toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
+  onViewScan?: (imageUrl: string) => void; // New prop for viewing scan
 }
 
-const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone, toast }) => {
+const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone, toast, onViewScan }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
-  // const { toast } = useToast(); // Using prop instead
   const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
 
 
@@ -48,7 +47,6 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      // Wrap in requestAnimationFrame for better cross-browser/device compatibility, especially iOS
       requestAnimationFrame(() => {
         titleInputRef.current?.select();
       });
@@ -121,7 +119,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
             setIsEditing(false);
             return;
         }
-        titleToSave = list.title || "Untitled List"; // Revert to original or default if cleared
+        titleToSave = list.title || "Untitled List"; 
         setEditedTitle(titleToSave);
     }
     await onUpdateList(list.id, {
@@ -191,7 +189,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
-                autoFocus={startInEditMode} // Ensure autoFocus is explicitly set
+                autoFocus={startInEditMode} 
                 onBlur={handleSaveEdit}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
               />
@@ -223,6 +221,13 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {list.scanImageUrl && (
+                  <DropdownMenuItem onClick={() => onViewScan?.(list.scanImageUrl!)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Scan
+                  </DropdownMenuItem>
+                )}
+                {(list.scanImageUrl) && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   onClick={handleAutogenerateItems}
                   disabled={isGeneratingItems || list.completed}

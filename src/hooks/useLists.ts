@@ -10,23 +10,23 @@ import {
   deleteListFromFirebase,
   updateSubitemsInFirebase,
   isFirebaseConfigured,
-  onAuthUserChanged, // Import auth listener
+  onAuthUserChanged, 
+  uploadScanImageToFirebase, // Import the new upload function
 } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "firebase/auth"; // Import User type
+import type { User } from "firebase/auth"; 
 
-const LOCAL_STORAGE_KEY_PREFIX = "taskflow_lists_"; // Prefix for user-specific local storage
+const LOCAL_STORAGE_KEY_PREFIX = "taskflow_lists_"; 
 
 export const useLists = () => {
   const [lists, setLists] = useState<List[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Start true to wait for auth resolution
+  const [isLoading, setIsLoading] = useState(true); 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
 
-  // Listen for auth state changes and handle initial load for non-Firebase
   useEffect(() => {
     if (!isFirebaseConfigured()) {
-      setIsLoading(false); // If Firebase isn't set up, don't wait for auth
+      setIsLoading(false); 
       const localKey = LOCAL_STORAGE_KEY_PREFIX + "anonymous";
       try {
         const localLists = localStorage.getItem(localKey);
@@ -36,27 +36,23 @@ export const useLists = () => {
       } catch (error) {
         console.error("Error loading lists from local storage (no Firebase):", error);
       }
-      return; // Early exit if Firebase is not configured
+      return; 
     }
 
-    // Firebase is configured, set up auth listener
     const unsubscribe = onAuthUserChanged((user) => {
       setCurrentUser(user);
       if (!user) {
-        // User is null (logged out or initial state before login confirmed)
         setLists([]);
-        setIsLoading(false); // Correctly set loading to false
+        setIsLoading(false); 
       }
-      // If user IS present, isLoading will be managed by the data fetching effect.
-      // Initial isLoading state (true) will cover the period until data fetching effect runs.
+      // If user is present, isLoading is handled by data fetching effect.
     });
-    return () => unsubscribe(); // Cleanup subscription
-  }, [toast]); // toast is stable, so this runs once for setup/cleanup
+    return () => unsubscribe(); 
+  }, [toast]);
 
-  // Load lists from Firebase when currentUser changes (and is authenticated)
   useEffect(() => {
     if (currentUser && isFirebaseConfigured()) {
-      setIsLoading(true); // Set loading true when we start fetching for an authenticated user
+      setIsLoading(true); 
       const localKey = LOCAL_STORAGE_KEY_PREFIX + currentUser.uid;
       getListsFromFirebase(currentUser.uid)
         .then((firebaseLists) => {
@@ -73,30 +69,29 @@ export const useLists = () => {
             variant: "destructive",
             duration: 9000,
           });
-          // Attempt to load from local storage as a fallback
           try {
             const localListsData = localStorage.getItem(localKey);
             if (localListsData) {
               setLists(JSON.parse(localListsData));
             } else {
-              setLists([]); // Clear lists if Firebase and fallback fail
+              setLists([]); 
             }
           } catch (e) { 
             console.error("Failed to load lists from local storage fallback", e); 
-            setLists([]); // Clear lists on error
+            setLists([]); 
           }
         })
         .finally(() => {
           setIsLoading(false);
         });
+    } else if (!currentUser && isFirebaseConfigured()) {
+        setLists([]); // Clear lists if logged out
+        setIsLoading(false); // Not loading if no user
     }
-    // If currentUser is null and Firebase is configured, the auth effect handles setting isLoading to false.
-    // If Firebase is not configured, the auth effect handles initial load and isLoading.
-  }, [currentUser, toast]); // Effect runs when currentUser or toast changes
+  }, [currentUser, toast]); 
 
-  // Save to local storage when lists change (and user is known or Firebase not configured)
   useEffect(() => {
-    if (!isLoading) { // Only save when not in a loading transition
+    if (!isLoading) { 
       if (currentUser && isFirebaseConfigured()) {
         const localKey = LOCAL_STORAGE_KEY_PREFIX + currentUser.uid;
         try {
@@ -104,7 +99,7 @@ export const useLists = () => {
         } catch (error) {
           console.error("Error saving lists to local storage (authed user):", error);
         }
-      } else if (!isFirebaseConfigured()) { // Firebase not configured, save for anonymous
+      } else if (!isFirebaseConfigured()) { 
         const localKey = LOCAL_STORAGE_KEY_PREFIX + "anonymous";
         try {
           localStorage.setItem(localKey, JSON.stringify(lists));
@@ -113,55 +108,94 @@ export const useLists = () => {
         }
       }
     }
-  }, [lists, isLoading, currentUser]); // Rerun if lists, isLoading, or currentUser changes
+  }, [lists, isLoading, currentUser]); 
 
-  const addList = async (listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId">): Promise<List | undefined> => {
+  const addList = async (
+    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrl">,
+    capturedImageFile?: File | null // New parameter for the image file
+  ): Promise<List | undefined> => {
     if (!currentUser && isFirebaseConfigured()) {
       toast({ title: "Not Signed In", description: "Please sign in to add lists.", variant: "destructive" });
       return undefined;
     }
 
-    const newListBase: Omit<List, "id" | "createdAt"> = {
+    const newListBase: Omit<List, "id" | "createdAt" | "scanImageUrl"> = {
       title: listData.title,
       completed: false,
       subitems: [],
-      userId: currentUser?.uid, // Add userId here
+      userId: currentUser?.uid, 
     };
-    let createdList: List | undefined = undefined;
+    
+    let optimisticList: List | undefined;
+    const optimisticId = crypto.randomUUID(); 
 
     if (isFirebaseConfigured() && currentUser) {
-      try {
-        // Optimistically add to local state first
-        const optimisticId = crypto.randomUUID(); // Temporary ID for optimistic update
-        const optimisticList: List = {
-          ...newListBase,
-          id: optimisticId,
-          createdAt: new Date().toISOString(), // Placeholder, Firebase will set serverTimestamp
-          userId: currentUser.uid,
-        };
-        setLists(prevLists => [optimisticList, ...prevLists]);
+      optimisticList = {
+        ...newListBase,
+        id: optimisticId,
+        createdAt: new Date().toISOString(), 
+        userId: currentUser.uid,
+      };
+      setLists(prevLists => [optimisticList!, ...prevLists].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 
+      try {
+        // Create the list document first (without scanImageUrl)
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
-        createdList = addedListFromFirebase;
-        // Replace optimistic list with Firebase one (with correct ID and server timestamp)
-        setLists(prevLists => prevLists.map(l => l.id === optimisticId ? addedListFromFirebase : l).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        let finalFirebaseList = addedListFromFirebase; // This is the list with correct ID and server timestamp
+
+        if (capturedImageFile) {
+          try {
+            const downloadURL = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, addedListFromFirebase.id);
+            // Update the list document in Firestore with the scanImageUrl
+            await updateListInFirebase(addedListFromFirebase.id, { scanImageUrl: downloadURL });
+            finalFirebaseList = { ...addedListFromFirebase, scanImageUrl: downloadURL }; // Update the list object
+
+            // Update local state for the specific list with the scanImageUrl
+            setLists(prevLists =>
+              prevLists.map(l =>
+                l.id === optimisticId ? finalFirebaseList : l
+              ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            );
+          } catch (uploadError) {
+            console.error("Error uploading scan image or updating list with URL:", uploadError);
+            toast({ title: "Image Upload Failed", description: "List created, but image upload failed. Check console.", variant: "destructive" });
+            // If upload fails, still update local state with the list from Firebase (without image URL)
+            setLists(prevLists =>
+              prevLists.map(l =>
+                l.id === optimisticId ? addedListFromFirebase : l
+              ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            );
+            return addedListFromFirebase; // Return the list as created, but without image
+          }
+        } else {
+          // No image, just update the optimistic list with the final Firebase list
+           setLists(prevLists =>
+            prevLists.map(l =>
+              l.id === optimisticId ? addedListFromFirebase : l
+            ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          );
+        }
+        return finalFirebaseList; // Return the potentially updated list
+
       } catch (error) {
         console.error("Error adding list to Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not add list. Check console.", variant: "destructive" });
-        setLists(prevLists => prevLists.filter(l => l.id !== createdList?.id)); // Rollback optimistic add
+        if (optimisticList) { 
+          setLists(prevLists => prevLists.filter(l => l.id !== optimisticId)); 
+        }
         return undefined;
       }
-    } else if (!isFirebaseConfigured()) { // Handle non-Firebase case
+    } else if (!isFirebaseConfigured()) { 
       const newListForLocal: List = {
         ...newListBase,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
-        userId: undefined // No user ID if not using Firebase auth
+        userId: undefined 
       };
-      createdList = newListForLocal;
       setLists(prevLists => [newListForLocal, ...prevLists].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      return newListForLocal;
     }
-    return createdList;
+    return undefined;
   };
 
   const updateList = async (listId: string, updates: Partial<List>) => {
@@ -182,7 +216,7 @@ export const useLists = () => {
       try {
         const firebaseUpdates = { ...updates };
         delete firebaseUpdates.userId; 
-        delete firebaseUpdates.createdAt; // Don't send client-side createdAt to Firebase
+        delete firebaseUpdates.createdAt; 
         await updateListInFirebase(listId, firebaseUpdates);
       } catch (error) {
         console.error("Error updating list in Firebase:", error);
@@ -199,6 +233,8 @@ export const useLists = () => {
   };
 
   const deleteList = async (listId: string) => {
+    // Note: This does not delete the associated image from Firebase Storage.
+    // Implementing that would require knowing the image path or URL and using Firebase Storage SDK.
     const originalLists = [...lists];
     setLists(prevLists => prevLists.filter((list) => list.id !== listId));
 
@@ -238,7 +274,7 @@ export const useLists = () => {
         if (originalSubitems !== undefined) {
           setLists(prevLists => {
              const listIndex = prevLists.findIndex(l => l.id === listId);
-             if (listIndex === -1) return prevLists; // Should not happen if optimistic update worked
+             if (listIndex === -1) return prevLists; 
              const rolledBackLists = [...prevLists];
              rolledBackLists[listIndex] = { ...rolledBackLists[listIndex], subitems: originalSubitems! };
              return rolledBackLists;
@@ -252,4 +288,3 @@ export const useLists = () => {
 
   return { lists, isLoading, currentUser, addList, updateList, deleteList, manageSubitems };
 };
-

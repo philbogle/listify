@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger, // Added DialogTrigger import
+  DialogTrigger, 
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye } from "lucide-react"; // Added Eye icon
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -59,6 +59,10 @@ export default function Home() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [listToFocusId, setListToFocusId] = useState<string | null>(null);
 
+  // State for View Scan Dialog
+  const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
+  const [viewingScanUrl, setViewingScanUrl] = useState<string | null>(null);
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
@@ -75,7 +79,7 @@ export default function Home() {
   }, [stream]);
 
   useEffect(() => {
-    if (isImportDialogOpen && hasCameraPermission === null && currentUser && !imagePreviewUrl) { // Don't re-request if preview exists
+    if (isImportDialogOpen && hasCameraPermission === null && currentUser && !imagePreviewUrl) { 
       const getCameraPermission = async () => {
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -100,7 +104,7 @@ export default function Home() {
     }
 
     return () => {
-      if (stream && !isImportDialogOpen) { // Ensure stream is stopped when dialog closes
+      if (stream && !isImportDialogOpen) { 
         stopCameraStream();
       }
     };
@@ -112,7 +116,7 @@ export default function Home() {
       toast({ title: "Please Sign In", description: "You need to be signed in to add lists.", variant: "destructive"});
       return;
     }
-    const newList = await addList({ title: "Untitled List" });
+    const newList = await addList({ title: "Untitled List" }); // Pass undefined for image file
     if (newList && newList.id) {
       setListToFocusId(newList.id);
     }
@@ -125,16 +129,25 @@ export default function Home() {
   };
 
   const handleExtractList = async () => {
-    if (!capturedImageFile) return;
+    if (!capturedImageFile) {
+        toast({ title: "No Image Captured", description: "Please capture an image first.", variant: "destructive" });
+        return;
+    }
     if (!currentUser && firebaseReady) {
       toast({ title: "Please Sign In", description: "You need to be signed in to import lists.", variant: "destructive"});
-      resetImportDialog();
+      // Don't reset dialog immediately, let addList handle the file
       return;
     }
 
     setIsProcessingImage(true);
+    const currentImageFile = capturedImageFile; // Use the file from state
+
+    // Clear the file from state for UI feedback, but it's passed to addList
+    // setCapturedImageFile(null); 
+    // setImagePreviewUrl(null);
+    
     try {
-      const imageDataUri = await fileToDataUri(capturedImageFile);
+      const imageDataUri = await fileToDataUri(currentImageFile);
       const input: ExtractListFromImageInput = { imageDataUri };
       const result = await extractListFromImage(input);
 
@@ -143,12 +156,17 @@ export default function Home() {
 
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
           toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
-          resetImportDialog();
+          // Reset dialog state only after processing attempt
+          setCapturedImageFile(null);
+          setImagePreviewUrl(null);
+          setHasCameraPermission(null); // Allow re-request if retaking
           setIsProcessingImage(false);
+          setIsImportDialogOpen(false);
           return;
         }
-
-        const newParentList = await addList({ title: parentTitle });
+        
+        // Pass currentImageFile to addList
+        const newParentList = await addList({ title: parentTitle }, currentImageFile);
 
         if (newParentList && newParentList.id) {
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
@@ -175,7 +193,11 @@ export default function Home() {
       toast({ title: "Import Error", description: "An unexpected error occurred while processing the image.", variant: "destructive" });
     } finally {
       setIsProcessingImage(false);
-      resetImportDialog();
+      // Reset dialog state and close it
+      setCapturedImageFile(null);
+      setImagePreviewUrl(null);
+      setHasCameraPermission(null);
+      setIsImportDialogOpen(false);
     }
   };
 
@@ -202,19 +224,16 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        // Stream will be hidden because imagePreviewUrl is set
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
   };
 
 
-  const resetImportDialog = useCallback(() => {
+  const resetImportDialogOnlyUI = useCallback(() => { // Renamed to be more specific
     setCapturedImageFile(null);
     setImagePreviewUrl(null);
-    // Don't stop stream here if dialog is still open and retake might be used
-    // stopCameraStream(); // Stream will be stopped by useEffect when dialog closes
-    setHasCameraPermission(null); // This will allow camera permission to be re-requested if retake
+    setHasCameraPermission(null); 
     setIsImportDialogOpen(false);
   }, []);
 
@@ -222,7 +241,7 @@ export default function Home() {
   const handleRetakePhoto = () => {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null); // This will trigger permission request again in useEffect
+    setHasCameraPermission(null); 
   }
 
 
@@ -232,6 +251,11 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await signOutUser();
+  };
+
+  const handleViewScan = (imageUrl: string) => {
+    setViewingScanUrl(imageUrl);
+    setIsViewScanDialogOpen(true);
   };
 
   const renderLists = () => {
@@ -251,19 +275,15 @@ export default function Home() {
       ));
     }
     
-    if (!currentUser && firebaseReady) {
+    if (!currentUser && firebaseReady) { // Ensure firebaseReady is true for this message
       return (
         <div className="text-center py-10">
-          <UserCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Please sign in to manage your lists.</p>
-           <Button onClick={handleSignIn} className="mt-4">
-            <LogIn className="mr-2 h-4 w-4" /> Sign in with Google
-          </Button>
+          {/* This block is effectively handled by the main conditional rendering below */}
         </div>
       );
     }
     
-    if (lists.length === 0 && !isLoading) {
+    if (lists.length === 0 && (!isLoading || (currentUser && !isLoading))) { // Check if lists are empty AND not loading
       return (
         <div className="text-center py-10">
           <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -282,6 +302,7 @@ export default function Home() {
         startInEditMode={list.id === listToFocusId}
         onInitialEditDone={handleInitialEditDone}
         toast={toast}
+        onViewScan={handleViewScan} // Pass the view scan handler
       />
     ));
   };
@@ -289,7 +310,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
       
-      {!currentUser && !isLoading && isFirebaseConfigured() && (
+      {!currentUser && !isLoading && firebaseReady && ( // Ensure firebaseReady is checked
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
           <h1 className="text-2xl font-semibold mb-2">Welcome to TaskFlow</h1>
@@ -307,7 +328,7 @@ export default function Home() {
           <div>
             <p className="font-bold">Firebase Not Configured</p>
             <p className="text-sm">
-              Your lists are currently saved locally and are not user-specific. For cloud storage, sync, and user-specific lists, please configure Firebase in
+              Your lists are currently saved locally. For cloud storage, sync, and user-specific lists, please configure Firebase in
               <code className="text-xs bg-yellow-200 p-0.5 rounded ml-1">src/lib/firebaseConfig.ts</code>.
             </p>
           </div>
@@ -390,7 +411,7 @@ export default function Home() {
 
                       {imagePreviewUrl && capturedImageFile && (
                         <div className="mt-4 border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
-                          <Image src={imagePreviewUrl} alt="Preview" width={400} height={533} style={{ objectFit: 'contain', maxHeight: '320px', width: 'auto' }} data-ai-hint="handwritten list" />
+                          <Image src={imagePreviewUrl} alt="Preview of scanned list" width={400} height={533} style={{ objectFit: 'contain', maxHeight: '320px', width: 'auto' }} data-ai-hint="handwritten list" />
                         </div>
                       )}
                     </div>
@@ -441,7 +462,33 @@ export default function Home() {
           </section>
         </main>
       )}
+
+      {/* Dialog for Viewing Scan */}
+      <Dialog open={isViewScanDialogOpen} onOpenChange={setIsViewScanDialogOpen}>
+        <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Scanned Image</DialogTitle>
+          </DialogHeader>
+          {viewingScanUrl && (
+            <div className="mt-4 flex justify-center items-center max-h-[80vh]">
+              <Image 
+                src={viewingScanUrl} 
+                alt="Scanned list image" 
+                width={600} // Adjust as needed, or use layout="responsive"
+                height={800} // Adjust as needed
+                style={{ objectFit: 'contain', maxHeight: 'calc(80vh - 100px)', width: 'auto' }}
+                data-ai-hint="document scan"
+              />
+            </div>
+          )}
+          <DialogFooter className="mt-4">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
-
