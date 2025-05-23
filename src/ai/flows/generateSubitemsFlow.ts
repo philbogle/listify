@@ -59,12 +59,27 @@ const generateSubitemsFlow = ai.defineFlow(
     outputSchema: GenerateSubitemsOutputSchema,
   },
   async (input: GenerateSubitemsInput) => {
-    const {output} = await prompt(input);
-    if (!output?.newSubitemTitles || output.newSubitemTitles.length === 0) {
-        console.warn("AI did not return any subitems or output was null. No new items will be added.");
+    try {
+      console.log(`[generateSubitemsFlow] Attempting to generate subitems for list: "${input.listTitle}" with ${input.existingSubitemTitles.length} existing items.`);
+      const {output} = await prompt(input);
+      
+      if (!output?.newSubitemTitles) {
+        console.warn("[generateSubitemsFlow] AI output was null or did not contain newSubitemTitles. Returning empty array.");
         return { newSubitemTitles: [] };
+      }
+      if (output.newSubitemTitles.length === 0) {
+        console.log("[generateSubitemsFlow] AI returned 0 new subitems.");
+      } else {
+        console.log(`[generateSubitemsFlow] AI successfully generated ${output.newSubitemTitles.length} new subitems.`);
+      }
+      return output;
+
+    } catch (error: any) {
+      console.error(`[generateSubitemsFlow] Error during AI prompt execution: Message: ${error.message}, Stack: ${error.stack}`, error);
+      // Rethrow the error so it's caught by the calling Server Component/Action and logged by Next.js/hosting environment
+      // This will likely result in the generic server error on the client, but the detailed log above will be in server logs.
+      throw error;
     }
-    return output;
   }
 );
 

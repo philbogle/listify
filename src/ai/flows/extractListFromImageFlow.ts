@@ -63,8 +63,22 @@ const extractListFlow = ai.defineFlow( // Renamed flow
     outputSchema: ExtractListFromImageOutputSchema,
   },
   async (input: ExtractListFromImageInput) => {
-    const {output} = await prompt(input);
-    // Ensure output is not null and conforms to the schema, providing a default if necessary.
-    return output || { parentListTitle: "Error processing image", extractedSubitems: [] }; // Renamed field
+    try {
+      console.log(`[extractListFlow] Attempting to extract list from image. Data URI length: ${input.imageDataUri.length}`);
+      const {output} = await prompt(input);
+
+      if (!output) {
+        console.warn("[extractListFlow] AI output was null. Returning default error structure.");
+        return { parentListTitle: "Error processing image", extractedSubitems: [] };
+      }
+      console.log(`[extractListFlow] AI successfully processed image. Title: "${output.parentListTitle}", Items: ${output.extractedSubitems.length}`);
+      return output;
+
+    } catch (error: any) {
+      console.error(`[extractListFlow] Error during AI prompt execution: Message: ${error.message}, Stack: ${error.stack}`, error);
+      // Rethrow the error so it's caught by the calling Server Component/Action and logged by Next.js/hosting environment
+      throw error;
+    }
   }
 );
+
