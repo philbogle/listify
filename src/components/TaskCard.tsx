@@ -2,31 +2,40 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react"; // useEffect removed as parseISO is no longer needed here
+import { useState, useEffect } from "react";
 import type { Task, Subtask } from "@/types/task";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea"; // For editing description
-import { FileText, Plus, Save, Trash2, X } from "lucide-react"; // CalendarDays removed
+import { Textarea } from "@/components/ui/textarea"; 
+import { FileText, Plus, Save, Trash2, X } from "lucide-react"; 
 import SubtaskItem from "./SubtaskItem";
-// format, parseISO removed
-// Popover, PopoverTrigger, PopoverContent, Calendar removed
 
 interface TaskCardProps {
   task: Task;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onManageSubtasks: (taskId: string, newSubtasks: Subtask[]) => Promise<void>;
+  startInEditMode?: boolean;
+  onInitialEditDone?: (taskId: string) => void;
 }
 
-const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManageSubtasks }) => {
+const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManageSubtasks, startInEditMode = false, onInitialEditDone }) => {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || "");
-  // editedDueDate state removed
+
+  useEffect(() => {
+    if (startInEditMode) {
+      setIsEditing(true);
+      if (onInitialEditDone) {
+        onInitialEditDone(task.id);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startInEditMode, task.id]); // onInitialEditDone is a function, can be omitted if stable
 
   const handleToggleComplete = (completed: boolean) => {
     onUpdateTask(task.id, { completed });
@@ -65,27 +74,33 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   const handleEdit = () => {
     setEditedTitle(task.title); 
     setEditedDescription(task.description || "");
-    // editedDueDate reset removed
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    setEditedTitle(task.title);
-    setEditedDescription(task.description || "");
-    // editedDueDate reset removed
+    // If it was a newly added task that was "Untitled Task" and user cancels, delete it.
+    if (task.title === "Untitled Task" && editedTitle === "Untitled Task" && (editedDescription === "" || !editedDescription)) {
+        onDeleteTask(task.id);
+    } else {
+        setEditedTitle(task.title);
+        setEditedDescription(task.description || "");
+    }
     setIsEditing(false);
   };
 
   const handleSaveEdit = async () => {
     if (editedTitle.trim() === "") {
-        setEditedTitle(task.title); 
-        setIsEditing(false);
-        return;
+        // If title is cleared, revert to "Untitled Task" or delete if it was new
+        if (task.title === "Untitled Task" && startInEditMode) {
+            onDeleteTask(task.id);
+            setIsEditing(false);
+            return;
+        }
+        setEditedTitle(task.title || "Untitled Task"); // Revert to original or placeholder
     }
     await onUpdateTask(task.id, {
-      title: editedTitle.trim(), 
+      title: editedTitle.trim() === "" ? (task.title || "Untitled Task") : editedTitle.trim(), 
       description: editedDescription.trim(), 
-      // dueDate removed from update
     });
     setIsEditing(false);
   };
@@ -154,7 +169,6 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
                 className="min-h-[60px]"
               />
             </div>
-            {/* Due date editing UI REMOVED */}
           </>
         ) : (
           <>
@@ -164,7 +178,6 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
                 <p className="whitespace-pre-wrap">{task.description || <span className="italic">No description</span>}</p>
               </div>
             )}
-            {/* Due date display REMOVED */}
           </>
         )}
         

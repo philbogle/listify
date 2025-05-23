@@ -1,7 +1,6 @@
 
 "use client";
 
-import TaskForm from "@/components/TaskForm";
 import TaskCard from "@/components/TaskCard";
 import { useTasks } from "@/hooks/useTasks";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +36,6 @@ const fileToDataUri = (file: File): Promise<string> =>
 export default function Home() {
   const { tasks, isLoading, addTask, updateTask, deleteTask, manageSubtasks } = useTasks();
   const [firebaseReady, setFirebaseReady] = useState(false);
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [capturedImageFile, setCapturedImageFile] = useState<File | null>(null);
@@ -50,6 +48,7 @@ export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [taskToFocusId, setTaskToFocusId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -99,10 +98,19 @@ export default function Home() {
   }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast]);
 
 
-  const handleTaskAdded = () => {
-    setIsFormDialogOpen(false);
+  const handleAddNewTask = async () => {
+    const newTask = await addTask({ title: "Untitled Task" }); // Add with a placeholder title
+    if (newTask && newTask.id) {
+      setTaskToFocusId(newTask.id); // Set this task to be focused for editing
+    }
   };
   
+  const handleInitialEditDone = (taskId: string) => {
+    if (taskId === taskToFocusId) {
+      setTaskToFocusId(null); // Clear the focus state once editing has commenced
+    }
+  };
+
   const handleCaptureImage = async () => {
     if (!videoRef.current || !canvasRef.current || !stream) return;
     setIsCapturing(true);
@@ -114,7 +122,6 @@ export default function Home() {
 
     const context = canvas.getContext('2d');
     if (!context) {
-        toast({ title: "Capture Error", description: "Could not get canvas context.", variant: "destructive" });
         setIsCapturing(false);
         return;
     }
@@ -127,8 +134,6 @@ export default function Home() {
             const previewUrl = URL.createObjectURL(capturedFile);
             setImagePreviewUrl(previewUrl);
             stopCameraStream(); 
-        } else {
-            toast({ title: "Capture Error", description: "Could not create image blob.", variant: "destructive" });
         }
         setIsCapturing(false);
     }, 'image/jpeg', 0.9); 
@@ -145,7 +150,6 @@ export default function Home() {
 
   const handleExtractTasks = async () => {
     if (!capturedImageFile) {
-      toast({ title: "No Image Captured", description: "Please capture an image first.", variant: "destructive" });
       return;
     }
 
@@ -159,7 +163,6 @@ export default function Home() {
         const parentTitle = result.parentTaskTitle.trim();
         
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
-          toast({ title: "No Usable List Found", description: "The AI determined the image does not contain a task list.", variant: "default" });
           resetImportDialog();
           setIsProcessingImage(false);
           return;
@@ -181,11 +184,7 @@ export default function Home() {
               await manageSubtasks(newParentTask.id, subtasksToAdd);
             }
           }
-        } else {
-          toast({ title: "Import Error", description: "Could not create the main task for the list.", variant: "destructive" });
         }
-      } else {
-        toast({ title: "Import Error", description: "The AI could not process the image or determine a list title.", variant: "destructive" });
       }
     } catch (error) {
       console.error("Error extracting tasks from image:", error);
@@ -229,6 +228,8 @@ export default function Home() {
         onUpdateTask={updateTask}
         onDeleteTask={deleteTask}
         onManageSubtasks={manageSubtasks}
+        startInEditMode={task.id === taskToFocusId}
+        onInitialEditDone={handleInitialEditDone}
       />
     ));
   };
@@ -248,76 +249,81 @@ export default function Home() {
         </div>
       )}
       
-      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-8">
+      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-2"> {/* Reduced mt-8 to mt-2 */}
          <section aria-labelledby="task-list-heading" className="mt-2">
           <div className="flex justify-between items-center mb-6">
             <h2 id="task-list-heading" className="text-2xl font-semibold text-center sm:text-left">Your Tasks</h2>
-            <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
-              setIsImportDialogOpen(isOpen);
-              if (!isOpen) { 
-                resetImportDialog();
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Camera className="mr-2 h-4 w-4" /> 
-                  Scan
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[480px]">
-                <DialogHeader>
-                  <DialogTitle>Scan Handwritten List</DialogTitle>
-                  <DialogDescription>
-                    Take a picture of your handwritten task list. The AI will create a new list with these items.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-4">
-                    <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                      <video ref={videoRef} className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} autoPlay playsInline muted />
-                      {hasCameraPermission === false && (
-                         <Alert variant="destructive" className="m-4">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertTitle>Camera Access Denied</AlertTitle>
-                          <AlertDescription>
-                            Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
-                          </AlertDescription>
-                        </Alert>
+            <div className="flex space-x-2">
+              <Button variant="outline" onClick={handleAddNewTask}>
+                <Plus className="mr-2 h-4 w-4" /> Add Task
+              </Button>
+              <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
+                setIsImportDialogOpen(isOpen);
+                if (!isOpen) { 
+                  resetImportDialog();
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Camera className="mr-2 h-4 w-4" /> 
+                    Scan
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[480px]">
+                  <DialogHeader>
+                    <DialogTitle>Scan Handwritten List</DialogTitle>
+                    <DialogDescription>
+                      Take a picture of your handwritten task list. The AI will create a new list with these items.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-4">
+                      <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                        <video ref={videoRef} className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} autoPlay playsInline muted />
+                        {hasCameraPermission === false && (
+                           <Alert variant="destructive" className="m-4">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Camera Access Denied</AlertTitle>
+                            <AlertDescription>
+                              Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                      </div>
+                       {stream && !imagePreviewUrl && hasCameraPermission &&(
+                        <Button onClick={handleCaptureImage} disabled={isCapturing || !stream} className="w-full">
+                          {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                          {isCapturing ? "Capturing..." : "Capture Photo"}
+                        </Button>
                       )}
-                      {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                      {imagePreviewUrl && ( 
+                        <Button onClick={() => {setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null);}} variant="outline" className="w-full">
+                            <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
+                        </Button>
+                      )}
                     </div>
-                     {stream && !imagePreviewUrl && hasCameraPermission &&(
-                      <Button onClick={handleCaptureImage} disabled={isCapturing || !stream} className="w-full">
-                        {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                        {isCapturing ? "Capturing..." : "Capture Photo"}
-                      </Button>
-                    )}
-                    {imagePreviewUrl && ( 
-                      <Button onClick={() => {setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null);}} variant="outline" className="w-full">
-                          <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
-                      </Button>
+                    
+                    {imagePreviewUrl && capturedImageFile && ( 
+                      <div className="mt-4 border rounded-md overflow-hidden max-h-60 flex justify-center items-center bg-muted/20">
+                         <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="handwritten list"/>
+                      </div>
                     )}
                   </div>
-                  
-                  {imagePreviewUrl && capturedImageFile && ( 
-                    <div className="mt-4 border rounded-md overflow-hidden max-h-60 flex justify-center items-center bg-muted/20">
-                       <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="handwritten list"/>
-                    </div>
-                  )}
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button onClick={handleExtractTasks} disabled={!capturedImageFile || isProcessingImage}>
-                    {isProcessingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isProcessingImage ? "Processing..." : "Extract & Add List"}
-                  </Button>
-                </DialogFooter>
-                <canvas ref={canvasRef} className="hidden"></canvas>
-              </DialogContent>
-            </Dialog>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button onClick={handleExtractTasks} disabled={!capturedImageFile || isProcessingImage}>
+                      {isProcessingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {isProcessingImage ? "Processing..." : "Extract & Add List"}
+                    </Button>
+                  </DialogFooter>
+                  <canvas ref={canvasRef} className="hidden"></canvas>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -325,33 +331,6 @@ export default function Home() {
           </div>
         </section>
       </main>
-
-      <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
-        <DialogTrigger asChild>
-          <Button
-            className="fixed bottom-8 right-8 h-18 w-18 rounded-full shadow-xl"
-            size="icon"
-            aria-label="Add new task"
-          >
-            <Plus className="h-9 w-9" />
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New Task</DialogTitle>
-            <DialogDescription>
-              Fill in the details for your new task. Click save when you&apos;re done.
-            </DialogDescription>
-          </DialogHeader>
-          <TaskForm 
-            onSubmit={async (data: Omit<Task, "id" | "completed" | "subtasks" | "createdAt">) => {
-              await addTask(data);
-            }} 
-            onTaskAdded={handleTaskAdded} 
-          />
-        </DialogContent>
-      </Dialog>
-
 
       <footer className="w-full max-w-3xl mt-16 text-center text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} TaskFlow. Built with Next.js and Firebase.</p>
