@@ -5,7 +5,7 @@ import type { FC } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Save, X, MoreVertical, Edit3 } from "lucide-react"; // Added Edit3
+import { Trash2, Save, X, MoreVertical, Edit3 } from "lucide-react";
 import type { Subitem } from "@/types/list";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -26,7 +26,6 @@ interface SubitemProps {
 const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
-  const [menuIsVisible, setMenuIsVisible] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,7 +37,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   const handleStartEdit = () => {
     setEditedTitle(subitem.title);
     setIsEditing(true);
-    setMenuIsVisible(false); // Hide menu when editing starts
   };
 
   const handleUpdateTitle = () => {
@@ -53,24 +51,15 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     setIsEditing(false);
   };
 
-  const handleRowClick = () => {
-    if (!isEditing) {
-      setMenuIsVisible(true);
-    }
-  };
-
-  // Removed handleTitleClick as editing is now through menu
-
   return (
     <div
-      className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group" // Added group for potential future hover effects on menu itself
-      onClick={handleRowClick} // Click on row shows menu
+      className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group"
     >
       <Checkbox
         id={`subitem-${subitem.id}`}
         checked={subitem.completed}
         onCheckedChange={(checked) => onToggleComplete(subitem.id, !!checked)}
-        onClick={(e) => e.stopPropagation()} // Prevent row click
+        onClick={(e) => e.stopPropagation()} 
         aria-label={subitem.completed ? "Mark item as incomplete" : "Mark item as complete"}
         className="flex-shrink-0 h-5 w-5"
       />
@@ -88,7 +77,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           />
         ) : (
           <span
-            // onClick removed, editing is now through menu
             className={`block text-sm truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
             title={subitem.title}
           >
@@ -98,7 +86,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       </div>
 
       {/* Controls section: ... menu or Save/Cancel for editing */}
-      <div className={`flex items-center space-x-1 flex-shrink-0 transition-opacity duration-150 ${ (menuIsVisible || isEditing) ? 'opacity-100' : 'opacity-0 pointer-events-none' }`}>
+      <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         {isEditing ? (
           <>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleUpdateTitle} aria-label="Save subitem title">
@@ -109,16 +97,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             </Button>
           </>
         ) : (
-          // Only show the menu trigger if menuIsVisible is true and not editing
-          menuIsVisible && (
-            <DropdownMenu 
-              onOpenChange={(open) => { 
-                // This logic helps hide the inline menu button if the dropdown is closed (e.g., by clicking outside)
-                if(!open && menuIsVisible) {
-                  setTimeout(() => setMenuIsVisible(false), 50); // Small delay to allow menu item click to process
-                }
-              }}
-            >
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options for subitem" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="h-4 w-4" />
@@ -128,10 +107,10 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleStartEdit(); // This now also sets menuIsVisible to false
+                    handleStartEdit();
                   }}
                 >
-                  <Edit3 className="mr-2 h-4 w-4" /> {/* Using Edit3 icon */}
+                  <Edit3 className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -139,7 +118,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(subitem.id);
-                    setMenuIsVisible(false);
                   }}
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                 >
@@ -148,7 +126,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          )
         )}
       </div>
     </div>
@@ -156,4 +133,3 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 };
 
 export default SubitemComponent;
-
