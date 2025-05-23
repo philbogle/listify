@@ -83,7 +83,8 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         )}
       </div>
 
-      <div className="flex items-center space-x-1 flex-shrink-0">
+      {/* Controls section */}
+      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
         {isEditing ? (
           <>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleUpdateTitle} aria-label="Save subitem title">
