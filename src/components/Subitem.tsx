@@ -5,7 +5,7 @@ import type { FC } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Save, X, MoreVertical } from "lucide-react";
+import { Trash2, Save, X, MoreVertical, Edit3 } from "lucide-react"; // Added Edit3
 import type { Subitem } from "@/types/list";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -13,6 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 interface SubitemProps {
@@ -58,14 +59,11 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     }
   };
 
-  const handleTitleClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click from toggling menu again
-    handleStartEdit();
-  };
+  // Removed handleTitleClick as editing is now through menu
 
   return (
     <div
-      className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors"
+      className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group" // Added group for potential future hover effects on menu itself
       onClick={handleRowClick} // Click on row shows menu
     >
       <Checkbox
@@ -90,8 +88,8 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           />
         ) : (
           <span
-            onClick={handleTitleClick} // Click on title starts edit
-            className={`block text-sm cursor-pointer truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
+            // onClick removed, editing is now through menu
+            className={`block text-sm truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
             title={subitem.title}
           >
             {subitem.title}
@@ -99,40 +97,58 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         )}
       </div>
 
-      {/* Controls section */}
-      <div className={`flex items-center space-x-1 flex-shrink-0 transition-opacity duration-150 ${ (menuIsVisible && !isEditing) ? 'opacity-100' : 'opacity-0 pointer-events-none' }`}>
+      {/* Controls section: ... menu or Save/Cancel for editing */}
+      <div className={`flex items-center space-x-1 flex-shrink-0 transition-opacity duration-150 ${ (menuIsVisible || isEditing) ? 'opacity-100' : 'opacity-0 pointer-events-none' }`}>
         {isEditing ? (
-          // These buttons are effectively hidden by !isEditing in the outer div's conditional rendering,
-          // but kept for logical consistency if that were to change.
           <>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleUpdateTitle} aria-label="Save subitem title">
-              <Save className="h-4 w-4" />
+              <Save className="h-4 w-4 text-green-600" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit} aria-label="Cancel editing subitem title">
               <X className="h-4 w-4" />
             </Button>
           </>
         ) : (
-          <DropdownMenu onOpenChange={(open) => { if(!open && menuIsVisible) setTimeout(()=> setMenuIsVisible(false), 50)}}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options" onClick={(e) => e.stopPropagation()}>
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(subitem.id);
-                  setMenuIsVisible(false);
-                }}
-                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          // Only show the menu trigger if menuIsVisible is true and not editing
+          menuIsVisible && (
+            <DropdownMenu 
+              onOpenChange={(open) => { 
+                // This logic helps hide the inline menu button if the dropdown is closed (e.g., by clicking outside)
+                if(!open && menuIsVisible) {
+                  setTimeout(() => setMenuIsVisible(false), 50); // Small delay to allow menu item click to process
+                }
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options for subitem" onClick={(e) => e.stopPropagation()}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartEdit(); // This now also sets menuIsVisible to false
+                  }}
+                >
+                  <Edit3 className="mr-2 h-4 w-4" /> {/* Using Edit3 icon */}
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(subitem.id);
+                    setMenuIsVisible(false);
+                  }}
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
         )}
       </div>
     </div>
@@ -140,3 +156,4 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 };
 
 export default SubitemComponent;
+
