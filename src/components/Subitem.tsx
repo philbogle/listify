@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Save, X } from "lucide-react";
 import type { Subitem } from "@/types/list";
-import { useState, useRef, useEffect } from "react"; // Added useRef, useEffect
+import { useState, useRef, useEffect } from "react";
 
 interface SubitemProps {
   subitem: Subitem;
@@ -19,7 +19,7 @@ interface SubitemProps {
 const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
-  const titleInputRef = useRef<HTMLInputElement>(null); // Ref for title input
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
@@ -52,7 +52,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         onCheckedChange={(checked) => onToggleComplete(subitem.id, !!checked)}
         onClick={(e) => e.stopPropagation()}
         aria-label={subitem.completed ? "Mark item as incomplete" : "Mark item as complete"}
-        className="flex-shrink-0"
+        className="flex-shrink-0 h-5 w-5" // Increased size
       />
       {isEditing ? (
         <Input
@@ -96,7 +96,3 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 };
 
 export default SubitemComponent;
-
-    
-
-    
