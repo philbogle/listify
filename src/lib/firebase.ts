@@ -159,9 +159,15 @@ export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
         userId: data.userId,
       } as List;
     });
-  } catch (error) {
+  } catch (error: any) { // Added :any to access error.code
     console.error("Error fetching lists from Firebase:", error);
-    console.error("This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
+    if (error.code === 'permission-denied') {
+      console.error("FIREBASE PERMISSION DENIED: Please check your Firestore security rules in the Firebase console. Ensure that authenticated users are allowed to read documents from the 'tasks' collection where their userId matches the document's userId field.");
+    } else if (error.code === 'failed-precondition') {
+      console.error("FIREBASE FAILED PRECONDITION: This often means a required Firestore index is missing. Please check the 'Indexes' tab in your Firestore database in the Firebase console. You likely need a composite index for the 'tasks' collection on 'userId' (ascending) AND 'createdAt' (descending). The Firebase console might also show a direct link to create this missing index in its error logs.");
+    } else {
+      console.error("This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
+    }
     console.error("Specifically, ensure you have an index on the 'tasks' collection for 'userId' (ascending) and 'createdAt' (descending).");
     throw error;
   }
@@ -203,7 +209,8 @@ export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem
 export const isFirebaseConfigured = (): boolean => {
   const configured = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.projectId !== "YOUR_PROJECT_ID";
   if (!configured && (typeof window !== 'undefined')) { // Check for window to avoid SSR console warnings
-    console.warn("Firebase configuration is missing or using placeholder values in src/lib/firebaseConfig.ts. Features requiring Firebase will not work correctly.");
+    // console.warn("Firebase configuration is missing or using placeholder values in src/lib/firebaseConfig.ts. Features requiring Firebase will not work correctly.");
   }
   return configured;
 };
+
