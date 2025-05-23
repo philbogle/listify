@@ -52,27 +52,31 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         onCheckedChange={(checked) => onToggleComplete(subitem.id, !!checked)}
         onClick={(e) => e.stopPropagation()}
         aria-label={subitem.completed ? "Mark item as incomplete" : "Mark item as complete"}
-        className="flex-shrink-0 h-5 w-5" // Increased size
+        className="flex-shrink-0 h-5 w-5"
       />
-      {isEditing ? (
-        <Input
-          ref={titleInputRef}
-          value={editedTitle}
-          onChange={(e) => setEditedTitle(e.target.value)}
-          className="flex-grow h-8 text-sm"
-          autoFocus
-          onBlur={handleUpdateTitle}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); }}
-        />
-      ) : (
-        <span
-          onClick={handleStartEdit}
-          className={`flex-grow text-sm cursor-pointer truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
-          title={subitem.title}
-        >
-          {subitem.title}
-        </span>
-      )}
+
+      <div className="flex-grow min-w-0"> {/* This div handles the growing space */}
+        {isEditing ? (
+          <Input
+            ref={titleInputRef}
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            className="h-8 text-sm w-full" // Input takes full width of its parent
+            autoFocus
+            onBlur={handleUpdateTitle}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); }}
+          />
+        ) : (
+          <span
+            onClick={handleStartEdit}
+            className={`block text-sm cursor-pointer truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
+            // Removed flex-grow, added 'block' for truncate to work correctly with varying text lengths.
+            title={subitem.title}
+          >
+            {subitem.title}
+          </span>
+        )}
+      </div>
 
       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
         {isEditing ? (
