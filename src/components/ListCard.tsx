@@ -153,7 +153,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
             </CardTitle>
           )}
         </div>
-        <div className="flex items-center space-x-1 flex-shrink-0">
+        <div className="flex items-start space-x-1 flex-shrink-0"> {/* Changed items-center to items-start */}
           {isEditing ? (
             <>
               <Button variant="ghost" size="icon" onClick={handleSaveEdit} className="h-8 w-8" aria-label="Save changes">
@@ -166,7 +166,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="More options">
+                <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="More options"> {/* Changed h-8 w-8 to h-6 w-6 */}
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -248,5 +248,3 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
-
-    
