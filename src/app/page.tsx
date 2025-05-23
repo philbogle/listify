@@ -249,13 +249,13 @@ export default function Home() {
         </div>
       )}
       
-      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-2"> {/* Reduced mt-8 to mt-2 */}
+      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-2">
          <section aria-labelledby="task-list-heading" className="mt-2">
           <div className="flex justify-between items-center mb-6">
-            <h2 id="task-list-heading" className="text-2xl font-semibold text-center sm:text-left">Your Tasks</h2>
+            <h2 id="task-list-heading" className="text-2xl font-semibold text-center sm:text-left">Tasks</h2>
             <div className="flex space-x-2">
               <Button variant="outline" onClick={handleAddNewTask}>
-                <Plus className="mr-2 h-4 w-4" /> Add Task
+                <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
                 setIsImportDialogOpen(isOpen);
