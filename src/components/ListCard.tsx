@@ -287,10 +287,27 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
       {!list.completed && (
          <CardFooter className="pt-2 pb-4 border-t">
-          <Button onClick={handleAddNewSubitemInEditMode} variant="outline" size="sm" className="w-full" aria-label="Add new item">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Item
-          </Button>
+          <div className="flex w-full space-x-2">
+            <Button onClick={handleAddNewSubitemInEditMode} variant="outline" size="sm" className="flex-1" aria-label="Add new item">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
+            <Button 
+              onClick={handleAutogenerateItems} 
+              variant="outline" 
+              size="sm" 
+              className="flex-1" 
+              aria-label="Autogenerate items"
+              disabled={isGeneratingItems || list.completed}
+            >
+              {isGeneratingItems ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              Autogenerate
+            </Button>
+          </div>
         </CardFooter>
       )}
     </Card>
