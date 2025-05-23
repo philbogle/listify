@@ -50,6 +50,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         id={`subitem-${subitem.id}`}
         checked={subitem.completed}
         onCheckedChange={(checked) => onToggleComplete(subitem.id, !!checked)}
+        onClick={(e) => e.stopPropagation()}
         aria-label={subitem.completed ? "Mark item as incomplete" : "Mark item as complete"}
         className="flex-shrink-0"
       />
@@ -95,5 +96,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 };
 
 export default SubitemComponent;
+
+    
 
     

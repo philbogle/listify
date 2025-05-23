@@ -129,6 +129,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
             id={`list-${list.id}`}
             checked={list.completed}
             onCheckedChange={(checked) => handleToggleComplete(!!checked)}
+            onClick={(e) => e.stopPropagation()}
             className="h-6 w-6 flex-shrink-0"
             aria-label={list.completed ? "Mark list as incomplete" : "Mark list as complete"}
           />
@@ -247,5 +248,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
+
+    
 
     
