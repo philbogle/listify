@@ -21,12 +21,26 @@ interface SubitemProps {
   onToggleComplete: (subitemId: string, completed: boolean) => void;
   onDelete: (subitemId: string) => void;
   onUpdateTitle: (subitemId: string, newTitle: string) => void;
+  startInEditMode?: boolean;
+  onInitialEditDone?: (subitemId: string) => void;
 }
 
-const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle }) => {
+const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [menuIsVisible, setMenuIsVisible] = useState(false); // Keep for potential future use if reverting menu logic
+
+  useEffect(() => {
+    if (startInEditMode) {
+      setIsEditing(true);
+      if (onInitialEditDone) {
+        onInitialEditDone(subitem.id);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startInEditMode]);
+
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
@@ -37,19 +51,31 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   const handleStartEdit = () => {
     setEditedTitle(subitem.title);
     setIsEditing(true);
+    setMenuIsVisible(false);
   };
 
   const handleUpdateTitle = () => {
-    if (editedTitle.trim() !== "" && editedTitle.trim() !== subitem.title) {
-      onUpdateTitle(subitem.id, editedTitle.trim());
+    const trimmedTitle = editedTitle.trim();
+    if (trimmedTitle === "" && subitem.title === "Untitled Item" && startInEditMode) {
+        onDelete(subitem.id); // Delete if it was an "Untitled Item" and left blank
+    } else if (trimmedTitle !== "" && trimmedTitle !== subitem.title) {
+      onUpdateTitle(subitem.id, trimmedTitle);
+    } else if (trimmedTitle === "" && subitem.title !== "Untitled Item") {
+      // If user clears a previously non-empty, non-default title, revert to original
+      setEditedTitle(subitem.title);
     }
     setIsEditing(false);
   };
 
   const handleCancelEdit = () => {
-    setEditedTitle(subitem.title);
+    if (subitem.title === "Untitled Item" && editedTitle === "Untitled Item" && startInEditMode) {
+        onDelete(subitem.id);
+    } else {
+        setEditedTitle(subitem.title);
+    }
     setIsEditing(false);
   };
+
 
   return (
     <div
@@ -79,6 +105,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           <span
             className={`block text-sm truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
             title={subitem.title}
+            onClick={handleStartEdit} // Allow direct click on title to edit (restoring this behavior)
           >
             {subitem.title}
           </span>
@@ -97,13 +124,13 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             </Button>
           </>
         ) : (
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={(open) => setMenuIsVisible(open)}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options for subitem" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();

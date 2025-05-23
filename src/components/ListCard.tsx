@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react"; // Added Loader2 and Sparkles
+import { FileText, Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -32,13 +32,13 @@ interface ListCardProps {
 }
 
 const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone }) => {
-  const [newSubitemTitle, setNewSubitemTitle] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const [editedDescription, setEditedDescription] = useState(list.description || "");
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
   const { toast } = useToast();
+  const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -62,15 +62,20 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
     onUpdateList(list.id, { completed });
   };
 
-  const handleAddSubitem = () => {
-    if (newSubitemTitle.trim() === "") return;
+  const handleAddNewSubitemInEditMode = () => {
     const newSubitem: Subitem = {
       id: crypto.randomUUID(),
-      title: newSubitemTitle.trim(),
+      title: "Untitled Item",
       completed: false,
     };
     onManageSubitems(list.id, [...list.subitems, newSubitem]);
-    setNewSubitemTitle("");
+    setSubitemToFocusId(newSubitem.id);
+  };
+
+  const handleSubitemInitialEditDone = (subitemId: string) => {
+    if (subitemId === subitemToFocusId) {
+      setSubitemToFocusId(null);
+    }
   };
 
   const handleToggleSubitemComplete = (subitemId: string, completed: boolean) => {
@@ -271,6 +276,8 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                   onToggleComplete={handleToggleSubitemComplete}
                   onDelete={handleDeleteSubitem}
                   onUpdateTitle={handleUpdateSubitemTitle}
+                  startInEditMode={subitem.id === subitemToFocusId}
+                  onInitialEditDone={handleSubitemInitialEditDone}
                 />
               ))}
             </div>
@@ -280,20 +287,10 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
       {!list.completed && (
          <CardFooter className="pt-2 pb-4 border-t">
-          <div className="flex w-full items-center space-x-2">
-            <Input
-              type="text"
-              placeholder="Add an item..."
-              value={newSubitemTitle}
-              onChange={(e) => setNewSubitemTitle(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSubitem()}
-              className="h-9"
-            />
-            <Button onClick={handleAddSubitem} variant="outline" size="sm" aria-label="Add item">
-              <Plus className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Add</span>
-            </Button>
-          </div>
+          <Button onClick={handleAddNewSubitemInEditMode} variant="outline" size="sm" className="w-full" aria-label="Add new item">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
         </CardFooter>
       )}
     </Card>
