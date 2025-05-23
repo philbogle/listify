@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'TaskFlow - Manage Your Lists Efficiently', // Changed "Tasks" to "Lists"
-  description: 'TaskFlow helps you organize your work and life with an intuitive list management system.', // Changed "task" to "list"
+  title: 'ListBot - Manage Your Lists Efficiently', // Changed "TaskFlow" to "ListBot"
+  description: 'ListBot helps you organize your work and life with an intuitive list management system.', // Changed "TaskFlow" to "ListBot"
 };
 
 export default function RootLayout({
