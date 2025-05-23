@@ -135,7 +135,7 @@ export default function Home() {
 
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
           toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
-          resetImportDialog();
+          resetImportDialog(); // Still reset dialog
           setIsProcessingImage(false);
           return;
         }
@@ -195,7 +195,7 @@ export default function Home() {
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
         stopCameraStream(); // Stop camera after capture, before extraction
-        await handleExtractList(); // Automatically extract after capture
+        // Removed automatic call to handleExtractList()
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -242,7 +242,7 @@ export default function Home() {
         <div className="text-center py-10">
           <UserCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground">Please sign in to manage your lists.</p>
-          <Button onClick={handleSignIn} className="mt-4">
+           <Button onClick={handleSignIn} className="mt-4">
             <LogIn className="mr-2 h-4 w-4" /> Sign in with Google
           </Button>
         </div>
@@ -300,7 +300,7 @@ export default function Home() {
         </div>
       )}
 
-      <main className="w-full max-w-2xl grid grid-cols-1 gap-6 mt-4">
+      <main className="w-full max-w-2xl mt-4">
         <section aria-labelledby="list-heading">
           <div className="flex justify-between items-center mb-6">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
@@ -357,11 +357,11 @@ export default function Home() {
                       {stream && !imagePreviewUrl && hasCameraPermission && (
                         <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
                           {isCapturing || isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                          {isCapturing ? "Capturing..." : isProcessingImage ? "Processing..." : "Capture Photo"}
+                          {isCapturing ? "Capturing..." : "Capture Photo"}
                         </Button>
                       )}
-                      {imagePreviewUrl && (
-                        <Button onClick={() => { setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null); }} variant="outline" className="w-full" disabled={isProcessingImage}>
+                       {imagePreviewUrl && (
+                        <Button onClick={() => { setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null); }} variant="outline" className="w-full" disabled={isProcessingImage || isCapturing}>
                           <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
                         </Button>
                       )}
@@ -377,7 +377,12 @@ export default function Home() {
                     <DialogClose asChild>
                       <Button variant="outline" disabled={isProcessingImage || isCapturing}>Cancel</Button>
                     </DialogClose>
-                    {/* "Extract & Add List" button removed for automatic extraction */}
+                    {capturedImageFile && (
+                      <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing || !capturedImageFile}>
+                        {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Extract & Add List
+                      </Button>
+                    )}
                   </DialogFooter>
                   <canvas ref={canvasRef} className="hidden"></canvas>
                 </DialogContent>
@@ -394,3 +399,4 @@ export default function Home() {
     </div>
   );
 }
+
