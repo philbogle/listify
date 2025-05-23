@@ -2,15 +2,15 @@
 "use client";
 
 import type { FC } from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Added useRef
 import type { List, Subitem } from "@/types/list";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea"; 
-import { FileText, Plus, Save, X, MoreVertical } from "lucide-react"; 
-import SubitemComponent from "./Subitem"; // Renamed import
+import { Textarea } from "@/components/ui/textarea";
+import { FileText, Plus, Save, X, MoreVertical } from "lucide-react";
+import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,16 +32,25 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const [editedDescription, setEditedDescription] = useState(list.description || "");
+  const titleInputRef = useRef<HTMLInputElement>(null); // Ref for title input
 
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
-      if (onInitialEditDone) {
+      // No direct onInitialEditDone call here, it's tied to the main editing state.
+    }
+  }, [startInEditMode]);
+
+  useEffect(() => {
+    if (isEditing && titleInputRef.current) {
+      titleInputRef.current.select();
+      if (startInEditMode && onInitialEditDone) { // Call onInitialEditDone when focused due to startInEditMode
         onInitialEditDone(list.id);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startInEditMode, list.id]); 
+  }, [isEditing, startInEditMode]); // Add startInEditMode to deps for onInitialEditDone logic
+
 
   const handleToggleComplete = (completed: boolean) => {
     onUpdateList(list.id, { completed });
@@ -50,7 +59,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
   const handleAddSubitem = () => {
     if (newSubitemTitle.trim() === "") return;
     const newSubitem: Subitem = {
-      id: crypto.randomUUID(), 
+      id: crypto.randomUUID(),
       title: newSubitemTitle.trim(),
       completed: false,
     };
@@ -64,27 +73,27 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
     );
     onManageSubitems(list.id, updatedSubitems);
   };
-  
+
   const handleDeleteSubitem = (subitemId: string) => {
     const updatedSubitems = list.subitems.filter(si => si.id !== subitemId);
     onManageSubitems(list.id, updatedSubitems);
   };
 
   const handleUpdateSubitemTitle = (subitemId: string, newTitle: string) => {
-    const updatedSubitems = list.subitems.map(si => 
+    const updatedSubitems = list.subitems.map(si =>
       si.id === subitemId ? { ...si, title: newTitle } : si
     );
     onManageSubitems(list.id, updatedSubitems);
   };
 
   const handleEdit = () => {
-    setEditedTitle(list.title); 
+    setEditedTitle(list.title);
     setEditedDescription(list.description || "");
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    if (list.title === "Untitled List" && editedTitle === "Untitled List" && (editedDescription === "" || !editedDescription)) {
+    if (list.title === "Untitled List" && editedTitle === "Untitled List" && (editedDescription === "" || !editedDescription) && startInEditMode) {
         onDeleteList(list.id);
     } else {
         setEditedTitle(list.title);
@@ -94,17 +103,19 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
   };
 
   const handleSaveEdit = async () => {
-    if (editedTitle.trim() === "") {
-        if (list.title === "Untitled List" && startInEditMode) {
+    let titleToSave = editedTitle.trim();
+    if (titleToSave === "") {
+        if (list.title === "Untitled List" && startInEditMode) { // If it was an auto-created "Untitled List" and is still blank
             onDeleteList(list.id);
             setIsEditing(false);
             return;
         }
-        setEditedTitle(list.title || "Untitled List"); 
+        titleToSave = list.title || "Untitled List"; // Fallback to original or "Untitled List"
+        setEditedTitle(titleToSave); // Update state to reflect fallback
     }
     await onUpdateList(list.id, {
-      title: editedTitle.trim() === "" ? (list.title || "Untitled List") : editedTitle.trim(), 
-      description: editedDescription.trim(), 
+      title: titleToSave,
+      description: editedDescription.trim(),
     });
     setIsEditing(false);
   };
@@ -122,19 +133,20 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
             aria-label={list.completed ? "Mark list as incomplete" : "Mark list as complete"}
           />
           {isEditing ? (
-             <Input 
-                value={editedTitle} 
-                onChange={(e) => setEditedTitle(e.target.value)} 
+             <Input
+                ref={titleInputRef}
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
                 className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
                 autoFocus
-                onBlur={handleSaveEdit} 
+                onBlur={handleSaveEdit}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
               />
           ) : (
-            <CardTitle 
+            <CardTitle
               className={`text-xl font-semibold leading-none tracking-tight cursor-pointer truncate ${list.completed ? "line-through" : ""}`}
               onClick={handleEdit}
-              title={list.title} 
+              title={list.title}
             >
               {list.title}
             </CardTitle>
@@ -169,15 +181,15 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="pb-4 space-y-4">
         {isEditing ? (
           <>
             <div className="space-y-1">
               <label htmlFor={`edit-desc-${list.id}`} className="text-sm font-medium text-muted-foreground">Description</label>
-              <Textarea 
+              <Textarea
                 id={`edit-desc-${list.id}`}
-                value={editedDescription} 
+                value={editedDescription}
                 onChange={(e) => setEditedDescription(e.target.value)}
                 placeholder="List description"
                 className="min-h-[60px]"
@@ -186,7 +198,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
           </>
         ) : (
           <>
-            {(list.description || (list.description === "" && isEditing)) && ( 
+            {(list.description || (list.description === "" && isEditing)) && (
               <div className="flex items-start space-x-2 text-sm text-muted-foreground">
                 <FileText className="h-4 w-4 mt-0.5 shrink-0" />
                 <p className="whitespace-pre-wrap">{list.description || <span className="italic">No description</span>}</p>
@@ -194,12 +206,12 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
             )}
           </>
         )}
-        
+
         {list.subitems.length > 0 && (
           <div className="space-y-1 pt-2">
-            <div className="pl-2 space-y-0.5"> 
+            <div className="pl-2 space-y-0.5">
               {list.subitems.map((subitem) => (
-                <SubitemComponent // Renamed component
+                <SubitemComponent
                   key={subitem.id}
                   subitem={subitem}
                   onToggleComplete={handleToggleSubitemComplete}
@@ -235,3 +247,5 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
+
+    
