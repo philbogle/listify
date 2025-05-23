@@ -13,10 +13,18 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger,
+  DialogTrigger, // Added DialogTrigger import
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -312,17 +320,6 @@ export default function Home() {
             <div className="flex justify-between items-center mb-6">
               <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
               <div className="flex items-center space-x-2">
-                {firebaseReady && currentUser && (
-                  <>
-                    <span className="text-sm text-muted-foreground hidden sm:inline">
-                      {currentUser.displayName || currentUser.email}
-                    </span>
-                    <Button variant="outline" size="sm" onClick={handleSignOut}>
-                      <LogOut className="mr-0 sm:mr-2 h-4 w-4" />
-                      <span className="hidden sm:inline">Sign Out</span>
-                    </Button>
-                  </>
-                )}
                 <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
                   <Plus className="mr-2 h-4 w-4" /> Add
                 </Button>
@@ -416,6 +413,25 @@ export default function Home() {
                     <canvas ref={canvasRef} className="hidden"></canvas>
                   </DialogContent>
                 </Dialog>
+
+                {firebaseReady && currentUser && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MenuIcon className="h-5 w-5" />
+                        <span className="sr-only">Open user menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Sign Out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
 
