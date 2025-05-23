@@ -123,7 +123,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   return (
     <Card className={`mb-4 shadow-lg transition-all duration-300 ${list.completed ? "opacity-70 bg-secondary/30" : "bg-card"}`}>
-      <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-3">
+      <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-2">
         <div className="flex items-center space-x-3 flex-grow min-w-0">
           <Checkbox
             id={`list-${list.id}`}
@@ -248,7 +248,5 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
-
-    
 
     

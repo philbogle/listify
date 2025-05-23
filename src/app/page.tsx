@@ -249,8 +249,8 @@ export default function Home() {
         </div>
       )}
       
-      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-2">
-         <section aria-labelledby="list-heading" className="mt-2"> {/* Changed ID */}
+      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-4">
+         <section aria-labelledby="list-heading"> {/* Changed ID */}
           <div className="flex justify-between items-center mb-6">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2> {/* Changed heading */}
             <div className="flex space-x-2">
@@ -338,3 +338,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
