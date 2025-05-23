@@ -9,8 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; 
-import { FileText, Plus, Save, Trash2, X } from "lucide-react"; 
+import { FileText, Plus, Save, X, MoreVertical } from "lucide-react"; 
 import SubtaskItem from "./SubtaskItem";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface TaskCardProps {
   task: Task;
@@ -35,7 +41,7 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startInEditMode, task.id]); // onInitialEditDone is a function, can be omitted if stable
+  }, [startInEditMode, task.id]); 
 
   const handleToggleComplete = (completed: boolean) => {
     onUpdateTask(task.id, { completed });
@@ -78,7 +84,6 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
   };
 
   const handleCancelEdit = () => {
-    // If it was a newly added task that was "Untitled Task" and user cancels, delete it.
     if (task.title === "Untitled Task" && editedTitle === "Untitled Task" && (editedDescription === "" || !editedDescription)) {
         onDeleteTask(task.id);
     } else {
@@ -90,13 +95,12 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
 
   const handleSaveEdit = async () => {
     if (editedTitle.trim() === "") {
-        // If title is cleared, revert to "Untitled Task" or delete if it was new
         if (task.title === "Untitled Task" && startInEditMode) {
             onDeleteTask(task.id);
             setIsEditing(false);
             return;
         }
-        setEditedTitle(task.title || "Untitled Task"); // Revert to original or placeholder
+        setEditedTitle(task.title || "Untitled Task"); 
     }
     await onUpdateTask(task.id, {
       title: editedTitle.trim() === "" ? (task.title || "Untitled Task") : editedTitle.trim(), 
@@ -147,11 +151,21 @@ const TaskCard: FC<TaskCardProps> = ({ task, onUpdateTask, onDeleteTask, onManag
               </Button>
             </>
           ) : (
-            <>
-              <Button variant="ghost" size="icon" onClick={() => onDeleteTask(task.id)} className="h-8 w-8 text-destructive hover:text-destructive" aria-label="Delete task">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="More options">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => onDeleteTask(task.id)}
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  Delete Task
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </CardHeader>
