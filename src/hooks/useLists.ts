@@ -39,7 +39,7 @@ export const useLists = () => {
         try {
           const firebaseLists = await getListsFromFirebase();
           setLists(firebaseLists);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(firebaseLists));
+          // localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(firebaseLists)); // Let the other useEffect handle this
         } catch (error) {
           console.error("Error loading lists from Firebase:", error);
           toast({
@@ -49,19 +49,17 @@ export const useLists = () => {
             duration: 9000,
           });
         }
-      } else {
-        if (initialLists.length === 0) { 
-            // Toast removed for Firebase not configured
-        }
       }
       setIsLoading(false);
     };
     loadLists();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]); 
+  }, []); // Removed toast from dependencies as it's stable
 
   useEffect(() => {
-    if (!isFirebaseConfigured() && !isLoading) { 
+    // This effect ensures that any change to 'lists' (e.g., from initial load,
+    // optimistic updates, or rollbacks) is persisted to localStorage.
+    if (!isLoading) { 
         try {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(lists));
         } catch (error) {
@@ -83,11 +81,7 @@ export const useLists = () => {
       try {
         const addedListFromFirebase = await addListToFirebase(newListBase); 
         createdList = addedListFromFirebase;
-        setLists(prevLists => {
-          const newLists = [addedListFromFirebase, ...prevLists];
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newLists));
-          return newLists;
-        });
+        setLists(prevLists => [addedListFromFirebase, ...prevLists]);
       } catch (error) {
         console.error("Error adding list to Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not add list to cloud. Check console.", variant: "destructive" });
@@ -106,75 +100,83 @@ export const useLists = () => {
   };
 
   const updateList = async (listId: string, updates: Partial<List>) => {
+    let originalList: List | undefined;
+
+    setLists(prevLists => {
+      const listIndex = prevLists.findIndex(list => list.id === listId);
+      if (listIndex === -1) return prevLists;
+      
+      originalList = { ...prevLists[listIndex] }; // Store original for rollback
+
+      const updatedLists = [...prevLists];
+      updatedLists[listIndex] = { ...updatedLists[listIndex], ...updates };
+      return updatedLists;
+    });
+
     if (isFirebaseConfigured()) {
       try {
         await updateListInFirebase(listId, updates);
-        setLists(prevLists => {
-          const updatedLists = prevLists.map((list) =>
-            list.id === listId ? { ...list, ...updates } : list
-          );
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLists));
-          return updatedLists;
-        });
+        // If successful, local state is already updated. localStorage will be updated by the useEffect.
       } catch (error) {
         console.error("Error updating list in Firebase:", error);
-        toast({ title: "Firebase Error", description: "Could not update list in cloud. Check console.", variant: "destructive" });
+        toast({ title: "Firebase Error", description: "Could not update list in cloud. Reverting.", variant: "destructive" });
+        // Rollback
+        if (originalList) {
+          setLists(prevLists => 
+            prevLists.map(list => (list.id === listId ? originalList! : list))
+          );
+        }
       }
-    } else {
-      setLists(prevLists => {
-        const updatedLists = prevLists.map((list) =>
-          list.id === listId ? { ...list, ...updates } : list
-        );
-        return updatedLists;
-      });
     }
+    // For non-Firebase, localStorage is updated by useEffect when 'lists' changes.
   };
 
   const deleteList = async (listId: string) => {
+    const originalLists = [...lists]; // Store for potential rollback if needed, though delete is usually final
+    setLists(prevLists => prevLists.filter((list) => list.id !== listId));
+
     if (isFirebaseConfigured()) {
       try {
         await deleteListFromFirebase(listId);
-        setLists(prevLists => {
-          const newLists = prevLists.filter((list) => list.id !== listId);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newLists));
-          return newLists;
-        });
       } catch (error) {
         console.error("Error deleting list from Firebase:", error);
-        toast({ title: "Firebase Error", description: "Could not delete list from cloud. Check console.", variant: "destructive" });
+        toast({ title: "Firebase Error", description: "Could not delete list from cloud. Reverting.", variant: "destructive" });
+        setLists(originalLists); // Rollback
       }
-    } else {
-      setLists(prevLists => {
-        const newLists = prevLists.filter((list) => list.id !== listId);
-        return newLists;
-      });
     }
   };
 
   const manageSubitems = async (listId: string, newSubitems: Subitem[]) => {
-    // The find operation here was removed previously due to stale closure issues.
-    // The functional update to setLists below correctly handles the latest state.
+    let originalSubitems: Subitem[] | undefined;
+
+    setLists(prevLists => {
+      const listIndex = prevLists.findIndex(list => list.id === listId);
+      if (listIndex === -1) return prevLists;
+      
+      originalSubitems = [...prevLists[listIndex].subitems]; // Store original subitems for rollback
+
+      const updatedLists = [...prevLists];
+      updatedLists[listIndex] = { ...updatedLists[listIndex], subitems: newSubitems };
+      return updatedLists;
+    });
+
     if (isFirebaseConfigured()) {
       try {
-        await updateSubitemsInFirebase(listId, newSubitems); 
-        setLists(prevLists => {
-          const updatedLists = prevLists.map(list => 
-            list.id === listId ? { ...list, subitems: newSubitems } : list
-          );
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLists));
-          return updatedLists;
-        });
+        await updateSubitemsInFirebase(listId, newSubitems);
       } catch (error) {
         console.error("Error managing subitems in Firebase:", error);
-        toast({ title: "Firebase Error", description: "Could not update subitems in cloud. Check console.", variant: "destructive" });
+        toast({ title: "Firebase Error", description: "Could not update subitems in cloud. Reverting.", variant: "destructive" });
+        // Rollback
+        if (originalSubitems !== undefined) {
+          setLists(prevLists => {
+             const listIndex = prevLists.findIndex(list => list.id === listId);
+             if (listIndex === -1) return prevLists; 
+             const rolledBackLists = [...prevLists];
+             rolledBackLists[listIndex] = { ...rolledBackLists[listIndex], subitems: originalSubitems! };
+             return rolledBackLists;
+          });
+        }
       }
-    } else {
-      setLists(prevLists => {
-        const updatedLists = prevLists.map(list => 
-          list.id === listId ? { ...list, subitems: newSubitems } : list
-        );
-        return updatedLists;
-      });
     }
   };
 
