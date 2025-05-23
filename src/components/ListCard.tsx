@@ -8,8 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-// Textarea import removed
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react"; // FileText removed
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -34,7 +33,6 @@ interface ListCardProps {
 const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
-  // editedDescription state removed
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
   const { toast } = useToast();
@@ -99,16 +97,14 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   const handleEdit = () => {
     setEditedTitle(list.title);
-    // setEditedDescription removed
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    if (list.title === "Untitled List" && editedTitle === "Untitled List" && startInEditMode) { // Description check removed
+    if (list.title === "Untitled List" && editedTitle === "Untitled List" && startInEditMode) {
         onDeleteList(list.id);
     } else {
         setEditedTitle(list.title);
-        // setEditedDescription removed
     }
     setIsEditing(false);
   };
@@ -126,7 +122,6 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
     }
     await onUpdateList(list.id, {
       title: titleToSave,
-      // description update removed
     });
     setIsEditing(false);
   };
@@ -242,8 +237,6 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
       </CardHeader>
 
       <CardContent className="pb-4 space-y-4">
-        {/* Description editing and display logic removed */}
-
         {list.subitems.length > 0 && (
           <div className="space-y-1">
             <div className="pl-2 space-y-0.5">
