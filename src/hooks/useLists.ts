@@ -19,15 +19,14 @@ const LOCAL_STORAGE_KEY_PREFIX = "taskflow_lists_"; // Prefix for user-specific 
 
 export const useLists = () => {
   const [lists, setLists] = useState<List[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Start true to wait for auth resolution
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
 
-  // Listen for auth state changes
+  // Listen for auth state changes and handle initial load for non-Firebase
   useEffect(() => {
     if (!isFirebaseConfigured()) {
       setIsLoading(false); // If Firebase isn't set up, don't wait for auth
-      // Try to load from local storage if any (though it won't be user-specific)
       const localKey = LOCAL_STORAGE_KEY_PREFIX + "anonymous";
       try {
         const localLists = localStorage.getItem(localKey);
@@ -37,33 +36,34 @@ export const useLists = () => {
       } catch (error) {
         console.error("Error loading lists from local storage (no Firebase):", error);
       }
-      return;
+      return; // Early exit if Firebase is not configured
     }
 
+    // Firebase is configured, set up auth listener
     const unsubscribe = onAuthUserChanged((user) => {
       setCurrentUser(user);
       if (!user) {
-        setLists([]); // Clear lists on logout
-        setIsLoading(false);
+        // User is null (logged out or initial state before login confirmed)
+        setLists([]);
+        setIsLoading(false); // Correctly set loading to false
       }
-      // List loading will be triggered by currentUser change in the next useEffect
+      // If user IS present, isLoading will be managed by the data fetching effect.
+      // Initial isLoading state (true) will cover the period until data fetching effect runs.
     });
     return () => unsubscribe(); // Cleanup subscription
-  }, [toast]);
+  }, [toast]); // toast is stable, so this runs once for setup/cleanup
 
-
-  // Load or clear lists based on currentUser
+  // Load lists from Firebase when currentUser changes (and is authenticated)
   useEffect(() => {
-    const localKey = currentUser ? LOCAL_STORAGE_KEY_PREFIX + currentUser.uid : LOCAL_STORAGE_KEY_PREFIX + "anonymous_temp";
-
     if (currentUser && isFirebaseConfigured()) {
-      setIsLoading(true);
+      setIsLoading(true); // Set loading true when we start fetching for an authenticated user
+      const localKey = LOCAL_STORAGE_KEY_PREFIX + currentUser.uid;
       getListsFromFirebase(currentUser.uid)
         .then((firebaseLists) => {
           setLists(firebaseLists);
           try {
             localStorage.setItem(localKey, JSON.stringify(firebaseLists));
-          } catch (e) { console.error("Failed to save lists to local storage", e); }
+          } catch (e) { console.error("Failed to save lists to local storage after fetch", e); }
         })
         .catch((error) => {
           console.error("Error loading lists from Firebase:", error);
@@ -78,48 +78,42 @@ export const useLists = () => {
             const localListsData = localStorage.getItem(localKey);
             if (localListsData) {
               setLists(JSON.parse(localListsData));
+            } else {
+              setLists([]); // Clear lists if Firebase and fallback fail
             }
-          } catch (e) { console.error("Failed to load lists from local storage fallback", e); }
+          } catch (e) { 
+            console.error("Failed to load lists from local storage fallback", e); 
+            setLists([]); // Clear lists on error
+          }
         })
         .finally(() => {
           setIsLoading(false);
         });
-    } else if (!currentUser) {
-      setLists([]);
-      setIsLoading(false);
-      // Clear user-specific local storage on logout
-      if (isFirebaseConfigured()) { // Only if Firebase was used
-        try {
-            // This key might not exist if user never logged in, which is fine
-            localStorage.removeItem(localKey); // Or find the previous user's key if needed
-        } catch (e) { console.error("Failed to clear local storage on logout", e); }
-      }
-    } else if (!isFirebaseConfigured() && !currentUser) {
-        // Non-firebase, anonymous user case (already handled by initial auth listener)
-        // No need to load again, but ensure isLoading is false
-        setIsLoading(false);
     }
-  }, [currentUser, toast]);
+    // If currentUser is null and Firebase is configured, the auth effect handles setting isLoading to false.
+    // If Firebase is not configured, the auth effect handles initial load and isLoading.
+  }, [currentUser, toast]); // Effect runs when currentUser or toast changes
 
-
-  // Save to local storage when lists change (and user is known)
+  // Save to local storage when lists change (and user is known or Firebase not configured)
   useEffect(() => {
-    if (!isLoading && currentUser && isFirebaseConfigured()) {
-      const localKey = LOCAL_STORAGE_KEY_PREFIX + currentUser.uid;
-      try {
-        localStorage.setItem(localKey, JSON.stringify(lists));
-      } catch (error) {
-        console.error("Error saving lists to local storage:", error);
-      }
-    } else if (!isLoading && !isFirebaseConfigured()){ // Save for anonymous user if Firebase is not configured
+    if (!isLoading) { // Only save when not in a loading transition
+      if (currentUser && isFirebaseConfigured()) {
+        const localKey = LOCAL_STORAGE_KEY_PREFIX + currentUser.uid;
+        try {
+          localStorage.setItem(localKey, JSON.stringify(lists));
+        } catch (error) {
+          console.error("Error saving lists to local storage (authed user):", error);
+        }
+      } else if (!isFirebaseConfigured()) { // Firebase not configured, save for anonymous
         const localKey = LOCAL_STORAGE_KEY_PREFIX + "anonymous";
         try {
-            localStorage.setItem(localKey, JSON.stringify(lists));
+          localStorage.setItem(localKey, JSON.stringify(lists));
         } catch (error) {
-            console.error("Error saving lists to local storage (no Firebase):", error);
+          console.error("Error saving lists to local storage (anonymous):", error);
         }
+      }
     }
-  }, [lists, isLoading, currentUser]);
+  }, [lists, isLoading, currentUser]); // Rerun if lists, isLoading, or currentUser changes
 
   const addList = async (listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId">): Promise<List | undefined> => {
     if (!currentUser && isFirebaseConfigured()) {
@@ -137,12 +131,24 @@ export const useLists = () => {
 
     if (isFirebaseConfigured() && currentUser) {
       try {
+        // Optimistically add to local state first
+        const optimisticId = crypto.randomUUID(); // Temporary ID for optimistic update
+        const optimisticList: List = {
+          ...newListBase,
+          id: optimisticId,
+          createdAt: new Date().toISOString(), // Placeholder, Firebase will set serverTimestamp
+          userId: currentUser.uid,
+        };
+        setLists(prevLists => [optimisticList, ...prevLists]);
+
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
         createdList = addedListFromFirebase;
-        setLists(prevLists => [addedListFromFirebase, ...prevLists]);
+        // Replace optimistic list with Firebase one (with correct ID and server timestamp)
+        setLists(prevLists => prevLists.map(l => l.id === optimisticId ? addedListFromFirebase : l).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       } catch (error) {
         console.error("Error adding list to Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not add list. Check console.", variant: "destructive" });
+        setLists(prevLists => prevLists.filter(l => l.id !== createdList?.id)); // Rollback optimistic add
         return undefined;
       }
     } else if (!isFirebaseConfigured()) { // Handle non-Firebase case
@@ -153,7 +159,7 @@ export const useLists = () => {
         userId: undefined // No user ID if not using Firebase auth
       };
       createdList = newListForLocal;
-      setLists(prevLists => [newListForLocal, ...prevLists]);
+      setLists(prevLists => [newListForLocal, ...prevLists].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     }
     return createdList;
   };
@@ -172,10 +178,11 @@ export const useLists = () => {
       return updatedLists;
     });
 
-    if (isFirebaseConfigured() && currentUser) { // Ensure user is logged in for Firebase ops
+    if (isFirebaseConfigured() && currentUser) { 
       try {
         const firebaseUpdates = { ...updates };
-        delete firebaseUpdates.userId; // Prevent changing userId
+        delete firebaseUpdates.userId; 
+        delete firebaseUpdates.createdAt; // Don't send client-side createdAt to Firebase
         await updateListInFirebase(listId, firebaseUpdates);
       } catch (error) {
         console.error("Error updating list in Firebase:", error);
@@ -231,7 +238,7 @@ export const useLists = () => {
         if (originalSubitems !== undefined) {
           setLists(prevLists => {
              const listIndex = prevLists.findIndex(l => l.id === listId);
-             if (listIndex === -1) return prevLists;
+             if (listIndex === -1) return prevLists; // Should not happen if optimistic update worked
              const rolledBackLists = [...prevLists];
              rolledBackLists[listIndex] = { ...rolledBackLists[listIndex], subitems: originalSubitems! };
              return rolledBackLists;
@@ -245,3 +252,4 @@ export const useLists = () => {
 
   return { lists, isLoading, currentUser, addList, updateList, deleteList, manageSubitems };
 };
+
