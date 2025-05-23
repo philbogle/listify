@@ -67,7 +67,7 @@ export default function Home() {
   }, [stream]);
 
   useEffect(() => {
-    if (isImportDialogOpen && hasCameraPermission === null && currentUser) {
+    if (isImportDialogOpen && hasCameraPermission === null && currentUser && !imagePreviewUrl) { // Don't re-request if preview exists
       const getCameraPermission = async () => {
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -92,11 +92,11 @@ export default function Home() {
     }
 
     return () => {
-      if (stream && !isImportDialogOpen) {
+      if (stream && !isImportDialogOpen) { // Ensure stream is stopped when dialog closes
         stopCameraStream();
       }
     };
-  }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast, currentUser]);
+  }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast, currentUser, imagePreviewUrl]);
 
 
   const handleAddNewList = async () => {
@@ -135,7 +135,7 @@ export default function Home() {
 
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
           toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
-          resetImportDialog(); // Still reset dialog
+          resetImportDialog();
           setIsProcessingImage(false);
           return;
         }
@@ -194,8 +194,7 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        stopCameraStream(); // Stop camera after capture, before extraction
-        // Removed automatic call to handleExtractList()
+        // Stream will be hidden because imagePreviewUrl is set
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -205,11 +204,18 @@ export default function Home() {
   const resetImportDialog = useCallback(() => {
     setCapturedImageFile(null);
     setImagePreviewUrl(null);
-    stopCameraStream();
-    setHasCameraPermission(null);
+    // Don't stop stream here if dialog is still open and retake might be used
+    // stopCameraStream(); // Stream will be stopped by useEffect when dialog closes
+    setHasCameraPermission(null); // This will allow camera permission to be re-requested if retake
     setIsImportDialogOpen(false);
-  }, [stopCameraStream]);
+  }, []);
 
+
+  const handleRetakePhoto = () => {
+    setImagePreviewUrl(null);
+    setCapturedImageFile(null);
+    setHasCameraPermission(null); // This will trigger permission request again in useEffect
+  }
 
 
   const handleSignIn = async () => {
@@ -286,6 +292,18 @@ export default function Home() {
           </div>
         </div>
       )}
+      
+      {!currentUser && !isLoading && isFirebaseConfigured() && (
+         <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
+          <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
+          <h1 className="text-2xl font-semibold mb-2">Welcome to TaskFlow</h1>
+          <p className="text-muted-foreground mb-6 text-center">Sign in to manage and sync your lists across devices.</p>
+           <Button onClick={handleSignIn} className="mt-4 px-8 py-6 text-lg">
+            <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
+          </Button>
+        </div>
+      )}
+
 
       {!firebaseReady && !isLoading && (
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
@@ -300,102 +318,116 @@ export default function Home() {
         </div>
       )}
 
-      <main className="w-full max-w-2xl mt-4">
-        <section aria-labelledby="list-heading">
-          <div className="flex justify-between items-center mb-6">
-            <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
-            <div className="flex space-x-2">
-              <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
-                <Plus className="mr-2 h-4 w-4" /> Add
-              </Button>
-              <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
-                if (firebaseReady && !currentUser && isOpen) {
-                  toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
-                  setIsImportDialogOpen(false);
-                  return;
-                }
-                setIsImportDialogOpen(isOpen);
-                if (!isOpen) {
-                  resetImportDialog();
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" disabled={firebaseReady && !currentUser && !isLoading}>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Scan
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[480px]">
-                  <DialogHeader>
-                    <DialogTitle>Scan Handwritten List</DialogTitle>
-                    <DialogDescription>
-                      Take a picture of your handwritten list. The AI will create a new list with these items.
-                    </DialogDescription>
-                  </DialogHeader>
+      {(firebaseReady && currentUser || !firebaseReady) && (
+        <main className="w-full max-w-2xl mt-4">
+          <section aria-labelledby="list-heading">
+            <div className="flex justify-between items-center mb-6">
+              <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
+              <div className="flex space-x-2">
+                <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
+                  <Plus className="mr-2 h-4 w-4" /> Add
+                </Button>
+                <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
+                  if (firebaseReady && !currentUser && isOpen) {
+                    toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
+                    setIsImportDialogOpen(false);
+                    return;
+                  }
+                  setIsImportDialogOpen(isOpen);
+                  if (!isOpen) {
+                    // Keep image if dialog is just temporarily closed by clicking outside
+                    // resetImportDialog will be called on cancel or successful import
+                    if (stream && !capturedImageFile) { // Only stop stream if no image has been captured yet
+                        stopCameraStream();
+                        setHasCameraPermission(null); // Reset permission so it re-asks if reopened
+                    }
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" disabled={firebaseReady && !currentUser && !isLoading}>
+                      <Camera className="mr-2 h-4 w-4" />
+                      Scan
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[480px]">
+                    <DialogHeader>
+                      <DialogTitle>Scan Handwritten List</DialogTitle>
+                      <DialogDescription>
+                        Take a picture of your handwritten list. The AI will create a new list with these items.
+                      </DialogDescription>
+                    </DialogHeader>
 
-                  <div className="grid gap-4 py-4">
-                    <div className="space-y-4">
-                      <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                        <video 
-                          ref={videoRef} 
-                          className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} 
-                          autoPlay 
-                          playsInline 
-                          muted 
-                        />
-                        {hasCameraPermission === false && (
-                          <Alert variant="destructive" className="m-4">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Camera Access Denied</AlertTitle>
-                            <AlertDescription>
-                              Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
-                            </AlertDescription>
-                          </Alert>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-4">
+                        {!imagePreviewUrl && (
+                          <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                            <video 
+                              ref={videoRef} 
+                              className={`w-full h-full object-cover ${!stream ? 'hidden' : ''}`} 
+                              autoPlay 
+                              playsInline 
+                              muted 
+                            />
+                            {hasCameraPermission === false && (
+                              <Alert variant="destructive" className="m-4">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle>Camera Access Denied</AlertTitle>
+                                <AlertDescription>
+                                  Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
+                                </AlertDescription>
+                              </Alert>
+                            )}
+                            {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                          </div>
                         )}
-                        {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                        
+                        {!imagePreviewUrl && stream && hasCameraPermission && (
+                          <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
+                            {isCapturing || isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                            {isCapturing ? "Capturing..." : "Capture Photo"}
+                          </Button>
+                        )}
+                         {imagePreviewUrl && (
+                          <Button onClick={handleRetakePhoto} variant="outline" className="w-full" disabled={isProcessingImage || isCapturing}>
+                            <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
+                          </Button>
+                        )}
                       </div>
-                      {stream && !imagePreviewUrl && hasCameraPermission && (
-                        <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
-                          {isCapturing || isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                          {isCapturing ? "Capturing..." : "Capture Photo"}
-                        </Button>
-                      )}
-                       {imagePreviewUrl && (
-                        <Button onClick={() => { setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null); }} variant="outline" className="w-full" disabled={isProcessingImage || isCapturing}>
-                          <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
-                        </Button>
+
+                      {imagePreviewUrl && capturedImageFile && (
+                        <div className="mt-4 border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
+                          <Image src={imagePreviewUrl} alt="Preview" width={400} height={533} style={{ objectFit: 'contain', maxHeight: '320px', width: 'auto' }} data-ai-hint="handwritten list" />
+                        </div>
                       )}
                     </div>
-
-                    {imagePreviewUrl && capturedImageFile && (
-                      <div className="mt-4 border rounded-md overflow-hidden max-h-60 flex justify-center items-center bg-muted/20">
-                        <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="handwritten list" />
-                      </div>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline" disabled={isProcessingImage || isCapturing}>Cancel</Button>
-                    </DialogClose>
-                    {capturedImageFile && (
-                      <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing || !capturedImageFile}>
-                        {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Extract & Add List
-                      </Button>
-                    )}
-                  </DialogFooter>
-                  <canvas ref={canvasRef} className="hidden"></canvas>
-                </DialogContent>
-              </Dialog>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
+                            stopCameraStream(); // Ensure stream stops on explicit cancel
+                            setCapturedImageFile(null);
+                            setImagePreviewUrl(null);
+                            setHasCameraPermission(null);
+                        }}>Cancel</Button>
+                      </DialogClose>
+                      {capturedImageFile && (
+                        <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing || !capturedImageFile}>
+                          {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Convert list
+                        </Button>
+                      )}
+                    </DialogFooter>
+                    <canvas ref={canvasRef} className="hidden"></canvas>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            {renderLists()}
-          </div>
-        </section>
-      </main>
-
+            <div className="space-y-4">
+              {renderLists()}
+            </div>
+          </section>
+        </main>
+      )}
     </div>
   );
 }
