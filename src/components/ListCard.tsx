@@ -2,21 +2,25 @@
 "use client";
 
 import type { FC } from "react";
-import { useState, useEffect, useRef } from "react"; // Added useRef
+import { useState, useEffect, useRef } from "react";
 import type { List, Subitem } from "@/types/list";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Plus, Save, X, MoreVertical } from "lucide-react";
+import { FileText, Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react"; // Added Loader2 and Sparkles
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { generateSubitemsForList, type GenerateSubitemsInput } from "@/ai/flows/generateSubitemsFlow";
+import { useToast } from "@/hooks/use-toast";
+
 
 interface ListCardProps {
   list: List;
@@ -32,24 +36,26 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const [editedDescription, setEditedDescription] = useState(list.description || "");
-  const titleInputRef = useRef<HTMLInputElement>(null); // Ref for title input
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [isGeneratingItems, setIsGeneratingItems] = useState(false);
+  const { toast } = useToast();
+
 
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
-      // No direct onInitialEditDone call here, it's tied to the main editing state.
     }
   }, [startInEditMode]);
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
       titleInputRef.current.select();
-      if (startInEditMode && onInitialEditDone) { // Call onInitialEditDone when focused due to startInEditMode
+      if (startInEditMode && onInitialEditDone) {
         onInitialEditDone(list.id);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, startInEditMode]); // Add startInEditMode to deps for onInitialEditDone logic
+  }, [isEditing, startInEditMode]);
 
 
   const handleToggleComplete = (completed: boolean) => {
@@ -105,19 +111,54 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
   const handleSaveEdit = async () => {
     let titleToSave = editedTitle.trim();
     if (titleToSave === "") {
-        if (list.title === "Untitled List" && startInEditMode) { // If it was an auto-created "Untitled List" and is still blank
+        if (list.title === "Untitled List" && startInEditMode) {
             onDeleteList(list.id);
             setIsEditing(false);
             return;
         }
-        titleToSave = list.title || "Untitled List"; // Fallback to original or "Untitled List"
-        setEditedTitle(titleToSave); // Update state to reflect fallback
+        titleToSave = list.title || "Untitled List";
+        setEditedTitle(titleToSave);
     }
     await onUpdateList(list.id, {
       title: titleToSave,
       description: editedDescription.trim(),
     });
     setIsEditing(false);
+  };
+
+  const handleAutogenerateItems = async () => {
+    setIsGeneratingItems(true);
+    try {
+      const input: GenerateSubitemsInput = {
+        listTitle: list.title,
+        existingSubitemTitles: list.subitems.map(si => si.title),
+      };
+      const result = await generateSubitemsForList(input);
+      
+      if (result && result.newSubitemTitles && result.newSubitemTitles.length > 0) {
+        const newSubitems: Subitem[] = result.newSubitemTitles.map(title => ({
+          id: crypto.randomUUID(),
+          title: title.trim(),
+          completed: false,
+        }));
+        await onManageSubitems(list.id, [...list.subitems, ...newSubitems]);
+      } else {
+        toast({
+            title: "Autogeneration Failed",
+            description: "Could not generate new items. Please try again.",
+            variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error autogenerating items:", error);
+      toast({
+        title: "AI Error",
+        description: "An error occurred while trying to generate items. Check console for details.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingItems(false);
+    }
   };
 
 
@@ -171,6 +212,18 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={handleAutogenerateItems}
+                  disabled={isGeneratingItems || list.completed}
+                >
+                  {isGeneratingItems ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  Autogenerate Items
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => onDeleteList(list.id)}
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -248,4 +301,3 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
-
