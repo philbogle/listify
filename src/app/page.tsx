@@ -332,9 +332,6 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="w-full max-w-3xl mt-16 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} TaskFlow. Built with Next.js and Firebase.</p>
-      </footer>
     </div>
   );
 }
