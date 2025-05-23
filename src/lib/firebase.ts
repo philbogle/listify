@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   type Firestore,
 } from "firebase/firestore";
-import type { Task, Subtask } from "@/types/task";
+import type { List, Subitem } from "@/types/list"; // Renamed import
 import { firebaseConfig } from "./firebaseConfig";
 
 let app: FirebaseApp;
@@ -31,7 +31,7 @@ try {
   }
 }
 
-const TASKS_COLLECTION = "tasks";
+const LISTS_COLLECTION = "tasks"; // Firestore collection name remains "tasks" for compatibility
 
 const getDb = () => {
   if (!db) {
@@ -46,64 +46,83 @@ const getDb = () => {
   return db;
 }
 
-export const addTaskToFirebase = async (taskData: Omit<Task, "id" | "createdAt">): Promise<Task> => {
+export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">): Promise<List> => {
   const currentDb = getDb();
-  const docRef = await addDoc(collection(currentDb, TASKS_COLLECTION), {
-    ...taskData,
+  const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), {
+    title: listData.title,
+    description: listData.description || "",
+    completed: listData.completed,
+    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })), // Map app's 'subitems' to Firestore's 'subtasks' field
     createdAt: serverTimestamp(),
   });
-  return { ...taskData, id: docRef.id, createdAt: new Date() }; 
+  // Return as List type, mapping Firestore's subtasks back to subitems for the app
+  return { ...listData, id: docRef.id, createdAt: new Date() }; 
 };
 
-export const getTasksFromFirebase = async (): Promise<Task[]> => {
+export const getListsFromFirebase = async (): Promise<List[]> => {
   if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
-    console.warn("Firebase not configured, returning empty array for tasks.");
+    console.warn("Firebase not configured, returning empty array for lists.");
     return []; 
   }
   const currentDb = getDb();
   try {
-    const q = query(collection(currentDb, TASKS_COLLECTION), orderBy("createdAt", "desc"));
+    const q = query(collection(currentDb, LISTS_COLLECTION), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      subtasks: doc.data().subtasks || [],
-    } as Task));
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title,
+        description: data.description,
+        completed: data.completed,
+        createdAt: data.createdAt,
+        subitems: (data.subtasks || []).map((st: any) => ({ // Map Firestore's 'subtasks' to app's 'subitems'
+            id: st.id || crypto.randomUUID(), // Ensure subitem has an id
+            title: st.title,
+            completed: st.completed
+        })),
+      } as List;
+    });
   } catch (error) {
-    console.error("Error fetching tasks from Firebase:", error);
+    console.error("Error fetching lists from Firebase:", error);
     console.error("This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
     console.error("Specifically, ensure you have an index on the 'tasks' collection for 'createdAt' in descending order.");
-    throw error; // Re-throw the error to be caught by the calling function
+    throw error; 
   }
 };
 
-export const updateTaskInFirebase = async (taskId: string, updates: Partial<Task>): Promise<void> => {
+export const updateListInFirebase = async (listId: string, updates: Partial<List>): Promise<void> => {
   const currentDb = getDb();
-  const taskRef = doc(currentDb, TASKS_COLLECTION, taskId);
-  await updateDoc(taskRef, updates);
+  const listRef = doc(currentDb, LISTS_COLLECTION, listId);
+  
+  // Map app's 'subitems' to Firestore's 'subtasks' field if present in updates
+  const firebaseUpdates: any = { ...updates };
+  if (updates.subitems !== undefined) {
+    firebaseUpdates.subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
+    delete firebaseUpdates.subitems; 
+  }
+  if (updates.createdAt === undefined && firebaseUpdates.createdAt !== undefined) { // Prevent client-side timestamp from overwriting serverTimestamp on initial add
+    delete firebaseUpdates.createdAt;
+  }
+
+
+  await updateDoc(listRef, firebaseUpdates);
 };
 
-export const deleteTaskFromFirebase = async (taskId: string): Promise<void> => {
+export const deleteListFromFirebase = async (listId: string): Promise<void> => {
   const currentDb = getDb();
-  await deleteDoc(doc(currentDb, TASKS_COLLECTION, taskId));
+  await deleteDoc(doc(currentDb, LISTS_COLLECTION, listId));
 };
 
-export const addSubtaskToFirebase = async (taskId: string, existingSubtasks: Subtask[], newSubtask: Subtask): Promise<void> => {
+// This function updates the entire subitems array for a list
+export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem[]): Promise<void> => {
   const currentDb = getDb();
-  const taskRef = doc(currentDb, TASKS_COLLECTION, taskId);
-  const updatedSubtasks = [...existingSubtasks, newSubtask];
-  await updateDoc(taskRef, { subtasks: updatedSubtasks });
+  const listRef = doc(currentDb, LISTS_COLLECTION, listId);
+  // Map app's 'subitems' to Firestore's 'subtasks' field
+  const subtasksForFirebase = subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
+  await updateDoc(listRef, { subtasks: subtasksForFirebase });
 };
 
-export const updateSubtaskInFirebase = async (taskId: string, subtasks: Subtask[]): Promise<void> => {
-  const currentDb = getDb();
-  const taskRef = doc(currentDb, TASKS_COLLECTION, taskId);
-  await updateDoc(taskRef, { subtasks });
-};
-
-export const deleteSubtaskFromFirebase = async (taskId: string, subtasks: Subtask[]): Promise<void> => {
-  await updateSubtaskInFirebase(taskId, subtasks);
-};
 
 export const isFirebaseConfigured = (): boolean => {
   const configured = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.projectId !== "YOUR_PROJECT_ID";

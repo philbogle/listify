@@ -1,8 +1,8 @@
 
 "use client";
 
-import TaskCard from "@/components/TaskCard";
-import { useTasks } from "@/hooks/useTasks";
+import ListCard from "@/components/ListCard"; // Renamed import
+import { useLists } from "@/hooks/useLists"; // Renamed import
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,10 +19,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw } from "lucide-react";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
-import type { Task, Subtask } from "@/types/task";
+import type { List, Subitem } from "@/types/list"; // Renamed import
 import Image from "next/image"; 
 import { useToast } from "@/hooks/use-toast"; 
-import { extractTasksFromImage, type ExtractTasksFromImageInput } from "@/ai/flows/extractTasksFromImageFlow";
+import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow"; // Renamed import
 
 
 const fileToDataUri = (file: File): Promise<string> =>
@@ -34,7 +34,7 @@ const fileToDataUri = (file: File): Promise<string> =>
   });
 
 export default function Home() {
-  const { tasks, isLoading, addTask, updateTask, deleteTask, manageSubtasks } = useTasks();
+  const { lists, isLoading, addList, updateList, deleteList, manageSubitems } = useLists(); // Renamed hook usage
   const [firebaseReady, setFirebaseReady] = useState(false);
   
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -48,7 +48,7 @@ export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [taskToFocusId, setTaskToFocusId] = useState<string | null>(null);
+  const [listToFocusId, setListToFocusId] = useState<string | null>(null); // Renamed state
 
 
   useEffect(() => {
@@ -98,16 +98,16 @@ export default function Home() {
   }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast]);
 
 
-  const handleAddNewTask = async () => {
-    const newTask = await addTask({ title: "Untitled Task" }); // Add with a placeholder title
-    if (newTask && newTask.id) {
-      setTaskToFocusId(newTask.id); // Set this task to be focused for editing
+  const handleAddNewList = async () => { // Renamed function
+    const newList = await addList({ title: "Untitled List" }); // Renamed placeholder title
+    if (newList && newList.id) {
+      setListToFocusId(newList.id); 
     }
   };
   
-  const handleInitialEditDone = (taskId: string) => {
-    if (taskId === taskToFocusId) {
-      setTaskToFocusId(null); // Clear the focus state once editing has commenced
+  const handleInitialEditDone = (listId: string) => { // Renamed parameter
+    if (listId === listToFocusId) {
+      setListToFocusId(null); 
     }
   };
 
@@ -148,7 +148,7 @@ export default function Home() {
     setIsImportDialogOpen(false);
   }, [stopCameraStream]);
 
-  const handleExtractTasks = async () => {
+  const handleExtractList = async () => { // Renamed function
     if (!capturedImageFile) {
       return;
     }
@@ -156,11 +156,11 @@ export default function Home() {
     setIsProcessingImage(true);
     try {
       const imageDataUri = await fileToDataUri(capturedImageFile);
-      const input: ExtractTasksFromImageInput = { imageDataUri };
-      const result = await extractTasksFromImage(input);
+      const input: ExtractListFromImageInput = { imageDataUri }; // Renamed type
+      const result = await extractListFromImage(input); // Renamed function
 
-      if (result && result.parentTaskTitle) {
-        const parentTitle = result.parentTaskTitle.trim();
+      if (result && result.parentListTitle) { // Renamed field
+        const parentTitle = result.parentListTitle.trim(); // Renamed field
         
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
           resetImportDialog();
@@ -168,26 +168,26 @@ export default function Home() {
           return;
         }
 
-        const newParentTask = await addTask({ title: parentTitle });
+        const newParentList = await addList({ title: parentTitle }); // Renamed function
 
-        if (newParentTask && newParentTask.id) {
-          if (result.extractedSubtasks && result.extractedSubtasks.length > 0) {
-            const subtasksToAdd: Subtask[] = result.extractedSubtasks
-              .filter(st => st.title && st.title.trim() !== "")
-              .map(st => ({
+        if (newParentList && newParentList.id) {
+          if (result.extractedSubitems && result.extractedSubitems.length > 0) { // Renamed field
+            const subitemsToAdd: Subitem[] = result.extractedSubitems // Renamed field and type
+              .filter(si => si.title && si.title.trim() !== "")
+              .map(si => ({
                 id: crypto.randomUUID(),
-                title: st.title.trim(),
+                title: si.title.trim(),
                 completed: false,
               }));
 
-            if (subtasksToAdd.length > 0) {
-              await manageSubtasks(newParentTask.id, subtasksToAdd);
+            if (subitemsToAdd.length > 0) {
+              await manageSubitems(newParentList.id, subitemsToAdd); // Renamed function
             }
           }
         }
       }
     } catch (error) {
-      console.error("Error extracting tasks from image:", error);
+      console.error("Error extracting list from image:", error); // Changed message
       toast({ title: "Import Error", description: "An unexpected error occurred while processing the image.", variant: "destructive" });
     } finally {
       setIsProcessingImage(false);
@@ -195,8 +195,8 @@ export default function Home() {
     }
   };
   
-  const renderTasks = () => {
-    if (isLoading && !isFirebaseConfigured() && tasks.length === 0) { 
+  const renderLists = () => { // Renamed function
+    if (isLoading && !isFirebaseConfigured() && lists.length === 0) { 
       return Array.from({ length: 3 }).map((_, index) => (
         <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
           <div className="flex items-center space-x-3 mb-3">
@@ -212,23 +212,23 @@ export default function Home() {
       ));
     }
     
-    if (tasks.length === 0 && !isLoading) {
+    if (lists.length === 0 && !isLoading) {
       return (
         <div className="text-center py-10">
           <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">No tasks yet. Add one or scan a list to get started!</p>
+          <p className="text-muted-foreground">No lists yet. Add one or scan a list to get started!</p> {/* Changed message */}
         </div>
       );
     }
 
-    return tasks.map((task) => (
-      <TaskCard
-        key={task.id}
-        task={task}
-        onUpdateTask={updateTask}
-        onDeleteTask={deleteTask}
-        onManageSubtasks={manageSubtasks}
-        startInEditMode={task.id === taskToFocusId}
+    return lists.map((list) => ( // Renamed variable
+      <ListCard // Renamed component
+        key={list.id}
+        list={list} // Renamed prop
+        onUpdateList={updateList} // Renamed prop
+        onDeleteList={deleteList} // Renamed prop
+        onManageSubitems={manageSubitems} // Renamed prop
+        startInEditMode={list.id === listToFocusId} // Renamed state
         onInitialEditDone={handleInitialEditDone}
       />
     ));
@@ -242,7 +242,7 @@ export default function Home() {
           <div>
             <p className="font-bold">Firebase Not Configured</p>
             <p className="text-sm">
-              Your tasks are currently saved locally. For cloud storage and sync, please configure Firebase in 
+              Your lists are currently saved locally. For cloud storage and sync, please configure Firebase in {/* Changed message */}
               <code className="text-xs bg-yellow-200 p-0.5 rounded">src/lib/firebaseConfig.ts</code>.
             </p>
           </div>
@@ -250,11 +250,11 @@ export default function Home() {
       )}
       
       <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-2">
-         <section aria-labelledby="task-list-heading" className="mt-2">
+         <section aria-labelledby="list-heading" className="mt-2"> {/* Changed ID */}
           <div className="flex justify-between items-center mb-6">
-            <h2 id="task-list-heading" className="text-2xl font-semibold text-center sm:text-left">Tasks</h2>
+            <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2> {/* Changed heading */}
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={handleAddNewTask}>
+              <Button variant="outline" onClick={handleAddNewList}> {/* Renamed handler */}
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
@@ -273,7 +273,7 @@ export default function Home() {
                   <DialogHeader>
                     <DialogTitle>Scan Handwritten List</DialogTitle>
                     <DialogDescription>
-                      Take a picture of your handwritten task list. The AI will create a new list with these items.
+                      Take a picture of your handwritten list. The AI will create a new list with these items.
                     </DialogDescription>
                   </DialogHeader>
                   
@@ -315,7 +315,7 @@ export default function Home() {
                     <DialogClose asChild>
                       <Button variant="outline">Cancel</Button>
                     </DialogClose>
-                    <Button onClick={handleExtractTasks} disabled={!capturedImageFile || isProcessingImage}>
+                    <Button onClick={handleExtractList} disabled={!capturedImageFile || isProcessingImage}> {/* Renamed handler */}
                       {isProcessingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {isProcessingImage ? "Processing..." : "Extract & Add List"}
                     </Button>
@@ -327,7 +327,7 @@ export default function Home() {
           </div>
 
           <div className="space-y-4">
-            {renderTasks()}
+            {renderLists()} {/* Renamed function */}
           </div>
         </section>
       </main>
