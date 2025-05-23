@@ -5,9 +5,15 @@ import type { FC } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Save, X } from "lucide-react";
+import { Trash2, Save, X, MoreVertical } from "lucide-react";
 import type { Subitem } from "@/types/list";
 import { useState, useRef, useEffect } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SubitemProps {
   subitem: Subitem;
@@ -55,13 +61,13 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         className="flex-shrink-0 h-5 w-5"
       />
 
-      <div className="flex-grow min-w-0"> {/* This div handles the growing space */}
+      <div className="flex-grow min-w-0">
         {isEditing ? (
           <Input
             ref={titleInputRef}
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
-            className="h-8 text-sm w-full" // Input takes full width of its parent
+            className="h-8 text-sm w-full"
             autoFocus
             onBlur={handleUpdateTitle}
             onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); }}
@@ -70,7 +76,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           <span
             onClick={handleStartEdit}
             className={`block text-sm cursor-pointer truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
-            // Removed flex-grow, added 'block' for truncate to work correctly with varying text lengths.
             title={subitem.title}
           >
             {subitem.title}
@@ -89,11 +94,23 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             </Button>
           </>
         ) : (
-          null
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => onDelete(subitem.id)}
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(subitem.id)} aria-label="Delete subitem">
-          <Trash2 className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   );
