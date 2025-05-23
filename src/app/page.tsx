@@ -10,10 +10,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
   DialogFooter,
   DialogClose,
+  DialogTrigger, // Added DialogTrigger here
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle } from "lucide-react";
@@ -193,7 +193,7 @@ export default function Home() {
               await manageSubitems(newParentList.id, subitemsToAdd);
             }
           }
-           toast({ title: "Import Successful", description: `List "${parentTitle}" imported.`, variant: "default" });
+           // Success toast removed
         } else {
            toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
         }
@@ -211,12 +211,10 @@ export default function Home() {
 
   const handleSignIn = async () => {
     await signInWithGoogle();
-    // Auth state change will be handled by useLists hook
   };
 
   const handleSignOut = async () => {
     await signOutUser();
-    // Auth state change will be handled by useLists hook
   };
 
   const renderLists = () => {
@@ -273,22 +271,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      {firebaseReady && (
+      {firebaseReady && currentUser && ( // Only show this div if firebase is ready AND user is signed in
         <div className="w-full max-w-2xl mb-4 flex justify-end items-center">
-          {currentUser ? (
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground hidden sm:inline">
-                {currentUser.displayName || currentUser.email}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Sign Out</span>
-              </Button>
-            </div>
-          ) : (
-            <Button variant="outline" size="sm" onClick={handleSignIn}>
-              <LogIn className="mr-2 h-4 w-4" /> Sign in with Google
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {currentUser.displayName || currentUser.email}
+            </span>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Sign Out</span>
             </Button>
-          )}
+          </div>
         </div>
       )}
 
@@ -396,3 +388,4 @@ export default function Home() {
     </div>
   );
 }
+
