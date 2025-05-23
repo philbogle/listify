@@ -280,18 +280,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      {firebaseReady && currentUser && ( 
-        <div className="w-full max-w-2xl mb-4 flex justify-end items-center">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {currentUser.displayName || currentUser.email}
-            </span>
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Sign Out</span>
-            </Button>
-          </div>
-        </div>
-      )}
       
       {!currentUser && !isLoading && isFirebaseConfigured() && (
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
@@ -323,7 +311,18 @@ export default function Home() {
           <section aria-labelledby="list-heading">
             <div className="flex justify-between items-center mb-6">
               <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
+                {firebaseReady && currentUser && (
+                  <>
+                    <span className="text-sm text-muted-foreground hidden sm:inline">
+                      {currentUser.displayName || currentUser.email}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={handleSignOut}>
+                      <LogOut className="mr-0 sm:mr-2 h-4 w-4" />
+                      <span className="hidden sm:inline">Sign Out</span>
+                    </Button>
+                  </>
+                )}
                 <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
                   <Plus className="mr-2 h-4 w-4" /> Add
                 </Button>
@@ -335,11 +334,9 @@ export default function Home() {
                   }
                   setIsImportDialogOpen(isOpen);
                   if (!isOpen) {
-                    // Keep image if dialog is just temporarily closed by clicking outside
-                    // resetImportDialog will be called on cancel or successful import
-                    if (stream && !capturedImageFile) { // Only stop stream if no image has been captured yet
+                    if (stream && !capturedImageFile) { 
                         stopCameraStream();
-                        setHasCameraPermission(null); // Reset permission so it re-asks if reopened
+                        setHasCameraPermission(null); 
                     }
                   }
                 }}>
@@ -403,7 +400,7 @@ export default function Home() {
                     <DialogFooter>
                       <DialogClose asChild>
                         <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                            stopCameraStream(); // Ensure stream stops on explicit cancel
+                            stopCameraStream(); 
                             setCapturedImageFile(null);
                             setImagePreviewUrl(null);
                             setHasCameraPermission(null);
