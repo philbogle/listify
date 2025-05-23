@@ -8,8 +8,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { FileText, Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react";
+// Textarea import removed
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles } from "lucide-react"; // FileText removed
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -34,7 +34,7 @@ interface ListCardProps {
 const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
-  const [editedDescription, setEditedDescription] = useState(list.description || "");
+  // editedDescription state removed
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
   const { toast } = useToast();
@@ -99,16 +99,16 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   const handleEdit = () => {
     setEditedTitle(list.title);
-    setEditedDescription(list.description || "");
+    // setEditedDescription removed
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    if (list.title === "Untitled List" && editedTitle === "Untitled List" && (editedDescription === "" || !editedDescription) && startInEditMode) {
+    if (list.title === "Untitled List" && editedTitle === "Untitled List" && startInEditMode) { // Description check removed
         onDeleteList(list.id);
     } else {
         setEditedTitle(list.title);
-        setEditedDescription(list.description || "");
+        // setEditedDescription removed
     }
     setIsEditing(false);
   };
@@ -126,7 +126,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
     }
     await onUpdateList(list.id, {
       title: titleToSave,
-      description: editedDescription.trim(),
+      // description update removed
     });
     setIsEditing(false);
   };
@@ -242,29 +242,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
       </CardHeader>
 
       <CardContent className="pb-4 space-y-4">
-        {isEditing ? (
-          <>
-            <div className="space-y-1">
-              <label htmlFor={`edit-desc-${list.id}`} className="text-sm font-medium text-muted-foreground">Description</label>
-              <Textarea
-                id={`edit-desc-${list.id}`}
-                value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
-                placeholder="List description"
-                className="min-h-[60px]"
-              />
-            </div>
-          </>
-        ) : (
-          <>
-            {(list.description || (list.description === "" && isEditing)) && (
-              <div className="flex items-start space-x-2 text-sm text-muted-foreground">
-                <FileText className="h-4 w-4 mt-0.5 shrink-0" />
-                <p className="whitespace-pre-wrap">{list.description || <span className="italic">No description</span>}</p>
-              </div>
-            )}
-          </>
-        )}
+        {/* Description editing and display logic removed */}
 
         {list.subitems.length > 0 && (
           <div className="space-y-1">

@@ -12,8 +12,9 @@ import {
   orderBy,
   serverTimestamp,
   type Firestore,
+  deleteField, // Import deleteField
 } from "firebase/firestore";
-import type { List, Subitem } from "@/types/list"; // Renamed import
+import type { List, Subitem } from "@/types/list"; 
 import { firebaseConfig } from "./firebaseConfig";
 
 let app: FirebaseApp;
@@ -31,7 +32,7 @@ try {
   }
 }
 
-const LISTS_COLLECTION = "tasks"; // Firestore collection name remains "tasks" for compatibility
+const LISTS_COLLECTION = "tasks"; 
 
 const getDb = () => {
   if (!db) {
@@ -50,12 +51,11 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
   const currentDb = getDb();
   const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), {
     title: listData.title,
-    description: listData.description || "",
+    // description field removed
     completed: listData.completed,
-    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })), // Map app's 'subitems' to Firestore's 'subtasks' field
+    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })), 
     createdAt: serverTimestamp(),
   });
-  // Return as List type, mapping Firestore's subtasks back to subitems for the app
   return { ...listData, id: docRef.id, createdAt: new Date() }; 
 };
 
@@ -73,11 +73,11 @@ export const getListsFromFirebase = async (): Promise<List[]> => {
       return {
         id: doc.id,
         title: data.title,
-        description: data.description,
+        // description: data.description, // Removed from mapping as it's removed from List type
         completed: data.completed,
         createdAt: data.createdAt,
-        subitems: (data.subtasks || []).map((st: any) => ({ // Map Firestore's 'subtasks' to app's 'subitems'
-            id: st.id || crypto.randomUUID(), // Ensure subitem has an id
+        subitems: (data.subtasks || []).map((st: any) => ({ 
+            id: st.id || crypto.randomUUID(), 
             title: st.title,
             completed: st.completed
         })),
@@ -95,14 +95,21 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
   const currentDb = getDb();
   const listRef = doc(currentDb, LISTS_COLLECTION, listId);
   
-  // Map app's 'subitems' to Firestore's 'subtasks' field if present in updates
   const firebaseUpdates: any = { ...updates };
   if (updates.subitems !== undefined) {
     firebaseUpdates.subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
     delete firebaseUpdates.subitems; 
   }
-  if (updates.createdAt === undefined && firebaseUpdates.createdAt !== undefined) { // Prevent client-side timestamp from overwriting serverTimestamp on initial add
+  if (updates.createdAt === undefined && firebaseUpdates.createdAt !== undefined) { 
     delete firebaseUpdates.createdAt;
+  }
+
+  // If description is explicitly being removed (e.g. set to undefined from a form),
+  // ensure it's handled by sending deleteField() to Firestore.
+  // However, since it's removed from the List type, 'updates' should not contain 'description'.
+  // This is more of a defensive measure if old data structures were at play.
+  if (firebaseUpdates.hasOwnProperty('description') && firebaseUpdates.description === undefined) {
+    firebaseUpdates.description = deleteField();
   }
 
 
@@ -114,11 +121,9 @@ export const deleteListFromFirebase = async (listId: string): Promise<void> => {
   await deleteDoc(doc(currentDb, LISTS_COLLECTION, listId));
 };
 
-// This function updates the entire subitems array for a list
 export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem[]): Promise<void> => {
   const currentDb = getDb();
   const listRef = doc(currentDb, LISTS_COLLECTION, listId);
-  // Map app's 'subitems' to Firestore's 'subtasks' field
   const subtasksForFirebase = subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
   await updateDoc(listRef, { subtasks: subtasksForFirebase });
 };

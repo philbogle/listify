@@ -54,11 +54,9 @@ export const useLists = () => {
     };
     loadLists();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed toast from dependencies as it's stable
+  }, []); 
 
   useEffect(() => {
-    // This effect ensures that any change to 'lists' (e.g., from initial load,
-    // optimistic updates, or rollbacks) is persisted to localStorage.
     if (!isLoading) { 
         try {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(lists));
@@ -71,7 +69,7 @@ export const useLists = () => {
 
   const addList = async (listData: Omit<List, "id" | "completed" | "subitems" | "createdAt">): Promise<List | undefined> => {
     const newListBase: Omit<List, "id" | "createdAt"> = {
-      ...listData,
+      title: listData.title, // description removed
       completed: false,
       subitems: [],
     };
@@ -106,7 +104,7 @@ export const useLists = () => {
       const listIndex = prevLists.findIndex(list => list.id === listId);
       if (listIndex === -1) return prevLists;
       
-      originalList = { ...prevLists[listIndex] }; // Store original for rollback
+      originalList = { ...prevLists[listIndex] }; 
 
       const updatedLists = [...prevLists];
       updatedLists[listIndex] = { ...updatedLists[listIndex], ...updates };
@@ -115,12 +113,18 @@ export const useLists = () => {
 
     if (isFirebaseConfigured()) {
       try {
-        await updateListInFirebase(listId, updates);
-        // If successful, local state is already updated. localStorage will be updated by the useEffect.
+        // Make sure not to send 'description: undefined' if it was removed from updates
+        const firebaseUpdates = { ...updates };
+        if ('description' in firebaseUpdates && firebaseUpdates.description === undefined) {
+          // If description is explicitly set to undefined, it might try to remove it.
+          // However, since it's removed from the type, this branch might not be hit.
+          // For safety, we can ensure it's not part of the payload if not intended.
+          // delete firebaseUpdates.description; // Or let Firebase handle undefined as "no change" or "remove"
+        }
+        await updateListInFirebase(listId, firebaseUpdates);
       } catch (error) {
         console.error("Error updating list in Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not update list in cloud. Reverting.", variant: "destructive" });
-        // Rollback
         if (originalList) {
           setLists(prevLists => 
             prevLists.map(list => (list.id === listId ? originalList! : list))
@@ -128,11 +132,10 @@ export const useLists = () => {
         }
       }
     }
-    // For non-Firebase, localStorage is updated by useEffect when 'lists' changes.
   };
 
   const deleteList = async (listId: string) => {
-    const originalLists = [...lists]; // Store for potential rollback if needed, though delete is usually final
+    const originalLists = [...lists]; 
     setLists(prevLists => prevLists.filter((list) => list.id !== listId));
 
     if (isFirebaseConfigured()) {
@@ -141,7 +144,7 @@ export const useLists = () => {
       } catch (error) {
         console.error("Error deleting list from Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not delete list from cloud. Reverting.", variant: "destructive" });
-        setLists(originalLists); // Rollback
+        setLists(originalLists); 
       }
     }
   };
@@ -153,7 +156,7 @@ export const useLists = () => {
       const listIndex = prevLists.findIndex(list => list.id === listId);
       if (listIndex === -1) return prevLists;
       
-      originalSubitems = [...prevLists[listIndex].subitems]; // Store original subitems for rollback
+      originalSubitems = [...prevLists[listIndex].subitems]; 
 
       const updatedLists = [...prevLists];
       updatedLists[listIndex] = { ...updatedLists[listIndex], subitems: newSubitems };
@@ -166,7 +169,6 @@ export const useLists = () => {
       } catch (error) {
         console.error("Error managing subitems in Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not update subitems in cloud. Reverting.", variant: "destructive" });
-        // Rollback
         if (originalSubitems !== undefined) {
           setLists(prevLists => {
              const listIndex = prevLists.findIndex(list => list.id === listId);
