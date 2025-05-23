@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { generateSubitemsForList, type GenerateSubitemsInput } from "@/ai/flows/generateSubitemsFlow";
-import { useToast } from "@/hooks/use-toast";
+// import { useToast } from "@/hooks/use-toast"; // Replaced by prop
 
 
 interface ListCardProps {
@@ -28,14 +28,15 @@ interface ListCardProps {
   onManageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
   startInEditMode?: boolean;
   onInitialEditDone?: (listId: string) => void;
+  toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void; // Added toast prop
 }
 
-const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone }) => {
+const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone, toast }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Using prop instead
   const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
 
 
@@ -47,7 +48,10 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      titleInputRef.current.select();
+      // Wrap in requestAnimationFrame for better cross-browser/device compatibility, especially iOS
+      requestAnimationFrame(() => {
+        titleInputRef.current?.select();
+      });
       if (startInEditMode && onInitialEditDone) {
         onInitialEditDone(list.id);
       }
@@ -117,7 +121,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
             setIsEditing(false);
             return;
         }
-        titleToSave = list.title || "Untitled List";
+        titleToSave = list.title || "Untitled List"; // Revert to original or default if cleared
         setEditedTitle(titleToSave);
     }
     await onUpdateList(list.id, {
@@ -142,6 +146,13 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
           completed: false,
         }));
         await onManageSubitems(list.id, [...list.subitems, ...newSubitems]);
+         toast({ title: "Items Generated", description: `${newSubitems.length} new items added to "${list.title}".` });
+      } else if (result && result.newSubitemTitles && result.newSubitemTitles.length === 0){
+        toast({
+            title: "No New Items",
+            description: "AI couldn't find any new items to suggest for this list right now.",
+            variant: "default",
+        });
       } else {
         toast({
             title: "Autogeneration Failed",
@@ -180,7 +191,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
-                autoFocus
+                autoFocus={startInEditMode} // Ensure autoFocus is explicitly set
                 onBlur={handleSaveEdit}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
               />

@@ -6,9 +6,10 @@ export interface Subitem {
 }
 
 export interface List {
-  id: string;
+  id:string;
   title: string;
   completed: boolean;
   subitems: Subitem[];
   createdAt?: any; // Firestore Timestamp or server timestamp
+  userId?: string; // Added for user-specific data
 }

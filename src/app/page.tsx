@@ -16,13 +16,14 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw } from "lucide-react";
-import { isFirebaseConfigured } from "@/lib/firebase";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle } from "lucide-react";
+import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
-import Image from "next/image"; 
-import { useToast } from "@/hooks/use-toast"; 
+import Image from "next/image";
+import { useToast } from "@/hooks/use-toast";
 import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
+import type { User } from "firebase/auth";
 
 
 const fileToDataUri = (file: File): Promise<string> =>
@@ -34,9 +35,9 @@ const fileToDataUri = (file: File): Promise<string> =>
   });
 
 export default function Home() {
-  const { lists, isLoading, addList, updateList, deleteList, manageSubitems } = useLists();
+  const { lists, isLoading, addList, updateList, deleteList, manageSubitems, currentUser } = useLists();
   const [firebaseReady, setFirebaseReady] = useState(false);
-  
+
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [capturedImageFile, setCapturedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export default function Home() {
   }, [stream]);
 
   useEffect(() => {
-    if (isImportDialogOpen && hasCameraPermission === null) { 
+    if (isImportDialogOpen && hasCameraPermission === null && currentUser) {
       const getCameraPermission = async () => {
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -91,23 +92,27 @@ export default function Home() {
     }
 
     return () => {
-      if (stream && !isImportDialogOpen ) { 
-         stopCameraStream();
+      if (stream && !isImportDialogOpen) {
+        stopCameraStream();
       }
     };
-  }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast]);
+  }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast, currentUser]);
 
 
   const handleAddNewList = async () => {
+    if (!currentUser && firebaseReady) {
+      toast({ title: "Please Sign In", description: "You need to be signed in to add lists.", variant: "destructive"});
+      return;
+    }
     const newList = await addList({ title: "Untitled List" });
     if (newList && newList.id) {
-      setListToFocusId(newList.id); 
+      setListToFocusId(newList.id);
     }
   };
-  
+
   const handleInitialEditDone = (listId: string) => {
     if (listId === listToFocusId) {
-      setListToFocusId(null); 
+      setListToFocusId(null);
     }
   };
 
@@ -122,21 +127,21 @@ export default function Home() {
 
     const context = canvas.getContext('2d');
     if (!context) {
-        setIsCapturing(false);
-        return;
+      setIsCapturing(false);
+      return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
+
     canvas.toBlob(async (blob) => {
-        if (blob) {
-            const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            setCapturedImageFile(capturedFile);
-            const previewUrl = URL.createObjectURL(capturedFile);
-            setImagePreviewUrl(previewUrl);
-            stopCameraStream(); 
-        }
-        setIsCapturing(false);
-    }, 'image/jpeg', 0.9); 
+      if (blob) {
+        const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setCapturedImageFile(capturedFile);
+        const previewUrl = URL.createObjectURL(capturedFile);
+        setImagePreviewUrl(previewUrl);
+        stopCameraStream();
+      }
+      setIsCapturing(false);
+    }, 'image/jpeg', 0.9);
   };
 
 
@@ -144,12 +149,15 @@ export default function Home() {
     setCapturedImageFile(null);
     setImagePreviewUrl(null);
     stopCameraStream();
-    setHasCameraPermission(null); 
+    setHasCameraPermission(null);
     setIsImportDialogOpen(false);
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
-    if (!capturedImageFile) {
+    if (!capturedImageFile) return;
+    if (!currentUser && firebaseReady) {
+      toast({ title: "Please Sign In", description: "You need to be signed in to import lists.", variant: "destructive"});
+      resetImportDialog();
       return;
     }
 
@@ -161,8 +169,9 @@ export default function Home() {
 
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
-        
+
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
+          toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
           resetImportDialog();
           setIsProcessingImage(false);
           return;
@@ -184,7 +193,12 @@ export default function Home() {
               await manageSubitems(newParentList.id, subitemsToAdd);
             }
           }
+           toast({ title: "Import Successful", description: `List "${parentTitle}" imported.`, variant: "default" });
+        } else {
+           toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
         }
+      } else {
+         toast({ title: "Import Failed", description: "Could not extract any information from the image.", variant: "destructive" });
       }
     } catch (error) {
       console.error("Error extracting list from image:", error);
@@ -194,9 +208,19 @@ export default function Home() {
       resetImportDialog();
     }
   };
-  
+
+  const handleSignIn = async () => {
+    await signInWithGoogle();
+    // Auth state change will be handled by useLists hook
+  };
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    // Auth state change will be handled by useLists hook
+  };
+
   const renderLists = () => {
-    if (isLoading && !isFirebaseConfigured() && lists.length === 0) { 
+    if (isLoading) {
       return Array.from({ length: 3 }).map((_, index) => (
         <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
           <div className="flex items-center space-x-3 mb-3">
@@ -210,6 +234,18 @@ export default function Home() {
           </div>
         </div>
       ));
+    }
+    
+    if (!currentUser && firebaseReady) {
+      return (
+        <div className="text-center py-10">
+          <UserCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Please sign in to manage your lists.</p>
+          <Button onClick={handleSignIn} className="mt-4">
+            <LogIn className="mr-2 h-4 w-4" /> Sign in with Google
+          </Button>
+        </div>
+      );
     }
     
     if (lists.length === 0 && !isLoading) {
@@ -230,42 +266,67 @@ export default function Home() {
         onManageSubitems={manageSubitems}
         startInEditMode={list.id === listToFocusId}
         onInitialEditDone={handleInitialEditDone}
+        toast={toast}
       />
     ));
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
+      {firebaseReady && (
+        <div className="w-full max-w-2xl mb-4 flex justify-end items-center">
+          {currentUser ? (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {currentUser.displayName || currentUser.email}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="mr-0 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Sign Out</span>
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleSignIn}>
+              <LogIn className="mr-2 h-4 w-4" /> Sign in with Google
+            </Button>
+          )}
+        </div>
+      )}
+
       {!firebaseReady && !isLoading && (
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
-          <AlertTriangle className="h-5 w-5 mr-3 mt-0.5"/>
+          <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
           <div>
             <p className="font-bold">Firebase Not Configured</p>
             <p className="text-sm">
-              Your lists are currently saved locally. For cloud storage and sync, please configure Firebase in
-              <code className="text-xs bg-yellow-200 p-0.5 rounded">src/lib/firebaseConfig.ts</code>.
+              Your lists are currently saved locally and are not user-specific. For cloud storage, sync, and user-specific lists, please configure Firebase in
+              <code className="text-xs bg-yellow-200 p-0.5 rounded ml-1">src/lib/firebaseConfig.ts</code>.
             </p>
           </div>
         </div>
       )}
-      
-      <main className="w-full max-w-2xl grid grid-cols-1 gap-10 mt-4">
-         <section aria-labelledby="list-heading">
+
+      <main className="w-full max-w-2xl grid grid-cols-1 gap-6 mt-0">
+        <section aria-labelledby="list-heading">
           <div className="flex justify-between items-center mb-6">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={handleAddNewList}>
+              <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
+                if (firebaseReady && !currentUser && isOpen) {
+                  toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
+                  setIsImportDialogOpen(false);
+                  return;
+                }
                 setIsImportDialogOpen(isOpen);
-                if (!isOpen) { 
+                if (!isOpen) {
                   resetImportDialog();
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Camera className="mr-2 h-4 w-4" /> 
+                  <Button variant="outline" disabled={firebaseReady && !currentUser && !isLoading}>
+                    <Camera className="mr-2 h-4 w-4" />
                     Scan
                   </Button>
                 </DialogTrigger>
@@ -276,13 +337,13 @@ export default function Home() {
                       Take a picture of your handwritten list. The AI will create a new list with these items.
                     </DialogDescription>
                   </DialogHeader>
-                  
+
                   <div className="grid gap-4 py-4">
                     <div className="space-y-4">
                       <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
                         <video ref={videoRef} className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} autoPlay playsInline muted />
                         {hasCameraPermission === false && (
-                           <Alert variant="destructive" className="m-4">
+                          <Alert variant="destructive" className="m-4">
                             <AlertTriangle className="h-4 w-4" />
                             <AlertTitle>Camera Access Denied</AlertTitle>
                             <AlertDescription>
@@ -292,22 +353,22 @@ export default function Home() {
                         )}
                         {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
                       </div>
-                       {stream && !imagePreviewUrl && hasCameraPermission &&(
+                      {stream && !imagePreviewUrl && hasCameraPermission && (
                         <Button onClick={handleCaptureImage} disabled={isCapturing || !stream} className="w-full">
                           {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
                           {isCapturing ? "Capturing..." : "Capture Photo"}
                         </Button>
                       )}
-                      {imagePreviewUrl && ( 
-                        <Button onClick={() => {setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null);}} variant="outline" className="w-full">
-                            <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
+                      {imagePreviewUrl && (
+                        <Button onClick={() => { setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null); }} variant="outline" className="w-full">
+                          <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
                         </Button>
                       )}
                     </div>
-                    
-                    {imagePreviewUrl && capturedImageFile && ( 
+
+                    {imagePreviewUrl && capturedImageFile && (
                       <div className="mt-4 border rounded-md overflow-hidden max-h-60 flex justify-center items-center bg-muted/20">
-                         <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="handwritten list"/>
+                        <Image src={imagePreviewUrl} alt="Preview" width={400} height={240} style={{ objectFit: 'contain', maxHeight: '240px', width: 'auto' }} data-ai-hint="handwritten list" />
                       </div>
                     )}
                   </div>
@@ -335,5 +396,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
