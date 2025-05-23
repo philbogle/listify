@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger, // Added DialogTrigger here
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle } from "lucide-react";
@@ -116,43 +116,6 @@ export default function Home() {
     }
   };
 
-  const handleCaptureImage = async () => {
-    if (!videoRef.current || !canvasRef.current || !stream) return;
-    setIsCapturing(true);
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      setIsCapturing(false);
-      return;
-    }
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(async (blob) => {
-      if (blob) {
-        const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-        setCapturedImageFile(capturedFile);
-        const previewUrl = URL.createObjectURL(capturedFile);
-        setImagePreviewUrl(previewUrl);
-        stopCameraStream();
-      }
-      setIsCapturing(false);
-    }, 'image/jpeg', 0.9);
-  };
-
-
-  const resetImportDialog = useCallback(() => {
-    setCapturedImageFile(null);
-    setImagePreviewUrl(null);
-    stopCameraStream();
-    setHasCameraPermission(null);
-    setIsImportDialogOpen(false);
-  }, [stopCameraStream]);
-
   const handleExtractList = async () => {
     if (!capturedImageFile) return;
     if (!currentUser && firebaseReady) {
@@ -193,7 +156,6 @@ export default function Home() {
               await manageSubitems(newParentList.id, subitemsToAdd);
             }
           }
-           // Success toast removed
         } else {
            toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
         }
@@ -208,6 +170,47 @@ export default function Home() {
       resetImportDialog();
     }
   };
+
+
+  const handleCaptureImage = async () => {
+    if (!videoRef.current || !canvasRef.current || !stream) return;
+    setIsCapturing(true);
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setIsCapturing(false);
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(async (blob) => {
+      if (blob) {
+        const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setCapturedImageFile(capturedFile);
+        const previewUrl = URL.createObjectURL(capturedFile);
+        setImagePreviewUrl(previewUrl);
+        stopCameraStream(); // Stop camera after capture, before extraction
+        await handleExtractList(); // Automatically extract after capture
+      }
+      setIsCapturing(false);
+    }, 'image/jpeg', 0.9);
+  };
+
+
+  const resetImportDialog = useCallback(() => {
+    setCapturedImageFile(null);
+    setImagePreviewUrl(null);
+    stopCameraStream();
+    setHasCameraPermission(null);
+    setIsImportDialogOpen(false);
+  }, [stopCameraStream]);
+
+
 
   const handleSignIn = async () => {
     await signInWithGoogle();
@@ -271,7 +274,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      {firebaseReady && currentUser && ( // Only show this div if firebase is ready AND user is signed in
+      {firebaseReady && currentUser && ( 
         <div className="w-full max-w-2xl mb-4 flex justify-end items-center">
           <div className="flex items-center space-x-2">
             <span className="text-sm text-muted-foreground hidden sm:inline">
@@ -297,7 +300,7 @@ export default function Home() {
         </div>
       )}
 
-      <main className="w-full max-w-2xl grid grid-cols-1 gap-6 mt-0">
+      <main className="w-full max-w-2xl grid grid-cols-1 gap-6 mt-4">
         <section aria-labelledby="list-heading">
           <div className="flex justify-between items-center mb-6">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
@@ -333,7 +336,13 @@ export default function Home() {
                   <div className="grid gap-4 py-4">
                     <div className="space-y-4">
                       <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                        <video ref={videoRef} className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} autoPlay playsInline muted />
+                        <video 
+                          ref={videoRef} 
+                          className={`w-full h-full object-cover ${!stream || imagePreviewUrl ? 'hidden' : ''}`} 
+                          autoPlay 
+                          playsInline 
+                          muted 
+                        />
                         {hasCameraPermission === false && (
                           <Alert variant="destructive" className="m-4">
                             <AlertTriangle className="h-4 w-4" />
@@ -346,13 +355,13 @@ export default function Home() {
                         {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
                       </div>
                       {stream && !imagePreviewUrl && hasCameraPermission && (
-                        <Button onClick={handleCaptureImage} disabled={isCapturing || !stream} className="w-full">
-                          {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                          {isCapturing ? "Capturing..." : "Capture Photo"}
+                        <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
+                          {isCapturing || isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                          {isCapturing ? "Capturing..." : isProcessingImage ? "Processing..." : "Capture Photo"}
                         </Button>
                       )}
                       {imagePreviewUrl && (
-                        <Button onClick={() => { setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null); }} variant="outline" className="w-full">
+                        <Button onClick={() => { setImagePreviewUrl(null); setCapturedImageFile(null); setHasCameraPermission(null); }} variant="outline" className="w-full" disabled={isProcessingImage}>
                           <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
                         </Button>
                       )}
@@ -366,12 +375,9 @@ export default function Home() {
                   </div>
                   <DialogFooter>
                     <DialogClose asChild>
-                      <Button variant="outline">Cancel</Button>
+                      <Button variant="outline" disabled={isProcessingImage || isCapturing}>Cancel</Button>
                     </DialogClose>
-                    <Button onClick={handleExtractList} disabled={!capturedImageFile || isProcessingImage}>
-                      {isProcessingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {isProcessingImage ? "Processing..." : "Extract & Add List"}
-                    </Button>
+                    {/* "Extract & Add List" button removed for automatic extraction */}
                   </DialogFooter>
                   <canvas ref={canvasRef} className="hidden"></canvas>
                 </DialogContent>
@@ -388,4 +394,3 @@ export default function Home() {
     </div>
   );
 }
-
