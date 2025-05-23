@@ -31,7 +31,8 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateSubitemsInputSchema},
   output: {schema: GenerateSubitemsOutputSchema},
   prompt: `You are a creative assistant helping to populate a list titled "{{listTitle}}".
-Your task is to generate a helpful number (e.g., between 3 and 7) of new, unique, and actionable sub-item titles that fit the theme of this list.
+Your task is to generate a helpful number of new, unique, and actionable sub-item titles that fit the theme of this list.
+If the list context suggests a longer list (e.g., brainstorming, comprehensive checklist), you can generate up to 50 items. For most common lists (e.g., "Weekend Chores", "Grocery Shopping"), aim for a smaller, more manageable number of suggestions (e.g., 3-10 items). Use your judgment based on the list title.
 
 The list currently contains the following items (if any):
 {{#if existingSubitemTitles}}
