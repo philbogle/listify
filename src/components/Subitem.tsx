@@ -25,6 +25,7 @@ interface SubitemProps {
 const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
+  const [menuIsVisible, setMenuIsVisible] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,6 +37,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   const handleStartEdit = () => {
     setEditedTitle(subitem.title);
     setIsEditing(true);
+    setMenuIsVisible(false); // Hide menu when editing starts
   };
 
   const handleUpdateTitle = () => {
@@ -50,13 +52,27 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     setIsEditing(false);
   };
 
+  const handleRowClick = () => {
+    if (!isEditing) {
+      setMenuIsVisible(true);
+    }
+  };
+
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click from toggling menu again
+    handleStartEdit();
+  };
+
   return (
-    <div className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group">
+    <div
+      className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors"
+      onClick={handleRowClick} // Click on row shows menu
+    >
       <Checkbox
         id={`subitem-${subitem.id}`}
         checked={subitem.completed}
         onCheckedChange={(checked) => onToggleComplete(subitem.id, !!checked)}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()} // Prevent row click
         aria-label={subitem.completed ? "Mark item as incomplete" : "Mark item as complete"}
         className="flex-shrink-0 h-5 w-5"
       />
@@ -74,7 +90,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           />
         ) : (
           <span
-            onClick={handleStartEdit}
+            onClick={handleTitleClick} // Click on title starts edit
             className={`block text-sm cursor-pointer truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
             title={subitem.title}
           >
@@ -84,8 +100,10 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       </div>
 
       {/* Controls section */}
-      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      <div className={`flex items-center space-x-1 flex-shrink-0 transition-opacity duration-150 ${ (menuIsVisible && !isEditing) ? 'opacity-100' : 'opacity-0 pointer-events-none' }`}>
         {isEditing ? (
+          // These buttons are effectively hidden by !isEditing in the outer div's conditional rendering,
+          // but kept for logical consistency if that were to change.
           <>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleUpdateTitle} aria-label="Save subitem title">
               <Save className="h-4 w-4" />
@@ -95,15 +113,19 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             </Button>
           </>
         ) : (
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={(open) => { if(!open && menuIsVisible) setTimeout(()=> setMenuIsVisible(false), 50)}}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options">
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options" onClick={(e) => e.stopPropagation()}>
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => onDelete(subitem.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(subitem.id);
+                  setMenuIsVisible(false);
+                }}
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
