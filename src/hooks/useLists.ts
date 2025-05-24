@@ -40,10 +40,10 @@ export const useLists = () => {
       setActiveLists([]);
       setCompletedLists([]);
       setHasFetchedCompleted(false);
-      setIsLoading(true); // Reset loading state for active lists
+      setIsLoading(true); 
       if (!user) {
-        setIsLoading(false); // No user, so not loading active lists from Firebase
-        setIsLoadingCompleted(false); // Also not loading completed lists
+        setIsLoading(false); 
+        setIsLoadingCompleted(false); 
         if (!isFirebaseConfigured()) {
           try {
             const localActive = localStorage.getItem(getActiveLocalKey());
@@ -91,9 +91,8 @@ export const useLists = () => {
           setIsLoading(false);
         });
       
-      // Pre-load completed lists from local storage on auth change, but don't mark as fetched from Firebase yet
-      setCompletedLists([]); // Clear previous user's completed lists
-      setHasFetchedCompleted(false); // Reset fetch status for new user
+      setCompletedLists([]); 
+      setHasFetchedCompleted(false); 
       try {
         const localCompletedData = localStorage.getItem(localCompletedKey);
         if (localCompletedData) {
@@ -104,10 +103,8 @@ export const useLists = () => {
       }
 
     } else if (!currentUser && !isFirebaseConfigured()) {
-      // Handled by onAuthUserChanged for initial load from general local storage
       setIsLoading(false);
     } else if (!currentUser && isFirebaseConfigured()) {
-      // User logged out, Firebase is configured, clear lists and stop loading
       setActiveLists([]);
       setCompletedLists([]);
       setHasFetchedCompleted(false);
@@ -126,7 +123,6 @@ export const useLists = () => {
   }, [activeLists, isLoading, currentUser, getActiveLocalKey]);
 
   useEffect(() => {
-    // Only save to local storage if we are not currently loading completed lists AND we have actually fetched them (or completed an attempt)
     if (hasFetchedCompleted && !isLoadingCompleted) { 
       if (currentUser && isFirebaseConfigured()) {
         localStorage.setItem(getCompletedLocalKey(currentUser.uid), JSON.stringify(completedLists));
@@ -140,9 +136,8 @@ export const useLists = () => {
   const fetchCompletedListsIfNeeded = useCallback(async () => {
     if (!currentUser || !isFirebaseConfigured()) {
       if (!currentUser && isFirebaseConfigured()) {
-        toast({ title: "Please Sign In", description: "Sign in to view completed lists.", variant: "default" });
+        // toast({ title: "Please Sign In", description: "Sign in to view completed lists.", variant: "default" });
       }
-      // If Firebase isn't configured, mark as "fetched" to avoid repeated attempts / show "no items"
       if(!isFirebaseConfigured() && !hasFetchedCompleted) setHasFetchedCompleted(true); 
       return;
     }
@@ -152,8 +147,8 @@ export const useLists = () => {
     const localKey = getCompletedLocalKey(currentUser.uid);
     try {
       const firebaseCompletedLists = await getCompletedListsFromFirebase(currentUser.uid);
+      // console.log("[useLists] Fetched completed lists from Firebase:", firebaseCompletedLists);
       setCompletedLists(firebaseCompletedLists.sort(sortLists));
-      // localStorage.setItem(localKey, JSON.stringify(firebaseCompletedLists)); // Moved to useEffect
     } catch (error) {
       console.error("Error fetching completed lists from Firebase:", error);
       toast({
@@ -161,7 +156,7 @@ export const useLists = () => {
         description: "Could not load completed lists. Check console.",
         variant: "destructive",
       });
-       try { // Fallback to local storage if Firebase fetch fails
+       try { 
           const localListsData = localStorage.getItem(localKey);
           if (localListsData) setCompletedLists(JSON.parse(localListsData).sort(sortLists));
           else setCompletedLists([]);
@@ -193,133 +188,124 @@ export const useLists = () => {
       userId: currentUser?.uid,
       id: optimisticId,
       createdAt: new Date().toISOString(),
-      // scanImageUrl will be added later if upload succeeds
     };
 
-    // Optimistically add to activeLists
     setActiveLists(prev => [optimisticList, ...prev].sort(sortLists));
 
     if (isFirebaseConfigured() && currentUser) {
       try {
-        // Prepare data for Firebase (excluding id, createdAt which are server-generated or handled)
         const newListBase: Omit<List, "id" | "createdAt" | "scanImageUrl"> = { 
             title: listData.title,
             completed: false,
-            subitems: [], // Subitems are managed separately or via updates for simplicity here
+            subitems: [], 
             userId: currentUser.uid,
         };
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
-        let finalFirebaseList = addedListFromFirebase; // This will have the server timestamp for createdAt
+        let finalFirebaseList = { ...addedListFromFirebase, subitems: [] }; // Ensure subitems is initialized
 
         if (capturedImageFile) {
           try {
             const downloadURL = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, addedListFromFirebase.id);
-            // Update the list in Firebase with the scanImageUrl
             await updateListInFirebase(addedListFromFirebase.id, { scanImageUrl: downloadURL });
-            finalFirebaseList = { ...addedListFromFirebase, scanImageUrl: downloadURL };
+            finalFirebaseList = { ...finalFirebaseList, scanImageUrl: downloadURL };
           } catch (uploadError) {
             console.error("Error uploading scan image or updating list with URL:", uploadError);
             toast({ title: "Image Upload Failed", description: "List created, but image upload failed.", variant: "destructive" });
-            // No need to remove the list, it was already created. User can retry scan or delete manually.
           }
         }
         
-        // Replace optimistic list with the final one from Firebase
         setActiveLists(prev => prev.map(l => l.id === optimisticId ? finalFirebaseList : l).sort(sortLists));
         return finalFirebaseList;
 
       } catch (error) {
         console.error("Error adding list to Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not add list.", variant: "destructive" });
-        // Rollback optimistic update
         setActiveLists(prev => prev.filter(l => l.id !== optimisticId).sort(sortLists));
         return undefined;
       }
     } else if (!isFirebaseConfigured()) {
-      // Non-Firebase mode, optimisticList is the final list
       return optimisticList;
     }
-    return undefined; // Should not happen if logic is correct
+    return undefined; 
   };
 
   const updateList = async (listId: string, updates: Partial<List>) => {
-    let originalList: List | undefined;
+    let originalListState: List | undefined;
     let originalSourceArray: 'active' | 'completed' | null = null;
+
+    // Find original list and source
+    const findList = (lists: List[]): List | undefined => lists.find(l => l.id === listId);
     
-    // Find the original list and its source
-    const activeMatch = activeLists.find(l => l.id === listId);
-    if (activeMatch) {
-        originalList = JSON.parse(JSON.stringify(activeMatch)); // Deep copy for rollback
+    let listToUpdate = findList(activeLists);
+    if (listToUpdate) {
+        originalListState = JSON.parse(JSON.stringify(listToUpdate));
         originalSourceArray = 'active';
     } else {
-        const completedMatch = completedLists.find(l => l.id === listId);
-        if (completedMatch) {
-            originalList = JSON.parse(JSON.stringify(completedMatch)); // Deep copy
+        listToUpdate = findList(completedLists);
+        if (listToUpdate) {
+            originalListState = JSON.parse(JSON.stringify(listToUpdate));
             originalSourceArray = 'completed';
         }
     }
 
-    if (!originalList) {
-        console.error("List not found for update:", listId);
-        toast({ title: "Error", description: "List to update not found.", variant: "destructive" });
-        return;
+    if (!originalListState) {
+        console.warn(`[updateList] List with id ${listId} not found for update.`);
+        // Don't toast here, might be an optimistic update race condition, let it proceed
+        // toast({ title: "Error", description: "List to update not found.", variant: "destructive" });
+        // return; 
     }
+    
+    const updatedList = { ...(originalListState || {id: listId, title:'', completed:false, subitems:[]}), ...updates };
 
-    const updatedList = { ...originalList, ...updates };
 
     // Optimistic UI update
-    if (originalSourceArray === 'active') {
-        if (updates.completed === true) { // Moving from active to completed
-            setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
-            setCompletedLists(prev => [updatedList, ...prev.filter(c => c.id !== listId)].sort(sortLists));
-        } else { // Updating an active list
-            setActiveLists(prev => prev.map(l => l.id === listId ? updatedList : l).sort(sortLists));
-        }
-    } else if (originalSourceArray === 'completed') {
-        if (updates.completed === false) { // Moving from completed to active
-            setCompletedLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
-            setActiveLists(prev => [updatedList, ...prev.filter(a => a.id !== listId)].sort(sortLists));
-        } else { // Updating a completed list
-            setCompletedLists(prev => prev.map(l => l.id === listId ? updatedList : l).sort(sortLists));
+    if (updates.completed === true) { // Moving from active to completed
+        setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
+        setCompletedLists(prev => [updatedList, ...prev.filter(c => c.id !== listId)].sort(sortLists));
+    } else if (updates.completed === false) { // Moving from completed to active
+        setCompletedLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
+        setActiveLists(prev => [updatedList, ...prev.filter(a => a.id !== listId)].sort(sortLists));
+    } else { // Updating an active or completed list without changing its completion status
+        if (originalSourceArray === 'active' || (!originalSourceArray && findList(activeLists))) { // Default to active if unsure but present
+             setActiveLists(prev => prev.map(l => l.id === listId ? updatedList : l).sort(sortLists));
+        } else if (originalSourceArray === 'completed' || (!originalSourceArray && findList(completedLists))) {
+             setCompletedLists(prev => prev.map(l => l.id === listId ? updatedList : l).sort(sortLists));
         }
     }
+
 
     if (isFirebaseConfigured() && currentUser) {
         try {
             const firebaseUpdates = { ...updates };
-            // Remove fields that shouldn't be directly updated or are managed by Firebase
             delete (firebaseUpdates as any).userId; 
             delete (firebaseUpdates as any).createdAt; 
-            // Subitems are handled by updateSubitemsInFirebase if it's just subitem changes
-            // If updateList is called for subitem changes, it needs to be mapped correctly
             if (updates.subitems !== undefined) {
               (firebaseUpdates as any).subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
               delete firebaseUpdates.subitems;
             }
-
             await updateListInFirebase(listId, firebaseUpdates);
         } catch (error) {
             console.error("Error updating list in Firebase:", error);
             toast({ title: "Firebase Error", description: "Could not update list. Reverting.", variant: "destructive" });
-            // Rollback optimistic update
-            if (originalSourceArray === 'active') {
-                setActiveLists(prevActive => {
-                    const stillActive = prevActive.filter(l => l.id !== listId);
-                    if (updates.completed === true) { // Was moved to completed, move back
-                        setCompletedLists(prevCompleted => prevCompleted.filter(l => l.id !== listId).sort(sortLists));
-                        return [originalList!, ...stillActive].sort(sortLists);
+            // Rollback
+            if (originalListState && originalSourceArray) {
+                if (updates.completed === true) { // Was moved to completed, move back to active
+                    setCompletedLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
+                    setActiveLists(prev => [originalListState!, ...prev.filter(l => l.id !== listId)].sort(sortLists));
+                } else if (updates.completed === false) { // Was moved to active, move back to completed
+                    setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
+                    setCompletedLists(prev => [originalListState!, ...prev.filter(l => l.id !== listId)].sort(sortLists));
+                } else { // Was updated in place
+                    if (originalSourceArray === 'active') {
+                        setActiveLists(prev => prev.map(l => l.id === listId ? originalListState! : l).sort(sortLists));
+                    } else {
+                        setCompletedLists(prev => prev.map(l => l.id === listId ? originalListState! : l).sort(sortLists));
                     }
-                    return prevActive.map(l => l.id === listId ? originalList! : l).sort(sortLists);
-                });
-            } else if (originalSourceArray === 'completed') {
-                 setCompletedLists(prevCompleted => {
-                    const stillCompleted = prevCompleted.filter(l => l.id !== listId);
-                     if (updates.completed === false) { // Was moved to active, move back
-                        setActiveLists(prevActive => prevActive.filter(l => l.id !== listId).sort(sortLists));
-                        return [originalList!, ...stillCompleted].sort(sortLists);
-                    }
-                    return prevCompleted.map(l => l.id === listId ? originalList! : l).sort(sortLists);
-                 });
+                }
+            } else {
+                 // If originalListState wasn't found, try to remove from both if it was a completion change
+                if (updates.completed === true) setCompletedLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
+                if (updates.completed === false) setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
             }
         }
     }
@@ -349,27 +335,37 @@ export const useLists = () => {
   };
 
   const manageSubitems = async (listId: string, newSubitems: Subitem[]) => {
-    let originalList: List | undefined;
-    let sourceArray: 'active' | 'completed' | null = null;
+    let subitemsToRollbackTo: Subitem[] | undefined;
+    let listSourceForRollback: 'active' | 'completed' | null = null;
 
-    const activeMatch = activeLists.find(l => l.id === listId);
-    if (activeMatch) {
-        originalList = JSON.parse(JSON.stringify(activeMatch)); // Deep copy for rollback
-        sourceArray = 'active';
-        setActiveLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: newSubitems } : l).sort(sortLists));
-    } else {
-        const completedMatch = completedLists.find(l => l.id === listId);
-        if (completedMatch) {
-            originalList = JSON.parse(JSON.stringify(completedMatch)); // Deep copy
-            sourceArray = 'completed';
-            setCompletedLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: newSubitems } : l).sort(sortLists));
-        }
-    }
+    const applyUpdateAndCaptureOriginals = (lists: List[], type: 'active' | 'completed'): List[] => {
+        return lists.map(list => {
+            if (list.id === listId) {
+                if (subitemsToRollbackTo === undefined) { // Capture only once
+                    subitemsToRollbackTo = list.subitems; 
+                    listSourceForRollback = type;
+                }
+                return { ...list, subitems: newSubitems };
+            }
+            return list;
+        }).sort(sortLists);
+    };
     
-    if (!originalList) {
-      console.error("List not found for managing subitems:", listId);
-      toast({ title: "Error", description: "Parent list not found for subitems.", variant: "destructive" });
-      return;
+    setActiveLists(prevActiveLists => applyUpdateAndCaptureOriginals(prevActiveLists, 'active'));
+    
+    // Only try completed if not found in active
+    if (listSourceForRollback === null) {
+        setCompletedLists(prevCompletedLists => applyUpdateAndCaptureOriginals(prevCompletedLists, 'completed'));
+    }
+
+
+    // If the list was brand new (e.g., from import), it might not be found by the capture logic above
+    // because the state update from addList might not be fully processed yet.
+    // In this specific case (newly added list), original subitems are [].
+    if (subitemsToRollbackTo === undefined) {
+        subitemsToRollbackTo = [];
+        // We don't know the source for sure, but new lists are added to 'active'
+        if (listSourceForRollback === null) listSourceForRollback = 'active';
     }
 
     if (isFirebaseConfigured() && currentUser) {
@@ -378,10 +374,16 @@ export const useLists = () => {
       } catch (error) {
         console.error("Error managing subitems in Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not update subitems. Reverting.", variant: "destructive" });
-        if (sourceArray === 'active') {
-            setActiveLists(prev => prev.map(l => l.id === listId ? originalList! : l).sort(sortLists));
-        } else if (sourceArray === 'completed') {
-            setCompletedLists(prev => prev.map(l => l.id === listId ? originalList! : l).sort(sortLists));
+        
+        // Rollback
+        if (listSourceForRollback === 'active') {
+          setActiveLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: subitemsToRollbackTo! } : l).sort(sortLists));
+        } else if (listSourceForRollback === 'completed') {
+          setCompletedLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: subitemsToRollbackTo! } : l).sort(sortLists));
+        } else {
+          // If source is still null (e.g. brand new list that wasn't caught by activeLists optimistic update yet)
+          // attempt rollback on active lists as new lists are added there.
+          setActiveLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: subitemsToRollbackTo! } : l).sort(sortLists));
         }
       }
     }
@@ -402,3 +404,4 @@ export const useLists = () => {
   };
 };
 
+    
