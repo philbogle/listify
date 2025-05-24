@@ -6,6 +6,6 @@ runConfig:
   # more instances in response to increased traffic.
   maxInstances: 1
 
-secretEnvironmentVariables:
-  - key: GEMINI_API_KEY
-    secret: Generative Language API Key
+env:
+  - variable: GEMINI_API_KEY
+    secret: gemini-api-key
