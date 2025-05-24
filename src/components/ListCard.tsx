@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye } from "lucide-react"; // Added Eye
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -28,7 +28,7 @@ interface ListCardProps {
   startInEditMode?: boolean;
   onInitialEditDone?: (listId: string) => void;
   toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
-  onViewScan?: (imageUrl: string) => void; // New prop for viewing scan
+  onViewScan?: (imageUrl: string) => void;
 }
 
 const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone, toast, onViewScan }) => {
@@ -172,7 +172,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
 
   return (
-    <Card className={`mb-4 shadow-lg transition-all duration-300 ${list.completed ? "opacity-70 bg-secondary/30" : "bg-card"}`}>
+    <Card className={`mb-4 shadow-lg origin-center transition-all duration-300 ease-in-out transform ${list.completed ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75" : "bg-card scale-100 opacity-100"}`}>
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
         <div className="flex items-center space-x-3 flex-grow min-w-0">
           <Checkbox
@@ -195,7 +195,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
               />
           ) : (
             <CardTitle
-              className={`text-xl font-semibold leading-none tracking-tight cursor-pointer truncate ${list.completed ? "line-through" : ""}`}
+              className={`text-xl font-semibold leading-none tracking-tight cursor-pointer truncate transition-colors duration-300 ${list.completed ? "line-through text-muted-foreground/80" : "text-card-foreground"}`}
               onClick={handleEdit}
               title={list.title}
             >
