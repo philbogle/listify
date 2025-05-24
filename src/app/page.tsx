@@ -62,9 +62,6 @@ export default function Home() {
     manageSubitems,
   } = useLists();
 
-  // DEBUG LOG (Removed)
-  // console.log(`[Home Component Render] isLoading: ${isLoading}, isLoadingCompleted: ${isLoadingCompleted}, hasFetchedCompleted: ${hasFetchedCompleted}, activeLists: ${activeLists.length}, completedLists: ${completedLists.length}, currentUser: ${!!currentUser}`);
-
 
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -167,7 +164,7 @@ export default function Home() {
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
 
-        if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
+        if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list") || parentTitle.toLowerCase().includes("unrecognized image content")) {
           toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
         } else {
           const newParentList = await addList({ title: parentTitle }, currentImageFile);
@@ -198,6 +195,8 @@ export default function Home() {
       let errorMsg = "An unexpected error occurred while processing the image.";
       if (error.message && error.message.includes("GEMINI_API_KEY")) {
         errorMsg = "AI processing failed. Check API key configuration.";
+      } else if (error.message) {
+        errorMsg = `AI processing error: ${error.message.substring(0,100)}${error.message.length > 100 ? '...' : ''}`;
       }
       toast({ title: "Import Error", description: errorMsg, variant: "destructive" });
     } finally {
@@ -311,8 +310,6 @@ export default function Home() {
                     Completed ({completedLists.length > 0 ? completedLists.length : (hasFetchedCompleted ? '0' : '...')})
                 </AccordionTrigger>
                 <AccordionContent>
-                    {/* DEBUG LOG (Removed) */}
-                    {/* console.log(`[Page] Rendering AccordionContent: isLoadingCompleted=${isLoadingCompleted}, completedListsLength=${completedLists.length}, hasFetchedCompleted=${hasFetchedCompleted}`); */}
                     {isLoadingCompleted ? (
                         <div className="flex justify-center items-center py-10">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -388,9 +385,9 @@ export default function Home() {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader>
-                      <DialogTitle>Scan Handwritten List</DialogTitle>
+                      <DialogTitle>Scan List</DialogTitle>
                       <DialogDescription>
-                        Take a picture of your handwritten list. The AI will create a new list with these items.
+                        Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content.
                       </DialogDescription>
                     </DialogHeader>
 
@@ -518,5 +515,6 @@ export default function Home() {
     </div>
   );
 }
+    
 
     
