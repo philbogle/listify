@@ -184,9 +184,9 @@ export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
     if (error.code === 'permission-denied') {
       console.error("FIREBASE PERMISSION DENIED (Active Lists): Please check your Firestore security rules.");
     } else if (error.code === 'failed-precondition') {
-      console.error("FIREBASE FAILED PRECONDITION (Active Lists): This often means a required Firestore index is missing. You likely need a composite index for the 'tasks' collection on 'userId' (ascending), 'completed' (ascending), AND 'createdAt' (descending).");
+      console.error("FIREBASE FAILED PRECONDITION (Active Lists): This often means a required Firestore index is missing. You likely need a composite index for the 'tasks' collection on 'userId' (ascending), 'completed' (ascending), AND 'createdAt' (descending). Check the Firebase console for a link to create it.");
     } else {
-      console.error("This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
+      console.error("An unexpected error occurred while fetching active lists. This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
     }
     throw error;
   }
@@ -232,9 +232,9 @@ export const getCompletedListsFromFirebase = async (userId: string): Promise<Lis
      if (error.code === 'permission-denied') {
       console.error("FIREBASE PERMISSION DENIED (Completed Lists): Please check your Firestore security rules.");
     } else if (error.code === 'failed-precondition') {
-      console.error("FIREBASE FAILED PRECONDITION (Completed Lists): This often means a required Firestore index is missing. You likely need a composite index for the 'tasks' collection on 'userId' (ascending), 'completed' (ascending), AND 'createdAt' (descending).");
+      console.error("FIREBASE FAILED PRECONDITION (Completed Lists): This often means a required Firestore index is missing. You likely need a composite index for the 'tasks' collection on 'userId' (ascending), 'completed' (ascending), AND 'createdAt' (descending). Check the Firebase console for a link to create it.");
     } else {
-      console.error("This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
+      console.error("An unexpected error occurred while fetching completed lists. This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
     }
     throw error;
   }
