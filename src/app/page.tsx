@@ -53,14 +53,23 @@ export default function Home() {
     completedLists,
     isLoading,
     isLoadingCompleted,
-    hasFetchedCompleted,
     currentUser,
     fetchCompletedListsIfNeeded,
+    hasFetchedCompleted,
     addList,
     updateList,
     deleteList,
     manageSubitems,
   } = useLists();
+
+  console.log("[Home Component Render] States:", { // DEBUG LOG
+    isLoading,
+    isLoadingCompleted,
+    hasFetchedCompleted,
+    activeListsLength: activeLists.length,
+    completedListsLength: completedLists.length,
+    currentUser: !!currentUser,
+  });
 
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -228,9 +237,8 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        // Hide camera view after capture by stopping the stream
         stopCameraStream();
-        setHasCameraPermission(true); // Keep permission state true, but stream is stopped
+        setHasCameraPermission(true); 
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -239,7 +247,7 @@ export default function Home() {
   const handleRetakePhoto = () => {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null); // This will trigger the camera permission check again
+    setHasCameraPermission(null); 
   }
 
   const handleSignIn = async () => {
@@ -295,7 +303,7 @@ export default function Home() {
   };
 
   const renderCompletedListSection = () => {
-    if (!currentUser && firebaseReady) return null; // Don't show if not logged in
+    if (!currentUser && firebaseReady) return null;
 
     return (
         <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
@@ -308,6 +316,7 @@ export default function Home() {
                     Completed ({completedLists.length > 0 ? completedLists.length : (hasFetchedCompleted ? '0' : '...')})
                 </AccordionTrigger>
                 <AccordionContent>
+                    {console.log("[Page] Rendering AccordionContent:", { isLoadingCompleted, completedListsLength: completedLists.length, hasFetchedCompleted })} {/* DEBUG LOG */}
                     {isLoadingCompleted ? (
                         <div className="flex justify-center items-center py-10">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -371,7 +380,7 @@ export default function Home() {
                   if (!isOpen) {
                     if (stream && !capturedImageFile) {
                         stopCameraStream();
-                        setHasCameraPermission(null); // Reset camera permission state
+                        setHasCameraPermission(null);
                     }
                   }
                 }}>
@@ -513,3 +522,4 @@ export default function Home() {
     </div>
   );
 }
+
