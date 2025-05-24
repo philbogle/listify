@@ -30,7 +30,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -121,8 +121,9 @@ export default function Home() {
       stopCameraStream();
     }
 
+    // Cleanup function to stop camera stream when component unmounts or dialog closes
     return () => {
-      if (stream && !isImportDialogOpen) {
+      if (stream && !isImportDialogOpen) { // Ensure we only stop if the dialog isn't the reason it's open
         stopCameraStream();
       }
     };
@@ -145,6 +146,15 @@ export default function Home() {
     }
   };
 
+  const resetImportDialog = useCallback(() => {
+    setIsProcessingImage(false);
+    setCapturedImageFile(null);
+    setImagePreviewUrl(null);
+    setHasCameraPermission(null);
+    setIsImportDialogOpen(false);
+    stopCameraStream();
+  }, [stopCameraStream]);
+
   const handleExtractList = async () => {
     if (!capturedImageFile) {
         toast({ title: "No Image Captured", description: "Please capture an image first.", variant: "destructive" });
@@ -156,7 +166,7 @@ export default function Home() {
     }
 
     setIsProcessingImage(true);
-    const currentImageFile = capturedImageFile;
+    const currentImageFile = capturedImageFile; // Capture current file in closure
 
     try {
       const imageDataUri = await fileToDataUri(currentImageFile);
@@ -202,12 +212,7 @@ export default function Home() {
       }
       toast({ title: "Import Error", description: errorMsg, variant: "destructive" });
     } finally {
-      setIsProcessingImage(false);
-      setCapturedImageFile(null);
-      setImagePreviewUrl(null);
-      setHasCameraPermission(null);
-      setIsImportDialogOpen(false);
-      stopCameraStream();
+      resetImportDialog();
     }
   };
 
@@ -233,8 +238,8 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        stopCameraStream();
-        setHasCameraPermission(true); 
+        stopCameraStream(); 
+        setHasCameraPermission(true); // Keep permission as true, camera was used
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -243,7 +248,7 @@ export default function Home() {
   const handleRetakePhoto = () => {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null); 
+    setHasCameraPermission(null); // Re-check permission for new attempt
   }
 
   const handleSignIn = async () => {
@@ -372,10 +377,10 @@ export default function Home() {
                     return;
                   }
                   setIsImportDialogOpen(isOpen);
-                  if (!isOpen) {
-                    if (stream && !capturedImageFile) {
+                  if (!isOpen) { // Closing the dialog
+                    if (stream && !capturedImageFile) { // If camera was active but no pic taken
                         stopCameraStream();
-                        setHasCameraPermission(null);
+                        setHasCameraPermission(null); // Reset permission state for next open
                     }
                   }
                 }}>
@@ -401,7 +406,7 @@ export default function Home() {
                               ref={videoRef}
                               className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                               autoPlay
-                              playsInline
+                              playsInline // Important for iOS
                               muted
                             />
                              {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
@@ -456,87 +461,6 @@ export default function Home() {
                   </DialogContent>
                 </Dialog>
                 
-                <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="Help">
-                      <HelpCircle className="h-5 w-5" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md md:max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle>ListBot Help</DialogTitle>
-                      <DialogDescription>
-                        Learn about ListBot&apos;s features and how to use them effectively.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="mt-4 space-y-4 text-sm max-h-[60vh] overflow-y-auto pr-2">
-                      <details open className="group">
-                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
-                          Creating Lists
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                        </summary>
-                        <p>Click the &quot;Add&quot; button in the header to create a new list. The title will be in edit mode immediately, allowing you to name your list.</p>
-                      </details>
-
-                      <details className="group">
-                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
-                          Adding Items
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                        </summary>
-                        <p>Once a list is created, click the &quot;Add Item&quot; button at the bottom of the list card. The new item&apos;s title will start in edit mode.</p>
-                      </details>
-
-                      <details className="group">
-                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
-                          Scanning Lists/Items
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                        </summary>
-                        <p>Click the &quot;Scan&quot; button. Use your device camera to take a picture of handwriting, printed text, or physical items. The AI will attempt to identify a title for the list and extract items. If no clear list is found, it will try to identify objects in the image and list them. The captured image is saved and can be viewed via the list&apos;s three-dot menu (&quot;View Scan&quot; option).</p>
-                      </details>
-
-                      <details className="group">
-                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
-                          Autogenerating Items
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                        </summary>
-                        <p>Use the &quot;Autogenerate&quot; button at the bottom of a list card or the &quot;Autogenerate Items&quot; option in the list&apos;s three-dot menu. The AI will suggest new items based on the list&apos;s title and existing items.</p>
-                      </details>
-
-                      <details className="group">
-                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
-                          Managing Lists & Items
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                        </summary>
-                        <ul className="list-disc pl-5 space-y-1">
-                          <li><strong>Edit Titles:</strong> Click directly on a list or item title to edit it.</li>
-                          <li><strong>Complete:</strong> Use the checkboxes to mark lists or items as complete.</li>
-                          <li><strong>Delete:</strong> Use the three-dot menu on list cards or items for deletion.</li>
-                        </ul>
-                      </details>
-
-                      <details className="group">
-                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
-                          Completed Lists
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                        </summary>
-                        <p>Completed lists are moved to a collapsible &quot;Completed&quot; section at the bottom of the page. Expand this section to view them.</p>
-                      </details>
-                       <details className="group">
-                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
-                          User Accounts
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
-                        </summary>
-                        <p>Sign in with Google (if Firebase is configured) to save your lists and access them across devices. Use the menu icon (top-right) to sign out or view your account.</p>
-                      </details>
-                    </div>
-                    <DialogFooter className="mt-4">
-                      <DialogClose asChild>
-                        <Button type="button" variant="outline">Close</Button>
-                      </DialogClose>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
                 {firebaseReady && currentUser && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -547,6 +471,11 @@ export default function Home() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
+                        <HelpCircle className="mr-2 h-4 w-4" />
+                        <span>Help</span>
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut}>
                         <LogOut className="mr-2 h-4 w-4" />
@@ -595,9 +524,59 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
+        <DialogContent className="sm:max-w-md md:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>ListBot Help</DialogTitle>
+            <DialogDescription>
+              Learn about ListBot&apos;s features and how to use them effectively.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-2">
+            <div>
+              <h4 className="font-semibold mb-0.5">Creating Lists</h4>
+              <p>Click the &quot;Add&quot; button to create a new list. The title will be in edit mode, allowing you to name your list immediately.</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-0.5">Adding Items</h4>
+              <p>Once a list is created, click &quot;Add Item&quot; at the bottom of its card. The new item&apos;s title will start in edit mode.</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-0.5">Scanning Lists/Items</h4>
+              <p>Click &quot;Scan.&quot; Use your camera to take a picture of handwriting, printed text, or physical items. The AI will create a list. Scanned images can be viewed via the list&apos;s menu (&quot;View Scan&quot; option).</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-0.5">Autogenerating Items</h4>
+              <p>Use the &quot;Autogenerate&quot; button on a list card or the &quot;Autogenerate Items&quot; menu option. The AI suggests new items based on the list&apos;s title and existing content.</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-0.5">Managing Lists & Items</h4>
+              <ul className="list-disc pl-5 space-y-1 mt-1">
+                <li><strong>Edit Titles:</strong> Click a list or item title to edit.</li>
+                <li><strong>Complete:</strong> Use checkboxes to mark lists/items complete.</li>
+                <li><strong>Delete:</strong> Use the three-dot menu for deletion.</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-0.5">Completed Lists</h4>
+              <p>Completed lists are moved to a collapsible &quot;Completed&quot; section. Expand this to view them.</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-0.5">User Accounts</h4>
+              <p>Sign in with Google to save and sync your lists. Use the top-right menu for account actions like signing out or accessing this help screen.</p>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
     
 
     
+
