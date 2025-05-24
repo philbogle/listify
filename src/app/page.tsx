@@ -62,7 +62,8 @@ export default function Home() {
     manageSubitems,
   } = useLists();
 
-  console.log(`[Home Component Render] isLoading: ${isLoading}, isLoadingCompleted: ${isLoadingCompleted}, hasFetchedCompleted: ${hasFetchedCompleted}, activeLists: ${activeLists.length}, completedLists: ${completedLists.length}, currentUser: ${!!currentUser}`); // DEBUG LOG
+  // DEBUG LOG (Removed)
+  // console.log(`[Home Component Render] isLoading: ${isLoading}, isLoadingCompleted: ${isLoadingCompleted}, hasFetchedCompleted: ${hasFetchedCompleted}, activeLists: ${activeLists.length}, completedLists: ${completedLists.length}, currentUser: ${!!currentUser}`);
 
 
   const [firebaseReady, setFirebaseReady] = useState(false);
@@ -310,7 +311,8 @@ export default function Home() {
                     Completed ({completedLists.length > 0 ? completedLists.length : (hasFetchedCompleted ? '0' : '...')})
                 </AccordionTrigger>
                 <AccordionContent>
-                    {console.log(`[Page] Rendering AccordionContent: isLoadingCompleted=${isLoadingCompleted}, completedListsLength=${completedLists.length}, hasFetchedCompleted=${hasFetchedCompleted}`)} {/* DEBUG LOG */}
+                    {/* DEBUG LOG (Removed) */}
+                    {/* console.log(`[Page] Rendering AccordionContent: isLoadingCompleted=${isLoadingCompleted}, completedListsLength=${completedLists.length}, hasFetchedCompleted=${hasFetchedCompleted}`); */}
                     {isLoadingCompleted ? (
                         <div className="flex justify-center items-center py-10">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
