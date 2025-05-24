@@ -30,7 +30,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -79,6 +79,8 @@ export default function Home() {
 
   const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
   const [viewingScanUrl, setViewingScanUrl] = useState<string | null>(null);
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
@@ -451,6 +453,87 @@ export default function Home() {
                       )}
                     </DialogFooter>
                     <canvas ref={canvasRef} className="hidden"></canvas>
+                  </DialogContent>
+                </Dialog>
+                
+                <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Help">
+                      <HelpCircle className="h-5 w-5" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md md:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>ListBot Help</DialogTitle>
+                      <DialogDescription>
+                        Learn about ListBot&apos;s features and how to use them effectively.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-4 text-sm max-h-[60vh] overflow-y-auto pr-2">
+                      <details open className="group">
+                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
+                          Creating Lists
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                        </summary>
+                        <p>Click the &quot;Add&quot; button in the header to create a new list. The title will be in edit mode immediately, allowing you to name your list.</p>
+                      </details>
+
+                      <details className="group">
+                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
+                          Adding Items
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                        </summary>
+                        <p>Once a list is created, click the &quot;Add Item&quot; button at the bottom of the list card. The new item&apos;s title will start in edit mode.</p>
+                      </details>
+
+                      <details className="group">
+                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
+                          Scanning Lists/Items
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                        </summary>
+                        <p>Click the &quot;Scan&quot; button. Use your device camera to take a picture of handwriting, printed text, or physical items. The AI will attempt to identify a title for the list and extract items. If no clear list is found, it will try to identify objects in the image and list them. The captured image is saved and can be viewed via the list&apos;s three-dot menu (&quot;View Scan&quot; option).</p>
+                      </details>
+
+                      <details className="group">
+                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
+                          Autogenerating Items
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                        </summary>
+                        <p>Use the &quot;Autogenerate&quot; button at the bottom of a list card or the &quot;Autogenerate Items&quot; option in the list&apos;s three-dot menu. The AI will suggest new items based on the list&apos;s title and existing items.</p>
+                      </details>
+
+                      <details className="group">
+                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
+                          Managing Lists & Items
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                        </summary>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li><strong>Edit Titles:</strong> Click directly on a list or item title to edit it.</li>
+                          <li><strong>Complete:</strong> Use the checkboxes to mark lists or items as complete.</li>
+                          <li><strong>Delete:</strong> Use the three-dot menu on list cards or items for deletion.</li>
+                        </ul>
+                      </details>
+
+                      <details className="group">
+                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
+                          Completed Lists
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                        </summary>
+                        <p>Completed lists are moved to a collapsible &quot;Completed&quot; section at the bottom of the page. Expand this section to view them.</p>
+                      </details>
+                       <details className="group">
+                        <summary className="font-semibold cursor-pointer list-none flex items-center justify-between group-open:mb-1">
+                          User Accounts
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                        </summary>
+                        <p>Sign in with Google (if Firebase is configured) to save your lists and access them across devices. Use the menu icon (top-right) to sign out or view your account.</p>
+                      </details>
+                    </div>
+                    <DialogFooter className="mt-4">
+                      <DialogClose asChild>
+                        <Button type="button" variant="outline">Close</Button>
+                      </DialogClose>
+                    </DialogFooter>
                   </DialogContent>
                 </Dialog>
 
