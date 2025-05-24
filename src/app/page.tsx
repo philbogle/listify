@@ -23,6 +23,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
@@ -33,7 +39,6 @@ import { useToast } from "@/hooks/use-toast";
 import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
 import type { User } from "firebase/auth";
 
-
 const fileToDataUri = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -43,9 +48,21 @@ const fileToDataUri = (file: File): Promise<string> =>
   });
 
 export default function Home() {
-  const { lists, isLoading, addList, updateList, deleteList, manageSubitems, currentUser } = useLists();
-  const [firebaseReady, setFirebaseReady] = useState(false);
+  const {
+    activeLists,
+    completedLists,
+    isLoading,
+    isLoadingCompleted,
+    hasFetchedCompleted,
+    currentUser,
+    fetchCompletedListsIfNeeded,
+    addList,
+    updateList,
+    deleteList,
+    manageSubitems,
+  } = useLists();
 
+  const [firebaseReady, setFirebaseReady] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [capturedImageFile, setCapturedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -59,10 +76,8 @@ export default function Home() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [listToFocusId, setListToFocusId] = useState<string | null>(null);
 
-  // State for View Scan Dialog
   const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
   const [viewingScanUrl, setViewingScanUrl] = useState<string | null>(null);
-
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
@@ -110,13 +125,12 @@ export default function Home() {
     };
   }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast, currentUser, imagePreviewUrl]);
 
-
   const handleAddNewList = async () => {
     if (!currentUser && firebaseReady) {
       toast({ title: "Please Sign In", description: "You need to be signed in to add lists.", variant: "destructive"});
       return;
     }
-    const newList = await addList({ title: "Untitled List" }); // Pass undefined for image file
+    const newList = await addList({ title: "Untitled List" });
     if (newList && newList.id) {
       setListToFocusId(newList.id);
     }
@@ -151,48 +165,46 @@ export default function Home() {
 
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list")) {
           toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
-          setCapturedImageFile(null);
-          setImagePreviewUrl(null);
-          setHasCameraPermission(null);
-          setIsProcessingImage(false);
-          setIsImportDialogOpen(false);
-          return;
-        }
-        
-        const newParentList = await addList({ title: parentTitle }, currentImageFile);
-
-        if (newParentList && newParentList.id) {
-          if (result.extractedSubitems && result.extractedSubitems.length > 0) {
-            const subitemsToAdd: Subitem[] = result.extractedSubitems
-              .filter(si => si.title && si.title.trim() !== "")
-              .map(si => ({
-                id: crypto.randomUUID(),
-                title: si.title.trim(),
-                completed: false,
-              }));
-
-            if (subitemsToAdd.length > 0) {
-              await manageSubitems(newParentList.id, subitemsToAdd);
-            }
-          }
         } else {
-           toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
+          const newParentList = await addList({ title: parentTitle }, currentImageFile);
+          if (newParentList && newParentList.id) {
+            if (result.extractedSubitems && result.extractedSubitems.length > 0) {
+              const subitemsToAdd: Subitem[] = result.extractedSubitems
+                .filter(si => si.title && si.title.trim() !== "")
+                .map(si => ({
+                  id: crypto.randomUUID(),
+                  title: si.title.trim(),
+                  completed: false,
+                }));
+
+              if (subitemsToAdd.length > 0) {
+                await manageSubitems(newParentList.id, subitemsToAdd);
+              }
+            }
+             toast({ title: "List Imported", description: `"${parentTitle}" imported with ${result.extractedSubitems.length} items.`, variant: "default" });
+          } else {
+             toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
+          }
         }
       } else {
          toast({ title: "Import Failed", description: "Could not extract any information from the image.", variant: "destructive" });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error extracting list from image:", error);
-      toast({ title: "Import Error", description: "An unexpected error occurred while processing the image.", variant: "destructive" });
+      let errorMsg = "An unexpected error occurred while processing the image.";
+      if (error.message && error.message.includes("GEMINI_API_KEY")) {
+        errorMsg = "AI processing failed. Check API key configuration.";
+      }
+      toast({ title: "Import Error", description: errorMsg, variant: "destructive" });
     } finally {
       setIsProcessingImage(false);
       setCapturedImageFile(null);
       setImagePreviewUrl(null);
       setHasCameraPermission(null);
       setIsImportDialogOpen(false);
+      stopCameraStream();
     }
   };
-
 
   const handleCaptureImage = async () => {
     if (!videoRef.current || !canvasRef.current || !stream) return;
@@ -216,30 +228,19 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
+        // Hide camera view after capture by stopping the stream
+        stopCameraStream();
+        setHasCameraPermission(true); // Keep permission state true, but stream is stopped
       }
       setIsCapturing(false);
-      // Automatic extraction after capture
-      if (blob) { // ensure blob is not null before proceeding
-        handleExtractList();
-      }
     }, 'image/jpeg', 0.9);
   };
-
-
-  const resetImportDialogOnlyUI = useCallback(() => {
-    setCapturedImageFile(null);
-    setImagePreviewUrl(null);
-    setHasCameraPermission(null);
-    setIsImportDialogOpen(false);
-  }, []);
-
 
   const handleRetakePhoto = () => {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null);
+    setHasCameraPermission(null); // This will trigger the camera permission check again
   }
-
 
   const handleSignIn = async () => {
     await signInWithGoogle();
@@ -254,41 +255,8 @@ export default function Home() {
     setIsViewScanDialogOpen(true);
   };
 
-  const renderLists = () => {
-    if (isLoading) {
-      return Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
-          <div className="flex items-center space-x-3 mb-3">
-            <Skeleton className="h-6 w-6 rounded-full" />
-            <Skeleton className="h-6 w-4/5" />
-          </div>
-          <Skeleton className="h-4 w-full mb-2" />
-          <Skeleton className="h-4 w-3/4" />
-          <div className="mt-4 space-y-2">
-            <Skeleton className="h-8 w-full" />
-          </div>
-        </div>
-      ));
-    }
-    
-    if (!currentUser && firebaseReady) {
-      return (
-        <div className="text-center py-10">
-          {/* This block is effectively handled by the main conditional rendering below */}
-        </div>
-      );
-    }
-    
-    if (lists.length === 0 && (!isLoading || (currentUser && !isLoading))) {
-      return (
-        <div className="text-center py-10">
-          <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">No lists yet. Add one or scan a list to get started!</p>
-        </div>
-      );
-    }
-
-    return lists.map((list) => (
+  const renderListCards = (listsToRender: List[]) => {
+    return listsToRender.map((list) => (
       <ListCard
         key={list.id}
         list={list}
@@ -303,9 +271,63 @@ export default function Home() {
     ));
   };
 
+  const renderActiveLists = () => {
+    if (isLoading) {
+      return Array.from({ length: 2 }).map((_, index) => (
+        <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
+          <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
+          <Skeleton className="h-6 w-4/5 inline-block" />
+          <div className="mt-4 space-y-2">
+            <Skeleton className="h-8 w-full" />
+          </div>
+        </div>
+      ));
+    }
+    if (activeLists.length === 0 && (!isLoading || (currentUser && !isLoading))) {
+      return (
+        <div className="text-center py-10">
+          <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">No active lists. Add one or scan a list to get started!</p>
+        </div>
+      );
+    }
+    return renderListCards(activeLists);
+  };
+
+  const renderCompletedListSection = () => {
+    if (!currentUser && firebaseReady) return null; // Don't show if not logged in
+
+    return (
+        <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
+            if (value === "completed-lists") {
+                fetchCompletedListsIfNeeded();
+            }
+        }}>
+            <AccordionItem value="completed-lists">
+                <AccordionTrigger className="text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                    Completed ({completedLists.length > 0 ? completedLists.length : (hasFetchedCompleted ? '0' : '...')})
+                </AccordionTrigger>
+                <AccordionContent>
+                    {isLoadingCompleted ? (
+                        <div className="flex justify-center items-center py-10">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : completedLists.length === 0 && hasFetchedCompleted ? (
+                        <p className="text-muted-foreground text-center py-6">No completed lists yet.</p>
+                    ) : (
+                        <div className="space-y-4 pt-4">
+                            {renderListCards(completedLists)}
+                        </div>
+                    )}
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    );
+  }
+
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      
       {!currentUser && !isLoading && firebaseReady && (
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
@@ -316,7 +338,6 @@ export default function Home() {
           </Button>
         </div>
       )}
-
 
       {!firebaseReady && !isLoading && (
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
@@ -350,7 +371,7 @@ export default function Home() {
                   if (!isOpen) {
                     if (stream && !capturedImageFile) {
                         stopCameraStream();
-                        setHasCameraPermission(null);
+                        setHasCameraPermission(null); // Reset camera permission state
                     }
                   }
                 }}>
@@ -374,12 +395,13 @@ export default function Home() {
                           <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-muted flex items-center justify-center">
                             <video
                               ref={videoRef}
-                              className={`w-full h-full object-cover ${!stream ? 'hidden' : ''}`}
+                              className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                               autoPlay
                               playsInline
                               muted
                             />
-                            {hasCameraPermission === false && (
+                             {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                             {hasCameraPermission === false && (
                               <Alert variant="destructive" className="m-4">
                                 <AlertTriangle className="h-4 w-4" />
                                 <AlertTitle>Camera Access Denied</AlertTitle>
@@ -388,13 +410,12 @@ export default function Home() {
                                 </AlertDescription>
                               </Alert>
                             )}
-                            {hasCameraPermission === null && !stream && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
                           </div>
                         )}
                         
                         {!imagePreviewUrl && stream && hasCameraPermission && (
                           <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
-                            {isCapturing || isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                            {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
                             {isCapturing ? "Capturing..." : "Capture Photo"}
                           </Button>
                         )}
@@ -453,13 +474,17 @@ export default function Home() {
             </div>
 
             <div className="space-y-4">
-              {renderLists()}
+              {renderActiveLists()}
             </div>
           </section>
+           { (firebaseReady && currentUser || !firebaseReady) && (
+             <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
+                {renderCompletedListSection()}
+            </section>
+           )}
         </main>
       )}
 
-      {/* Dialog for Viewing Scan */}
       <Dialog open={isViewScanDialogOpen} onOpenChange={setIsViewScanDialogOpen}>
         <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
           <DialogHeader>
@@ -470,8 +495,8 @@ export default function Home() {
               <Image
                 src={viewingScanUrl}
                 alt="Scanned list image"
-                width={600} 
-                height={800} 
+                width={600}
+                height={800}
                 style={{ objectFit: 'contain', maxHeight: 'calc(80vh - 100px)', width: 'auto' }}
                 data-ai-hint="document scan"
               />
