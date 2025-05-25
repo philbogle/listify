@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 interface ListCardProps {
   list: List;
   onUpdateList: (listId: string, updates: Partial<List>) => Promise<void>;
-  onDeleteList: (listId: string) => Promise<void>;
+  onDeleteListRequested: (listId: string) => void; // Changed from onDeleteList
   onManageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
   startInEditMode?: boolean;
   onInitialEditDone?: (listId: string) => void;
@@ -33,7 +33,7 @@ interface ListCardProps {
   onDeleteCompletedItemsRequested: (listId: string) => void;
 }
 
-const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone, toast, onViewScan, onDeleteCompletedItemsRequested }) => {
+const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested, onManageSubitems, startInEditMode = false, onInitialEditDone, toast, onViewScan, onDeleteCompletedItemsRequested }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -110,7 +110,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   const handleCancelEdit = () => {
     if (list.title === "Untitled List" && editedTitle === "Untitled List" && startInEditMode) {
-        onDeleteList(list.id);
+        onDeleteListRequested(list.id); // Use onDeleteListRequested
     } else {
         setEditedTitle(list.title);
     }
@@ -121,7 +121,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
     let titleToSave = editedTitle.trim();
     if (titleToSave === "") {
         if (list.title === "Untitled List" && startInEditMode) {
-            onDeleteList(list.id);
+            onDeleteListRequested(list.id); // Use onDeleteListRequested
             setIsEditing(false);
             return;
         }
@@ -274,9 +274,10 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                   Delete Completed Items
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => onDeleteList(list.id)}
+                  onClick={() => onDeleteListRequested(list.id)} // Changed from onDeleteList
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                 >
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Delete List
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -336,3 +337,4 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
+

@@ -94,6 +94,9 @@ export default function Home() {
   const [isConfirmDeleteCompletedOpen, setIsConfirmDeleteCompletedOpen] = useState(false);
   const [listToDeleteCompletedFrom, setListToDeleteCompletedFrom] = useState<List | null>(null);
 
+  const [isConfirmDeleteListOpen, setIsConfirmDeleteListOpen] = useState(false);
+  const [listToDeleteId, setListToDeleteId] = useState<string | null>(null);
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
@@ -287,9 +290,27 @@ export default function Home() {
     const remainingSubitems = listToDeleteCompletedFrom.subitems.filter(si => !si.completed);
     await manageSubitems(listToDeleteCompletedFrom.id, remainingSubitems);
     
-    // Toast removed
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
+  };
+
+  const handleDeleteListRequested = (listId: string) => {
+    setListToDeleteId(listId);
+    setIsConfirmDeleteListOpen(true);
+  };
+
+  const handleConfirmDeleteList = async () => {
+    if (listToDeleteId) {
+      await deleteList(listToDeleteId);
+    }
+    setIsConfirmDeleteListOpen(false);
+    setListToDeleteId(null);
+  };
+
+  const getListTitleForDialog = (listId: string | null): string => {
+    if (!listId) return "this list";
+    const list = activeLists.find(l => l.id === listId) || completedLists.find(l => l.id === listId);
+    return list?.title || "this list";
   };
 
 
@@ -299,7 +320,7 @@ export default function Home() {
         key={list.id}
         list={list}
         onUpdateList={updateList}
-        onDeleteList={deleteList}
+        onDeleteListRequested={handleDeleteListRequested}
         onManageSubitems={manageSubitems}
         startInEditMode={list.id === listToFocusId}
         onInitialEditDone={handleInitialEditDone}
@@ -619,6 +640,22 @@ export default function Home() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setListToDeleteCompletedFrom(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDeleteCompletedItems}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isConfirmDeleteListOpen} onOpenChange={setIsConfirmDeleteListOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete List?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the list &quot;{getListTitleForDialog(listToDeleteId)}&quot;?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setListToDeleteId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteList}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
