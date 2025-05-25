@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger, // Ensured import
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger as DropdownMenuTriggerComponent, // aliasing to avoid potential name collision if needed, though not strictly necessary here
+  DropdownMenuTrigger as DropdownMenuTriggerComponent,
 } from "@/components/ui/dropdown-menu";
 import {
   Accordion,
@@ -30,7 +30,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown } from "lucide-react"; // Ensured ChevronDown
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -174,31 +174,25 @@ export default function Home() {
 
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
+        const newParentList = await addList({ title: parentTitle }, currentImageFile);
 
-        if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list") || parentTitle.toLowerCase().includes("unrecognized image content")) {
-           if (parentTitle.toLowerCase().includes("unrecognized image content") || parentTitle.toLowerCase().includes("no actionable content found")) {
-              toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
-           }
-        } else {
-          const newParentList = await addList({ title: parentTitle }, currentImageFile);
-          if (newParentList && newParentList.id) {
-            setListToFocusId(newParentList.id); 
-            if (result.extractedSubitems && result.extractedSubitems.length > 0) {
-              const subitemsToAdd: Subitem[] = result.extractedSubitems
-                .filter(si => si.title && si.title.trim() !== "")
-                .map(si => ({
-                  id: crypto.randomUUID(),
-                  title: si.title.trim(),
-                  completed: false,
-                }));
+        if (newParentList && newParentList.id) {
+          setListToFocusId(newParentList.id); 
+          if (result.extractedSubitems && result.extractedSubitems.length > 0) {
+            const subitemsToAdd: Subitem[] = result.extractedSubitems
+              .filter(si => si.title && si.title.trim() !== "")
+              .map(si => ({
+                id: crypto.randomUUID(),
+                title: si.title.trim(),
+                completed: false,
+              }));
 
-              if (subitemsToAdd.length > 0) {
-                await manageSubitems(newParentList.id, subitemsToAdd);
-              }
+            if (subitemsToAdd.length > 0) {
+              await manageSubitems(newParentList.id, subitemsToAdd);
             }
-          } else {
-             toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
           }
+        } else {
+            toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
         }
       } else {
          toast({ title: "Import Failed", description: "Could not extract any information from the image.", variant: "destructive" });
@@ -239,7 +233,6 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        // stopCameraStream(); // Keep stream active, only hide video player
         setHasCameraPermission(true); 
       }
       setIsCapturing(false);
@@ -249,7 +242,7 @@ export default function Home() {
   const handleRetakePhoto = () => {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null); // This will re-trigger camera permission request and stream
+    setHasCameraPermission(null); 
   }
 
   const handleSignIn = async () => {
@@ -363,9 +356,9 @@ export default function Home() {
       )}
 
       {(firebaseReady && currentUser || !firebaseReady) && (
-        <main className="w-full max-w-2xl mt-4">
+        <main className="w-full max-w-2xl">
           <section aria-labelledby="list-heading">
-            <div className="flex justify-between items-center mb-6">
+            <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center mb-6 border-b">
               <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
               <div className="flex items-center space-x-2">
                 <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
@@ -445,7 +438,7 @@ export default function Home() {
                     <DialogFooter>
                       <DialogClose asChild>
                         <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                            stopCameraStream(); // Ensure stream is stopped
+                            stopCameraStream(); 
                             setCapturedImageFile(null);
                             setImagePreviewUrl(null);
                             setHasCameraPermission(null);
@@ -581,5 +574,7 @@ export default function Home() {
 
     
 
+
+    
 
     
