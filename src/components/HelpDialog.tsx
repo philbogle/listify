@@ -81,9 +81,6 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
                   <li><strong>Data Storage:</strong> List data and user authentication are handled by Firebase (Firestore and Firebase Authentication). Scanned images are stored in Firebase Storage.</li>
                   <li><strong>Development:</strong> This application was primarily developed with AI assistance from Firebase Studio&apos;s App Prototyper.</li>
                 </ul>
-                 <p className="pt-1">
-                  The app is hosted on Firebase App Hosting.
-                </p>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
