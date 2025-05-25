@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface SubitemProps {
   subitem: Subitem;
@@ -23,13 +24,13 @@ interface SubitemProps {
   onUpdateTitle: (subitemId: string, newTitle: string) => void;
   startInEditMode?: boolean;
   onInitialEditDone?: (subitemId: string) => void;
+  isHighlighted?: boolean;
 }
 
-const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
+const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone, isHighlighted = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const [menuIsVisible, setMenuIsVisible] = useState(false); // Keep for potential future use if reverting menu logic
 
   useEffect(() => {
     if (startInEditMode) {
@@ -44,24 +45,25 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      titleInputRef.current.select();
+      requestAnimationFrame(() => {
+        titleInputRef.current?.focus();
+        titleInputRef.current?.select();
+      });
     }
   }, [isEditing]);
 
   const handleStartEdit = () => {
     setEditedTitle(subitem.title);
     setIsEditing(true);
-    setMenuIsVisible(false);
   };
 
   const handleUpdateTitle = () => {
     const trimmedTitle = editedTitle.trim();
     if (trimmedTitle === "" && subitem.title === "Untitled Item" && startInEditMode) {
-        onDelete(subitem.id); // Delete if it was an "Untitled Item" and left blank
+        onDelete(subitem.id); 
     } else if (trimmedTitle !== "" && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
     } else if (trimmedTitle === "" && subitem.title !== "Untitled Item") {
-      // If user clears a previously non-empty, non-default title, revert to original
       setEditedTitle(subitem.title);
     }
     setIsEditing(false);
@@ -79,7 +81,10 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 
   return (
     <div
-      className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group"
+      className={cn(
+        "flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group",
+        isHighlighted && "animate-item-appear"
+      )}
     >
       <Checkbox
         id={`subitem-${subitem.id}`}
@@ -105,14 +110,13 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           <span
             className={`block text-sm truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
             title={subitem.title}
-            onClick={handleStartEdit} // Allow direct click on title to edit (restoring this behavior)
+            onClick={handleStartEdit} 
           >
             {subitem.title}
           </span>
         )}
       </div>
 
-      {/* Controls section: ... menu or Save/Cancel for editing */}
       <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         {isEditing ? (
           <>
@@ -124,7 +128,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             </Button>
           </>
         ) : (
-            <DropdownMenu onOpenChange={(open) => setMenuIsVisible(open)}>
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options for subitem" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="h-4 w-4" />

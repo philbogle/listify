@@ -38,6 +38,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
   const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
+  const [highlightedItemIds, setHighlightedItemIds] = useState<string[]>([]);
 
 
   useEffect(() => {
@@ -48,7 +49,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      requestAnimationFrame(() => { // Delays focus/select to ensure input is rendered and focusable
+      requestAnimationFrame(() => { 
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
       });
@@ -57,7 +58,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing]); // Removed startInEditMode from deps, as it's handled by the first useEffect
+  }, [isEditing, startInEditMode]); 
 
 
   const handleToggleComplete = (completed: boolean) => {
@@ -145,8 +146,13 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
           title: title.trim(),
           completed: false,
         }));
+        const newIds = newSubitems.map(item => item.id);
+        setHighlightedItemIds(newIds);
         await onManageSubitems(list.id, [...list.subitems, ...newSubitems]);
-         toast({ title: "Items Generated", description: `${newSubitems.length} new items added to "${list.title}".` });
+        // toast({ title: "Items Generated", description: `${newSubitems.length} new items added to "${list.title}".` }); // Toast removed
+        setTimeout(() => {
+          setHighlightedItemIds([]);
+        }, 2000); // Duration for the highlight animation + buffer
       } else if (result && result.newSubitemTitles && result.newSubitemTitles.length === 0){
         toast({
             title: "No New Items",
@@ -160,11 +166,19 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
             variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error autogenerating items:", error);
+      let errorMsg = "An error occurred while trying to generate items.";
+      if (error.message && error.message.includes("GEMINI_API_KEY")) {
+        errorMsg = "AI processing failed. Check API key configuration.";
+      } else if (error.message && error.message.includes("Please pass in the API key")) {
+        errorMsg = "AI processing failed. API key might be missing or invalid in your production environment.";
+      } else if (error.message) {
+        errorMsg = `AI processing error: ${error.message.substring(0,100)}${error.message.length > 100 ? '...' : ''}`;
+      }
       toast({
         title: "AI Error",
-        description: "An error occurred while trying to generate items. Check console for details.",
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {
@@ -178,7 +192,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
       className={cn(
         "mb-4 shadow-lg origin-center transition-all duration-300 ease-in-out transform",
         list.completed ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75" : "bg-card scale-100 opacity-100",
-        startInEditMode && "animate-list-card-enter" // Apply animation if newly added
+        startInEditMode && "animate-list-card-enter" 
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -273,6 +287,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                   onUpdateTitle={handleUpdateSubitemTitle}
                   startInEditMode={subitem.id === subitemToFocusId}
                   onInitialEditDone={handleSubitemInitialEditDone}
+                  isHighlighted={highlightedItemIds.includes(subitem.id)}
                 />
               ))}
             </div>
@@ -310,4 +325,3 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
-
