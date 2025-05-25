@@ -52,7 +52,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      requestAnimationFrame(() => { 
+      requestAnimationFrame(() => {
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
       });
@@ -61,7 +61,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, startInEditMode]); 
+  }, [isEditing, startInEditMode]);
 
 
   const handleToggleListComplete = (completed: boolean) => {
@@ -110,7 +110,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
 
   const handleCancelEdit = () => {
     if (list.title === "Untitled List" && editedTitle === "Untitled List" && startInEditMode) {
-        onDeleteListRequested(list.id); 
+        onDeleteListRequested(list.id);
     } else {
         setEditedTitle(list.title);
     }
@@ -121,11 +121,11 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
     let titleToSave = editedTitle.trim();
     if (titleToSave === "") {
         if (list.title === "Untitled List" && startInEditMode) {
-            onDeleteListRequested(list.id); 
+            onDeleteListRequested(list.id);
             setIsEditing(false);
             return;
         }
-        titleToSave = list.title || "Untitled List"; 
+        titleToSave = list.title || "Untitled List";
         setEditedTitle(titleToSave);
     }
     await onUpdateList(list.id, {
@@ -142,7 +142,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
         existingSubitemTitles: list.subitems.map(si => si.title),
       };
       const result = await generateSubitemsForList(input);
-      
+
       if (result && result.newSubitemTitles && result.newSubitemTitles.length > 0) {
         const newSubitems: Subitem[] = result.newSubitemTitles.map(title => ({
           id: crypto.randomUUID(),
@@ -152,10 +152,10 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
         const newIds = newSubitems.map(item => item.id);
         setHighlightedItemIds(newIds);
         await onManageSubitems(list.id, [...list.subitems, ...newSubitems]);
-        
+
         setTimeout(() => {
           setHighlightedItemIds([]);
-        }, 2000); 
+        }, 2000);
       } else if (result && result.newSubitemTitles && result.newSubitemTitles.length === 0){
         // No toast for this case
       } else {
@@ -187,11 +187,15 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
 
 
   return (
-    <Card 
+    <Card
       className={cn(
-        "mb-4 shadow-lg origin-center transition-all duration-300 ease-in-out transform",
-        list.completed ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75" : "bg-card scale-100 opacity-100",
-        startInEditMode && "animate-list-card-enter" 
+        "mb-4 shadow-lg origin-center transform", // Base layout, transform enabling
+        list.completed
+          ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
+          : "bg-card scale-100 opacity-100", // Conditional styles based on completion
+        startInEditMode
+          ? "animate-list-card-enter" // Entry animation if startInEditMode
+          : "transition-all duration-300 ease-in-out" // Regular transitions otherwise
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -210,7 +214,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
-                autoFocus={startInEditMode} 
+                autoFocus={startInEditMode}
                 onBlur={handleSaveEdit}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
               />
@@ -274,7 +278,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                   Delete Completed Items
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => onDeleteListRequested(list.id)} 
+                  onClick={() => onDeleteListRequested(list.id)}
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -314,11 +318,11 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
               <Plus className="h-4 w-4 mr-2" />
               Add Item
             </Button>
-            <Button 
-              onClick={handleAutogenerateItems} 
-              variant="outline" 
-              size="sm" 
-              className="flex-1" 
+            <Button
+              onClick={handleAutogenerateItems}
+              variant="outline"
+              size="sm"
+              className="flex-1"
               aria-label="Autogenerate items"
               disabled={isGeneratingItems || list.completed}
             >
