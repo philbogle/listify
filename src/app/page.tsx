@@ -155,6 +155,14 @@ export default function Home() {
     }
   };
 
+  const handleOpenScanDialog = () => {
+    if (firebaseReady && !currentUser) {
+      toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
+      return;
+    }
+    setIsImportDialogOpen(true);
+  };
+
   const handleInitialEditDone = (listId: string) => {
     if (listId === listToFocusId) {
       setListToFocusId(null);
@@ -193,7 +201,7 @@ export default function Home() {
         const newParentList = await addList({ title: parentTitle }, currentImageFile);
         
         if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id); // For animation
+          setListToFocusId(newParentList.id); 
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -422,11 +430,6 @@ export default function Home() {
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
-                if (firebaseReady && !currentUser && isOpen) {
-                  toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
-                  setIsImportDialogOpen(false);
-                  return;
-                }
                 setIsImportDialogOpen(isOpen);
                 if (!isOpen) { 
                   if (stream && !capturedImageFile) { 
@@ -436,7 +439,7 @@ export default function Home() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" disabled={firebaseReady && !currentUser && !isLoading}>
+                  <Button variant="outline" onClick={handleOpenScanDialog} disabled={firebaseReady && !currentUser && !isLoading}>
                     <Camera className="mr-2 h-4 w-4" />
                     Scan
                   </Button>
@@ -523,6 +526,13 @@ export default function Home() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                     <DropdownMenuItem onClick={handleAddNewList} disabled={!currentUser && firebaseReady}>
+                      <Plus className="mr-2 h-4 w-4" /> Add List
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleOpenScanDialog} disabled={!currentUser && firebaseReady}>
+                      <Camera className="mr-2 h-4 w-4" /> Scan List
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
                       <HelpCircle className="mr-2 h-4 w-4" />
                       <span>Help</span>
@@ -589,7 +599,7 @@ export default function Home() {
           <div className="mt-4 space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-2">
             <div>
               <h4 className="font-semibold mb-0.5">Creating Lists</h4>
-              <p>Click the &quot;Add&quot; button to create a new list. The title will be in edit mode, allowing you to name your list immediately.</p>
+              <p>Click the &quot;Add&quot; button (or select from the menu) to create a new list. The title will be in edit mode, allowing you to name your list immediately.</p>
             </div>
             <div>
               <h4 className="font-semibold mb-0.5">Adding Items</h4>
@@ -597,7 +607,7 @@ export default function Home() {
             </div>
             <div>
               <h4 className="font-semibold mb-0.5">Scanning Lists/Items</h4>
-              <p>Click &quot;Scan.&quot; Use your camera to take a picture of handwriting, printed text, or physical items. The AI will create a list. Scanned images can be viewed via the list&apos;s menu (&quot;View Scan&quot; option).</p>
+              <p>Click &quot;Scan&quot; (or select from the menu). Use your camera to take a picture of handwriting, printed text, or physical items. The AI will create a list. Scanned images can be viewed via the list&apos;s menu (&quot;View Scan&quot; option).</p>
             </div>
             <div>
               <h4 className="font-semibold mb-0.5">Autogenerating Items</h4>
@@ -607,7 +617,7 @@ export default function Home() {
               <h4 className="font-semibold mb-0.5">Managing Lists & Items</h4>
               <ul className="list-disc pl-5 space-y-1 mt-1">
                 <li><strong>Edit Titles:</strong> Click a list or item title to edit.</li>
-                <li><strong>Complete:</strong> Use checkboxes to mark lists/items complete.</li>
+                <li><strong>Complete:</strong> Use checkboxes to mark lists/items complete. Alternatively, use the menu option.</li>
                 <li><strong>Delete:</strong> Use the three-dot menu for deletion. Options include deleting the entire list or just its completed items.</li>
               </ul>
             </div>
