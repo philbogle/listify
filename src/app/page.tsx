@@ -13,15 +13,25 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger,
+  DialogTrigger, // Ensure DialogTrigger is imported
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger as DropdownMenuTriggerComponent,
+  DropdownMenuTrigger as DropdownMenuTriggerComponent, // Alias to avoid name clash
 } from "@/components/ui/dropdown-menu";
 import {
   Accordion,
@@ -80,6 +90,9 @@ export default function Home() {
   const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
   const [viewingScanUrl, setViewingScanUrl] = useState<string | null>(null);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+
+  const [isConfirmDeleteCompletedOpen, setIsConfirmDeleteCompletedOpen] = useState(false);
+  const [listToDeleteCompletedFrom, setListToDeleteCompletedFrom] = useState<List | null>(null);
 
 
   useEffect(() => {
@@ -177,7 +190,7 @@ export default function Home() {
         const newParentList = await addList({ title: parentTitle }, currentImageFile);
         
         if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id);
+          setListToFocusId(newParentList.id); // For animation
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -258,6 +271,31 @@ export default function Home() {
     setIsViewScanDialogOpen(true);
   };
 
+  const handleDeleteCompletedItemsRequested = (listId: string) => {
+    const list = activeLists.find(l => l.id === listId) || completedLists.find(l => l.id === listId);
+    if (list) {
+      setListToDeleteCompletedFrom(list);
+      setIsConfirmDeleteCompletedOpen(true);
+    } else {
+      toast({title: "Error", description: "Could not find the list to delete completed items from.", variant: "destructive"});
+    }
+  };
+
+  const handleConfirmDeleteCompletedItems = async () => {
+    if (!listToDeleteCompletedFrom) return;
+
+    const remainingSubitems = listToDeleteCompletedFrom.subitems.filter(si => !si.completed);
+    await manageSubitems(listToDeleteCompletedFrom.id, remainingSubitems);
+    
+    toast({
+        title: "Completed Items Deleted",
+        description: `Removed completed items from "${listToDeleteCompletedFrom.title}".`
+    });
+    setIsConfirmDeleteCompletedOpen(false);
+    setListToDeleteCompletedFrom(null);
+  };
+
+
   const renderListCards = (listsToRender: List[]) => {
     return listsToRender.map((list) => (
       <ListCard
@@ -270,6 +308,7 @@ export default function Home() {
         onInitialEditDone={handleInitialEditDone}
         toast={toast}
         onViewScan={handleViewScan}
+        onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
       />
     ));
   };
@@ -482,7 +521,7 @@ export default function Home() {
           </div>
           
           {/* Active Lists Section */}
-          <section aria-labelledby="list-heading" className="pt-6"> {/* Added pt-6 to prevent overlap with sticky header */}
+          <section aria-labelledby="list-heading" className="pt-6">
             <div className="space-y-4">
               {renderActiveLists()}
             </div>
@@ -551,7 +590,7 @@ export default function Home() {
               <ul className="list-disc pl-5 space-y-1 mt-1">
                 <li><strong>Edit Titles:</strong> Click a list or item title to edit.</li>
                 <li><strong>Complete:</strong> Use checkboxes to mark lists/items complete.</li>
-                <li><strong>Delete:</strong> Use the three-dot menu for deletion.</li>
+                <li><strong>Delete:</strong> Use the three-dot menu for deletion. Options include deleting the entire list or just its completed items.</li>
               </ul>
             </div>
             <div>
@@ -570,6 +609,23 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+       <AlertDialog open={isConfirmDeleteCompletedOpen} onOpenChange={setIsConfirmDeleteCompletedOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Completed Items?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete all completed items from the list
+              &quot;{listToDeleteCompletedFrom?.title || "this list"}&quot;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setListToDeleteCompletedFrom(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteCompletedItems}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
@@ -581,5 +637,8 @@ export default function Home() {
     
 
     
+
+    
+
 
     

@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye } from "lucide-react";
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2 } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -30,15 +30,18 @@ interface ListCardProps {
   onInitialEditDone?: (listId: string) => void;
   toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
   onViewScan?: (imageUrl: string) => void;
+  onDeleteCompletedItemsRequested: (listId: string) => void;
 }
 
-const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone, toast, onViewScan }) => {
+const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManageSubitems, startInEditMode = false, onInitialEditDone, toast, onViewScan, onDeleteCompletedItemsRequested }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
   const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
   const [highlightedItemIds, setHighlightedItemIds] = useState<string[]>([]);
+
+  const hasCompletedSubitems = list.subitems.some(si => si.completed);
 
 
   useEffect(() => {
@@ -149,10 +152,10 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
         const newIds = newSubitems.map(item => item.id);
         setHighlightedItemIds(newIds);
         await onManageSubitems(list.id, [...list.subitems, ...newSubitems]);
-        // toast({ title: "Items Generated", description: `${newSubitems.length} new items added to "${list.title}".` }); // Toast removed
+        
         setTimeout(() => {
           setHighlightedItemIds([]);
-        }, 2000); // Duration for the highlight animation + buffer
+        }, 2000); 
       } else if (result && result.newSubitemTitles && result.newSubitemTitles.length === 0){
         toast({
             title: "No New Items",
@@ -262,6 +265,14 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
                   Autogenerate Items
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                 <DropdownMenuItem
+                  onClick={() => onDeleteCompletedItemsRequested(list.id)}
+                  disabled={!hasCompletedSubitems || list.completed}
+                  className={(!hasCompletedSubitems || list.completed) ? "text-muted-foreground" : ""}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Completed Items
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onDeleteList(list.id)}
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
