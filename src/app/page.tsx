@@ -316,7 +316,7 @@ export default function Home() {
             toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
         }
       } else {
-         // No toast for this case, as per user request to remove success toasts
+         // No toast for this case
       }
     } catch (error: any) {
       console.error("Error extracting list from image:", error);
@@ -520,7 +520,7 @@ export default function Home() {
       {!currentUser && !isLoading && firebaseReady && (
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
-          <h1 className="text-2xl font-semibold mb-2">Welcome to ListScan</h1>
+          <h1 className="text-2xl font-semibold mb-2">Welcome to Scandalist</h1>
           <p className="text-muted-foreground mb-2 text-center">An experimental, AI-powered app for scanning, organizing, and completing lists.</p>
            <div className="flex items-center justify-center space-x-6 text-muted-foreground my-4">
             <Camera className="h-10 w-10" />
@@ -733,9 +733,9 @@ export default function Home() {
       <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
         <DialogContent className="sm:max-w-md md:max-w-lg">
           <DialogHeader>
-            <DialogTitle>ListScan Help</DialogTitle>
+            <DialogTitle>Scandalist Help</DialogTitle>
             <DialogDescription>
-              ListScan lets you scan, organize, and complete lists. It is experimental and may be taken down at any time, so please don&apos;t use it for sensitive or important data.
+              Scandalist lets you scan, organize, and complete lists. It is experimental and may be taken down at any time, so please don&apos;t use it for sensitive or important data.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-2">
@@ -815,5 +815,3 @@ export default function Home() {
     </div>
   );
 }
-
-

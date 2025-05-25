@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ListScan - Manage Your Lists Efficiently', // Changed "ListBot" to "ListScan"
-  description: 'ListScan helps you organize your work and life with an intuitive list management system.', // Changed "ListBot" to "ListScan"
+  title: 'Scandalist - Manage Your Lists Efficiently', // Changed "ListScan" to "Scandalist"
+  description: 'Scandalist helps you organize your work and life with an intuitive list management system.', // Changed "ListScan" to "Scandalist"
 };
 
 export default function RootLayout({
