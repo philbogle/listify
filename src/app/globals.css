@@ -97,7 +97,7 @@ body {
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: translateY(0) scale(1) translateZ(0); /* Added translateZ(0) */
     }
   }
   .animate-list-card-enter {
@@ -111,7 +111,7 @@ body {
     }
     to {
       opacity: 1;
-      transform: scale(1);
+      transform: scale(1) translateZ(0); /* Added translateZ(0) */
     }
   }
   .animate-item-appear {
