@@ -463,7 +463,7 @@ export default function Home() {
   const renderActiveLists = () => {
     if (isLoading) {
       return Array.from({ length: 2 }).map((_, index) => (
-        <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card animate-list-card-enter">
+        <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
           <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
           <Skeleton className="h-6 w-4/5 inline-block" />
           <div className="mt-4 space-y-2">
@@ -735,7 +735,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle>ListScan Help</DialogTitle>
             <DialogDescription>
-              Learn about ListScan&apos;s features and how to use them effectively.
+              ListScan lets you scan, organize, and complete lists. It is experimental and may be taken down at any time, so please don&apos;t use it for sensitive or important data.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-2">
@@ -815,3 +815,5 @@ export default function Home() {
     </div>
   );
 }
+
+
