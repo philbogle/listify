@@ -40,7 +40,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown, Sparkles } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -298,7 +298,7 @@ export default function Home() {
         const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess);
 
         if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id);
+          setListToFocusId(newParentList.id); // For animation
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -522,10 +522,10 @@ export default function Home() {
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
           <h1 className="text-2xl font-semibold mb-2">Welcome to ListBot</h1>
           <p className="text-muted-foreground mb-2 text-center">An experimental, AI-powered app for scanning, organizing, and completing lists.</p>
-          <div className="text-4xl mt-4 mb-4 space-x-4">
-            <span>📸</span>
-            <span>📝</span>
-            <span>✨</span>
+           <div className="flex items-center justify-center space-x-6 text-muted-foreground my-4">
+            <Camera className="h-10 w-10" />
+            <ListChecks className="h-10 w-10" />
+            <Sparkles className="h-10 w-10" />
           </div>
           <p className="text-muted-foreground mb-6 text-center">Sign in to manage and sync your lists across devices.</p>
            <Button onClick={handleSignIn} className="mt-4 px-8 py-6 text-lg">
