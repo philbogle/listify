@@ -40,7 +40,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown, Sparkles, Trash2 } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown, Sparkles, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -136,6 +136,7 @@ export default function Home() {
 
   const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
   const [viewingScanUrl, setViewingScanUrl] = useState<string | null>(null);
+  const [scanZoomLevel, setScanZoomLevel] = useState(1);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
 
   const [isConfirmDeleteCompletedOpen, setIsConfirmDeleteCompletedOpen] = useState(false);
@@ -207,7 +208,7 @@ export default function Home() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isImportDialogOpen, currentUser]); // Removed hasCameraPermission, stream, stopCameraStream, imagePreviewUrl from deps to avoid loops with their setters
+  }, [isImportDialogOpen, currentUser]);
 
   const handleAddNewList = async () => {
     if (!currentUser && firebaseReady) {
@@ -250,7 +251,7 @@ export default function Home() {
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
-    if (!capturedImageFile && !imagePreviewUrl) { // Check if there's any image source
+    if (!capturedImageFile && !imagePreviewUrl) { 
         toast({ title: "No Image", description: "Please capture or select an image first.", variant: "destructive" });
         return;
     }
@@ -298,7 +299,7 @@ export default function Home() {
         const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess);
 
         if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id); // For animation
+          setListToFocusId(newParentList.id); 
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -347,7 +348,7 @@ export default function Home() {
       return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stopCameraStream(); // Stop stream after capture
+    stopCameraStream(); 
 
     canvas.toBlob(async (blob) => {
       if (blob) {
@@ -356,7 +357,7 @@ export default function Home() {
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
         setHasCameraPermission(true);
-        resetCropperState(); // Reset crop for new image
+        resetCropperState(); 
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -366,7 +367,7 @@ export default function Home() {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
     resetCropperState();
-    setHasCameraPermission(null); // This will re-trigger getCameraPermission effect if dialog is open
+    setHasCameraPermission(null); 
   }
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -375,10 +376,10 @@ export default function Home() {
     const newCrop = centerCrop(
       makeAspectCrop(
         {
-          unit: '%', // '%' is easier for initial crop
-          width: 90, // Default to 90% width crop
+          unit: '%', 
+          width: 90, 
         },
-        cropAspect || width / height, // Use current aspect or image aspect
+        cropAspect || width / height, 
         width,
         height
       ),
@@ -386,7 +387,7 @@ export default function Home() {
       height
     );
     setCrop(newCrop);
-    setCompletedCrop(undefined); // Reset completed crop when new image loads
+    setCompletedCrop(undefined); 
   }
 
 
@@ -400,6 +401,7 @@ export default function Home() {
 
   const handleViewScan = (imageUrl: string) => {
     setViewingScanUrl(imageUrl);
+    setScanZoomLevel(1); // Reset zoom level when opening a new scan
     setIsViewScanDialogOpen(true);
   };
 
@@ -514,6 +516,9 @@ export default function Home() {
     );
   }
 
+  const handleZoomIn = () => setScanZoomLevel(prev => Math.min(prev + 0.2, 3));
+  const handleZoomOut = () => setScanZoomLevel(prev => Math.max(prev - 0.2, 0.5));
+
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
@@ -610,7 +615,7 @@ export default function Home() {
                       </div>
                     )}
 
-                    {imagePreviewUrl && (
+                    {imagePreviewUrl && !isCapturing && (
                       <div className="space-y-2">
                         <div className="border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
                           <ReactCrop
@@ -647,8 +652,8 @@ export default function Home() {
                           resetCropperState();
                       }}>Cancel</Button>
                     </DialogClose>
-                    { (capturedImageFile || imagePreviewUrl) && (
-                      <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing}>
+                    { (capturedImageFile || imagePreviewUrl) && !isCapturing && (
+                      <Button onClick={handleExtractList} disabled={isProcessingImage}>
                         {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Convert list
                       </Button>
@@ -711,18 +716,33 @@ export default function Home() {
             <DialogTitle>Scanned Image</DialogTitle>
           </DialogHeader>
           {viewingScanUrl && (
-            <div className="mt-4 flex justify-center items-center max-h-[80vh]">
+            <div className="mt-4 flex justify-center items-center max-h-[70vh] overflow-auto bg-muted/10 p-2 rounded-md">
               <Image
                 src={viewingScanUrl}
                 alt="Scanned list image"
-                width={600}
+                width={600} 
                 height={800}
-                style={{ objectFit: 'contain', maxHeight: 'calc(80vh - 100px)', width: 'auto' }}
+                style={{ 
+                  objectFit: 'contain', 
+                  maxHeight: 'calc(70vh - 120px)', // Adjusted for footer space
+                  width: 'auto',
+                  transform: `scale(${scanZoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.2s ease-out'
+                }}
                 data-ai-hint="document scan"
               />
             </div>
           )}
-          <DialogFooter className="mt-4">
+          <DialogFooter className="mt-4 sm:justify-between">
+            <div className="flex space-x-2">
+               <Button onClick={handleZoomOut} variant="outline" size="icon" disabled={scanZoomLevel <= 0.5} aria-label="Zoom out">
+                <ZoomOut />
+              </Button>
+              <Button onClick={handleZoomIn} variant="outline" size="icon" disabled={scanZoomLevel >= 3} aria-label="Zoom in">
+                <ZoomIn />
+              </Button>
+            </div>
             <DialogClose asChild>
               <Button type="button" variant="outline">Close</Button>
             </DialogClose>
@@ -815,3 +835,4 @@ export default function Home() {
     </div>
   );
 }
+
