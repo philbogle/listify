@@ -49,6 +49,9 @@ import { useToast } from "@/hooks/use-toast";
 import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
 import type { User } from "firebase/auth";
 
+import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+
 const fileToDataUri = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -56,6 +59,50 @@ const fileToDataUri = (file: File): Promise<string> =>
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+
+// Helper function to generate a cropped image file
+async function getCroppedImageFile(
+  image: HTMLImageElement,
+  crop: PixelCrop,
+  fileName: string
+): Promise<File | null> {
+  const canvas = document.createElement('canvas');
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+
+  canvas.width = Math.floor(crop.width * scaleX);
+  canvas.height = Math.floor(crop.height * scaleY);
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    console.error('Failed to get 2d context for cropping.');
+    return null;
+  }
+
+  ctx.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        console.error('Canvas to Blob conversion failed.');
+        resolve(null);
+        return;
+      }
+      resolve(new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() }));
+    }, 'image/jpeg', 0.9);
+  });
+}
+
 
 export default function Home() {
   const {
@@ -76,14 +123,14 @@ export default function Home() {
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [capturedImageFile, setCapturedImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null); // For cropper source
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const { toast } = useToast();
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null); // For camera capture
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [listToFocusId, setListToFocusId] = useState<string | null>(null);
 
@@ -96,6 +143,12 @@ export default function Home() {
 
   const [isConfirmDeleteListOpen, setIsConfirmDeleteListOpen] = useState(false);
   const [listToDeleteId, setListToDeleteId] = useState<string | null>(null);
+
+  // Cropping state
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null); // Ref for the image in the cropper
+  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); // Example: 16 / 9 or undefined
 
 
   useEffect(() => {
@@ -111,6 +164,11 @@ export default function Home() {
       }
     }
   }, [stream]);
+
+  const resetCropperState = () => {
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  };
 
   useEffect(() => {
     if (isImportDialogOpen && hasCameraPermission === null && currentUser && !imagePreviewUrl) {
@@ -135,6 +193,12 @@ export default function Home() {
       getCameraPermission();
     } else if (!isImportDialogOpen && stream) {
       stopCameraStream();
+      // Also reset image and cropper states when dialog closes fully
+      if (!isImportDialogOpen) {
+        setImagePreviewUrl(null);
+        setCapturedImageFile(null);
+        resetCropperState();
+      }
     }
 
     return () => {
@@ -142,7 +206,8 @@ export default function Home() {
         stopCameraStream();
       }
     };
-  }, [isImportDialogOpen, hasCameraPermission, stream, stopCameraStream, toast, currentUser, imagePreviewUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isImportDialogOpen, currentUser]); // Removed hasCameraPermission, stream, stopCameraStream, imagePreviewUrl from deps to avoid loops with their setters
 
   const handleAddNewList = async () => {
     if (!currentUser && firebaseReady) {
@@ -161,6 +226,11 @@ export default function Home() {
       return;
     }
     setIsImportDialogOpen(true);
+    // Reset states when opening dialog
+    setImagePreviewUrl(null);
+    setCapturedImageFile(null);
+    setHasCameraPermission(null); // Will trigger camera permission request if needed
+    resetCropperState();
   };
 
   const handleInitialEditDone = (listId: string) => {
@@ -174,13 +244,14 @@ export default function Home() {
     setCapturedImageFile(null);
     setImagePreviewUrl(null);
     setHasCameraPermission(null);
-    setIsImportDialogOpen(false);
+    resetCropperState();
+    setIsImportDialogOpen(false); // This line closes the dialog
     stopCameraStream();
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
-    if (!capturedImageFile) {
-        toast({ title: "No Image Captured", description: "Please capture an image first.", variant: "destructive" });
+    if (!capturedImageFile && !imagePreviewUrl) { // Check if there's any image source
+        toast({ title: "No Image", description: "Please capture or select an image first.", variant: "destructive" });
         return;
     }
     if (!currentUser && firebaseReady) {
@@ -189,16 +260,48 @@ export default function Home() {
     }
 
     setIsProcessingImage(true);
-    const currentImageFile = capturedImageFile; 
+    let finalImageFileToProcess = capturedImageFile;
 
+    if (completedCrop && imgRef.current && (capturedImageFile || imagePreviewUrl)) {
+        // If capturedImageFile is null (e.g. if only preview URL was set and then cropped),
+        // we need to ensure fileName is valid.
+        const fileName = capturedImageFile ? capturedImageFile.name : `cropped-image-${Date.now()}.jpg`;
+        const croppedFile = await getCroppedImageFile(imgRef.current, completedCrop, fileName);
+        if (croppedFile) {
+            finalImageFileToProcess = croppedFile;
+        } else {
+            toast({ title: "Cropping Failed", description: "Could not crop the image. Using original.", variant: "destructive" });
+            // Fallback to original if capturedImageFile exists
+            if (!capturedImageFile) {
+                 toast({ title: "Processing Error", description: "Original image not available for fallback.", variant: "destructive" });
+                 setIsProcessingImage(false);
+                 return;
+            }
+        }
+    } else if (!capturedImageFile) {
+        // This case should ideally not be hit if imagePreviewUrl is set but capturedImageFile is not,
+        // unless we allow direct URL input for cropping which is not the current flow.
+        toast({ title: "No Image File", description: "No image file available to process.", variant: "destructive" });
+        setIsProcessingImage(false);
+        return;
+    }
+
+
+    if (!finalImageFileToProcess) {
+      toast({ title: "Image Error", description: "No image available for conversion.", variant: "destructive" });
+      setIsProcessingImage(false);
+      return;
+    }
+    
     try {
-      const imageDataUri = await fileToDataUri(currentImageFile);
+      const imageDataUri = await fileToDataUri(finalImageFileToProcess);
       const input: ExtractListFromImageInput = { imageDataUri };
       const result = await extractListFromImage(input);
 
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
-        const newParentList = await addList({ title: parentTitle }, currentImageFile);
+        // Pass the *finalImageFileToProcess* (which might be the cropped one) to addList
+        const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
         
         if (newParentList && newParentList.id) {
           setListToFocusId(newParentList.id); 
@@ -250,6 +353,7 @@ export default function Home() {
       return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    stopCameraStream(); // Stop stream after capture
 
     canvas.toBlob(async (blob) => {
       if (blob) {
@@ -258,6 +362,7 @@ export default function Home() {
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
         setHasCameraPermission(true); 
+        resetCropperState(); // Reset crop for new image
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -266,8 +371,30 @@ export default function Home() {
   const handleRetakePhoto = () => {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null); 
+    resetCropperState();
+    setHasCameraPermission(null); // This will re-trigger getCameraPermission effect if dialog is open
   }
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    imgRef.current = e.currentTarget;
+    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
+    const newCrop = centerCrop(
+      makeAspectCrop(
+        {
+          unit: '%', // '%' is easier for initial crop
+          width: 90, // Default to 90% width crop
+        },
+        cropAspect || width / height, // Use current aspect or image aspect
+        width,
+        height
+      ),
+      width,
+      height
+    );
+    setCrop(newCrop);
+    setCompletedCrop(undefined); // Reset completed crop when new image loads
+  }
+
 
   const handleSignIn = async () => {
     await signInWithGoogle();
@@ -342,7 +469,7 @@ export default function Home() {
   const renderActiveLists = () => {
     if (isLoading) {
       return Array.from({ length: 2 }).map((_, index) => (
-        <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
+        <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card animate-list-card-enter">
           <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
           <Skeleton className="h-6 w-4/5 inline-block" />
           <div className="mt-4 space-y-2">
@@ -422,7 +549,6 @@ export default function Home() {
 
       {(firebaseReady && currentUser || !firebaseReady) && (
         <main className="w-full max-w-2xl">
-          {/* Sticky Header Section */}
           <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
             <div className="flex items-center space-x-2">
@@ -432,10 +558,11 @@ export default function Home() {
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
                 setIsImportDialogOpen(isOpen);
                 if (!isOpen) { 
-                  if (stream && !capturedImageFile) { 
-                      stopCameraStream();
-                      setHasCameraPermission(null); 
-                  }
+                  stopCameraStream();
+                  setHasCameraPermission(null); 
+                  setImagePreviewUrl(null);
+                  setCapturedImageFile(null);
+                  resetCropperState();
                 }
               }}>
                 <DialogTrigger asChild>
@@ -453,18 +580,18 @@ export default function Home() {
                   </DialogHeader>
 
                   <div className="grid gap-4 py-4">
-                    <div className="space-y-4">
-                      {!imagePreviewUrl && (
+                    {!imagePreviewUrl && (
+                      <div className="space-y-4">
                         <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-muted flex items-center justify-center">
                           <video
                             ref={videoRef}
-                            className={`w-full h-full object-cover ${!stream || !hasCameraPermission || imagePreviewUrl ? 'hidden' : ''}`}
+                            className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                             autoPlay
                             playsInline 
                             muted
                           />
-                           {!stream && hasCameraPermission === null && !imagePreviewUrl && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-                           {hasCameraPermission === false && !imagePreviewUrl && (
+                           {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                           {hasCameraPermission === false && (
                             <Alert variant="destructive" className="m-4">
                               <AlertTriangle className="h-4 w-4" />
                               <AlertTitle>Camera Access Denied</AlertTitle>
@@ -474,24 +601,39 @@ export default function Home() {
                             </Alert>
                           )}
                         </div>
-                      )}
-                      
-                      {!imagePreviewUrl && stream && hasCameraPermission && (
-                        <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
-                          {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                          {isCapturing ? "Capturing..." : "Capture Photo"}
-                        </Button>
-                      )}
-                       {imagePreviewUrl && (
+                        {stream && hasCameraPermission && (
+                          <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
+                            {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                            {isCapturing ? "Capturing..." : "Capture Photo"}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {imagePreviewUrl && (
+                      <div className="space-y-2">
+                        <div className="border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
+                          <ReactCrop
+                            crop={crop}
+                            onChange={(_, percentCrop) => setCrop(percentCrop)}
+                            onComplete={(c) => setCompletedCrop(c)}
+                            aspect={cropAspect}
+                            minHeight={50}
+                            minWidth={50}
+                          >
+                            <img
+                              ref={imgRef}
+                              alt="Scan preview"
+                              src={imagePreviewUrl}
+                              onLoad={onImageLoad}
+                              style={{ maxHeight: '320px', objectFit: 'contain' }}
+                              data-ai-hint="handwritten list"
+                            />
+                          </ReactCrop>
+                        </div>
                         <Button onClick={handleRetakePhoto} variant="outline" className="w-full" disabled={isProcessingImage || isCapturing}>
                           <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
                         </Button>
-                      )}
-                    </div>
-
-                    {imagePreviewUrl && capturedImageFile && (
-                      <div className="mt-4 border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
-                        <Image src={imagePreviewUrl} alt="Preview of scanned list" width={400} height={533} style={{ objectFit: 'contain', maxHeight: '320px', width: 'auto' }} data-ai-hint="handwritten list" />
                       </div>
                     )}
                   </div>
@@ -502,10 +644,11 @@ export default function Home() {
                           setCapturedImageFile(null);
                           setImagePreviewUrl(null);
                           setHasCameraPermission(null);
+                          resetCropperState();
                       }}>Cancel</Button>
                     </DialogClose>
-                    {capturedImageFile && (
-                      <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing || !capturedImageFile}>
+                    { (capturedImageFile || imagePreviewUrl) && (
+                      <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing}>
                         {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Convert list
                       </Button>
@@ -548,7 +691,6 @@ export default function Home() {
             </div>
           </div>
           
-          {/* Active Lists Section */}
           <section aria-labelledby="list-heading" className="pt-6">
             <div className="space-y-4">
               {renderActiveLists()}
@@ -607,7 +749,7 @@ export default function Home() {
             </div>
             <div>
               <h4 className="font-semibold mb-0.5">Scanning Lists/Items</h4>
-              <p>Click &quot;Scan&quot; (or select from the menu). Use your camera to take a picture of handwriting, printed text, or physical items. The AI will create a list. Scanned images can be viewed via the list&apos;s menu (&quot;View Scan&quot; option).</p>
+              <p>Click &quot;Scan&quot; (or select from the menu). Use your camera to take a picture of handwriting, printed text, or physical items. You can crop the image before conversion. The AI will create a list. Scanned images can be viewed via the list&apos;s menu (&quot;View Scan&quot; option).</p>
             </div>
             <div>
               <h4 className="font-semibold mb-0.5">Autogenerating Items</h4>
