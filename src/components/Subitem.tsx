@@ -24,17 +24,19 @@ interface SubitemProps {
   onUpdateTitle: (subitemId: string, newTitle: string) => void;
   startInEditMode?: boolean;
   onInitialEditDone?: (subitemId: string) => void;
-  isHighlighted?: boolean;
+  // isHighlighted prop removed
 }
 
-const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone, isHighlighted = false }) => {
+const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [menuIsVisible, setMenuIsVisible] = useState(false);
 
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
+      setMenuIsVisible(false); 
       if (onInitialEditDone) {
         onInitialEditDone(subitem.id);
       }
@@ -55,6 +57,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   const handleStartEdit = () => {
     setEditedTitle(subitem.title);
     setIsEditing(true);
+    setMenuIsVisible(false);
   };
 
   const handleUpdateTitle = () => {
@@ -78,13 +81,28 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     setIsEditing(false);
   };
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    if (isEditing) return;
+    // Don't show menu if clicking on checkbox or its direct label (though we don't have a label for checkbox here)
+    if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
+        return;
+    }
+    setMenuIsVisible(true);
+  };
+
 
   return (
     <div
       className={cn(
-        "flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group",
-        isHighlighted && "animate-item-appear"
+        "flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group"
+        // Removed animation class based on isHighlighted
       )}
+      onClick={handleRowClick}
+      onMouseLeave={() => {
+        // Optional: Hide menu when mouse leaves if not triggered by a click that opens Dropdown
+        // This might be too aggressive, as the dropdown itself should handle its own closure
+        // if (!dropdownIsOpen) setMenuIsVisible(false); 
+      }}
     >
       <Checkbox
         id={`subitem-${subitem.id}`}
@@ -104,7 +122,8 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             className="h-8 text-sm w-full"
             autoFocus
             onBlur={handleUpdateTitle}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); e.stopPropagation(); }}
+            onClick={(e) => e.stopPropagation()}
           />
         ) : (
           <span
@@ -116,33 +135,24 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         )}
       </div>
 
-      <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className={cn("flex items-center space-x-1 flex-shrink-0 transition-opacity duration-150", (menuIsVisible && !isEditing) ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
         {isEditing ? (
           <>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleUpdateTitle} aria-label="Save subitem title">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleUpdateTitle();}} aria-label="Save subitem title">
               <Save className="h-4 w-4 text-green-600" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit} aria-label="Cancel editing subitem title">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleCancelEdit();}} aria-label="Cancel editing subitem title">
               <X className="h-4 w-4" />
             </Button>
           </>
         ) : (
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={(open) => { if (!open) setTimeout(() => setMenuIsVisible(false), 150); /* Hide inline controls shortly after dropdown closes */ }}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options for subitem" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleComplete(subitem.id, !subitem.completed);
-                  }}
-                >
-                  {subitem.completed ? <Circle className="mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                  {subitem.completed ? "Mark as Incomplete" : "Mark as Complete"}
-                </DropdownMenuItem>
                  <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -151,6 +161,16 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
                 >
                   <Edit3 className="mr-2 h-4 w-4" />
                   Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleComplete(subitem.id, !subitem.completed);
+                  }}
+                >
+                  {subitem.completed ? <Circle className="mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                  {subitem.completed ? "Mark as Incomplete" : "Mark as Complete"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

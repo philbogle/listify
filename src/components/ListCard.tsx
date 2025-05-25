@@ -39,7 +39,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
   const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
-  const [highlightedItemIds, setHighlightedItemIds] = useState<string[]>([]);
+  // highlightedItemIds state removed
 
   const hasCompletedSubitems = list.subitems.some(si => si.completed);
 
@@ -149,13 +149,9 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
           title: title.trim(),
           completed: false,
         }));
-        const newIds = newSubitems.map(item => item.id);
-        setHighlightedItemIds(newIds);
+        // Logic for highlightedItemIds removed
         await onManageSubitems(list.id, [...list.subitems, ...newSubitems]);
 
-        setTimeout(() => {
-          setHighlightedItemIds([]);
-        }, 2000);
       } else if (result && result.newSubitemTitles && result.newSubitemTitles.length === 0){
         // No toast for this case
       } else {
@@ -189,13 +185,11 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
   return (
     <Card
       className={cn(
-        "mb-4 shadow-lg origin-center transform", // Base layout, transform enabling
+        "mb-4 shadow-lg origin-center",
         list.completed
           ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
-          : "bg-card scale-100 opacity-100", // Conditional styles based on completion
-        startInEditMode
-          ? "animate-list-card-enter" // Entry animation if startInEditMode
-          : "transition-all duration-300 ease-in-out" // Regular transitions otherwise
+          : "bg-card scale-100 opacity-100",
+        !startInEditMode && "transition-all duration-300 ease-in-out" // Apply transition only if not starting in edit mode for initial render
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -303,7 +297,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                   onUpdateTitle={handleUpdateSubitemTitle}
                   startInEditMode={subitem.id === subitemToFocusId}
                   onInitialEditDone={handleSubitemInitialEditDone}
-                  isHighlighted={highlightedItemIds.includes(subitem.id)}
+                  // isHighlighted prop removed
                 />
               ))}
             </div>
@@ -341,4 +335,3 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
 };
 
 export default ListCard;
-
