@@ -527,6 +527,7 @@ export default function Home() {
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
           <h1 className="text-2xl font-semibold mb-2">Welcome to ListBot</h1>
+          <p className="text-muted-foreground mb-2 text-center">Your smart assistant for capturing, organizing, and completing lists.</p>
           <p className="text-muted-foreground mb-6 text-center">Sign in to manage and sync your lists across devices.</p>
            <Button onClick={handleSignIn} className="mt-4 px-8 py-6 text-lg">
             <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
