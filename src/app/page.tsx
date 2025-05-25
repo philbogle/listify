@@ -423,6 +423,7 @@ export default function Home() {
 
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
+    toast({ title: "Completed Items Deleted", description: `Completed items from "${listToDeleteCompletedFrom.title}" have been removed.`, duration: 3000 });
   };
 
   const handleDeleteListRequested = (listId: string) => {
@@ -735,13 +736,16 @@ export default function Home() {
             </div>
           )}
           <DialogFooter className="mt-4 sm:justify-between">
-            <div className="flex space-x-2">
+            <div className="flex items-center space-x-2">
                <Button onClick={handleZoomOut} variant="outline" size="icon" disabled={scanZoomLevel <= 0.5} aria-label="Zoom out">
                 <ZoomOut />
               </Button>
               <Button onClick={handleZoomIn} variant="outline" size="icon" disabled={scanZoomLevel >= 3} aria-label="Zoom in">
                 <ZoomIn />
               </Button>
+               {scanZoomLevel > 1 && (
+                <p className="text-xs text-muted-foreground">(Use two fingers to scroll)</p>
+              )}
             </div>
             <DialogClose asChild>
               <Button type="button" variant="outline">Close</Button>
