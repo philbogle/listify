@@ -12,6 +12,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface HelpDialogProps {
   isOpen: boolean;
@@ -49,7 +55,7 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
             <h4 className="font-semibold mb-0.5">Managing Lists & Items</h4>
             <ul className="list-disc pl-5 space-y-1 mt-1">
               <li><strong>Edit Titles:</strong> Click a list or item title to edit.</li>
-              <li><strong>Complete:</strong> Use checkboxes to mark lists/items complete. Alternatively, use the menu option.</li>
+              <li><strong>Complete:</strong> Use checkboxes or the menu option to mark lists/items complete.</li>
               <li><strong>Delete:</strong> Use the three-dot menu for deletion. Options include deleting the entire list or just its completed items.</li>
             </ul>
           </div>
@@ -61,6 +67,27 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
             <h4 className="font-semibold mb-0.5">User Accounts</h4>
             <p>Sign in with Google to save and sync your lists. Use the top-right menu for account actions like signing out or accessing this help screen.</p>
           </div>
+
+          <Accordion type="single" collapsible className="w-full pt-2">
+            <AccordionItem value="technical-details">
+              <AccordionTrigger className="text-sm font-semibold hover:no-underline">Technical Details</AccordionTrigger>
+              <AccordionContent className="text-xs space-y-2">
+                <p>
+                  Scandalist is a full-stack web application built with modern technologies.
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Frontend:</strong> Next.js (React framework) for the user interface, styled with Tailwind CSS and ShadCN UI components.</li>
+                  <li><strong>Backend & AI:</strong> AI features like list scanning and item generation are powered by Google&apos;s Gemini models via Genkit.</li>
+                  <li><strong>Data Storage:</strong> List data and user authentication are handled by Firebase (Firestore and Firebase Authentication). Scanned images are stored in Firebase Storage.</li>
+                  <li><strong>Development:</strong> This application was primarily developed with AI assistance from Firebase Studio&apos;s App Prototyper.</li>
+                </ul>
+                 <p className="pt-1">
+                  The app is hosted on Firebase App Hosting.
+                </p>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
         </div>
         <DialogFooter className="mt-4">
           <DialogClose asChild>
