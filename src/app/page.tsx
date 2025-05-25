@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger, // Ensure DialogTrigger is imported
+  DialogTrigger, 
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger as DropdownMenuTriggerComponent, // Alias to avoid name clash
+  DropdownMenuTrigger as DropdownMenuTriggerComponent, 
 } from "@/components/ui/dropdown-menu";
 import {
   Accordion,
@@ -287,10 +287,7 @@ export default function Home() {
     const remainingSubitems = listToDeleteCompletedFrom.subitems.filter(si => !si.completed);
     await manageSubitems(listToDeleteCompletedFrom.id, remainingSubitems);
     
-    toast({
-        title: "Completed Items Deleted",
-        description: `Removed completed items from "${listToDeleteCompletedFrom.title}".`
-    });
+    // Toast removed
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
   };
@@ -640,5 +637,7 @@ export default function Home() {
 
     
 
+
+    
 
     
