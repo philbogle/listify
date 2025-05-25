@@ -263,16 +263,17 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                   {list.completed ? <Circle className="mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                   {list.completed ? "Mark as Active" : "Mark as Complete"}
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                 <DropdownMenuItem onClick={handleCopyList}>
+                  <ClipboardCopy className="mr-2 h-4 w-4" />
+                  Copy List
+                </DropdownMenuItem>
                 {list.scanImageUrl && (
                   <DropdownMenuItem onClick={() => onViewScan?.(list.scanImageUrl!)}>
                     <Eye className="mr-2 h-4 w-4" />
                     View Scan
                   </DropdownMenuItem>
                 )}
-                 <DropdownMenuItem onClick={handleCopyList}>
-                  <ClipboardCopy className="mr-2 h-4 w-4" />
-                  Copy List
-                </DropdownMenuItem>
                 {(list.scanImageUrl || !list.completed) && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   onClick={handleAutogenerateItems}
