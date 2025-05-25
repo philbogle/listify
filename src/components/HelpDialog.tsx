@@ -30,7 +30,7 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
       <DialogContent className="sm:max-w-md md:max-w-lg">
         <DialogHeader>
           <DialogTitle>Scandalist Help</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-left">
             Scandalist lets you scan, organize, and complete lists. It is experimental and may be taken down at any time, so please don&apos;t use it for sensitive or important data.
           </DialogDescription>
         </DialogHeader>
