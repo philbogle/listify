@@ -741,11 +741,11 @@ export default function Home() {
           <div className="mt-4 space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-2">
             <div>
               <h4 className="font-semibold mb-0.5">Creating Lists</h4>
-              <p>Click the &quot;Add&quot; button (or select from the menu) to create a new list. The title will be in edit mode, allowing you to name your list immediately.</p>
+              <p>Click the &quot;Add&quot; button (or select from the menu) to create a new list. You can name your list immediately.</p>
             </div>
             <div>
               <h4 className="font-semibold mb-0.5">Adding Items</h4>
-              <p>Once a list is created, click &quot;Add Item&quot; at the bottom of its card. The new item&apos;s title will start in edit mode.</p>
+              <p>Once a list is created, click &quot;Add Item&quot; at the bottom of its card to add a new item.</p>
             </div>
             <div>
               <h4 className="font-semibold mb-0.5">Scanning Lists/Items</h4>
@@ -826,6 +826,8 @@ export default function Home() {
 
     
 
+
+    
 
     
 
