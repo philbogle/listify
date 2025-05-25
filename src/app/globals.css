@@ -105,8 +105,8 @@ body {
   }
 
   @keyframes item-appear {
-    0% { background-color: hsl(var(--accent) / 0.3); }
-    70% { background-color: hsl(var(--accent) / 0.3); } /* Hold highlight */
+    0% { background-color: rgba(0, 188, 212, 0.3); } /* Hardcoded RGBA of accent with alpha */
+    70% { background-color: rgba(0, 188, 212, 0.3); } /* Hold highlight */
     100% { background-color: transparent; }
   }
   .animate-item-appear {
