@@ -7,12 +7,11 @@ runConfig:
   maxInstances: 1
 
 # The GOOGLE_API_KEY environment variable (or GEMINI_API_KEY, depending on what your app expects)
-# will need to be set directly in your App Hosting environment's settings panel.
-# It is no longer configured here to be sourced from Google Cloud Secret Manager.
-# This change is to stop the deployment error related to secret resolution
-# if you cannot use the CLI or Google Cloud Console to grant permissions at this time.
+# will need to be set directly in your App Hosting environment's settings panel
+# if you cannot use the CLI or Google Cloud Console to grant permissions at this time,
+# and if the secret configuration below is commented out.
 # AI features will not work if the API key is not set in the runtime environment.
 #
-# env:
-#   - variable: GOOGLE_API_KEY
-#     secret: gemini-api-key
+env:
+  - variable: GOOGLE_API_KEY
+    secret: gemini-api-key
