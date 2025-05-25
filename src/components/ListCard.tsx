@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2, CheckCircle2, Circle, ClipboardCopy } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -39,7 +39,6 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
   const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
-  // highlightedItemIds state removed
 
   const hasCompletedSubitems = list.subitems.some(si => si.completed);
 
@@ -149,7 +148,6 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
           title: title.trim(),
           completed: false,
         }));
-        // Logic for highlightedItemIds removed
         await onManageSubitems(list.id, [...list.subitems, ...newSubitems]);
 
       } else if (result && result.newSubitemTitles && result.newSubitemTitles.length === 0){
@@ -181,6 +179,27 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
     }
   };
 
+  const handleCopyList = async () => {
+    let textToCopy = `${list.title}\n`;
+    textToCopy += list.subitems.map(si => `${si.completed ? '[x]' : '[ ]'} ${si.title}`).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      toast({
+        title: "List Copied!",
+        description: `"${list.title}" has been copied to your clipboard.`,
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error('Failed to copy list: ', err);
+      toast({
+        title: "Copy Failed",
+        description: "Could not copy the list to your clipboard.",
+        variant: "destructive",
+      });
+    }
+  };
+
 
   return (
     <Card
@@ -189,7 +208,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
         list.completed
           ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
           : "bg-card scale-100 opacity-100",
-        !startInEditMode && "transition-all duration-300 ease-in-out" // Apply transition only if not starting in edit mode for initial render
+        !startInEditMode && "transition-all duration-300 ease-in-out" 
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -250,6 +269,10 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                     View Scan
                   </DropdownMenuItem>
                 )}
+                 <DropdownMenuItem onClick={handleCopyList}>
+                  <ClipboardCopy className="mr-2 h-4 w-4" />
+                  Copy List
+                </DropdownMenuItem>
                 {(list.scanImageUrl || !list.completed) && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   onClick={handleAutogenerateItems}
@@ -297,7 +320,6 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                   onUpdateTitle={handleUpdateSubitemTitle}
                   startInEditMode={subitem.id === subitemToFocusId}
                   onInitialEditDone={handleSubitemInitialEditDone}
-                  // isHighlighted prop removed
                 />
               ))}
             </div>
@@ -335,3 +357,4 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
 };
 
 export default ListCard;
+
