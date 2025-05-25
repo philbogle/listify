@@ -5,7 +5,7 @@ import type { FC } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Save, X, MoreVertical, Edit3 } from "lucide-react";
+import { Trash2, Save, X, MoreVertical, Edit3, CheckCircle2, Circle } from "lucide-react";
 import type { Subitem } from "@/types/list";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -110,7 +110,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           <span
             className={`block text-sm truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
             title={subitem.title}
-            onClick={handleStartEdit} 
           >
             {subitem.title}
           </span>
@@ -136,6 +135,15 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleComplete(subitem.id, !subitem.completed);
+                  }}
+                >
+                  {subitem.completed ? <Circle className="mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                  {subitem.completed ? "Mark as Incomplete" : "Mark as Complete"}
+                </DropdownMenuItem>
+                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
                     handleStartEdit();

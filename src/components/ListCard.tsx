@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2 } from "lucide-react";
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2, CheckCircle2, Circle } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   DropdownMenu,
@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 interface ListCardProps {
   list: List;
   onUpdateList: (listId: string, updates: Partial<List>) => Promise<void>;
-  onDeleteListRequested: (listId: string) => void; // Changed from onDeleteList
+  onDeleteListRequested: (listId: string) => void;
   onManageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
   startInEditMode?: boolean;
   onInitialEditDone?: (listId: string) => void;
@@ -64,7 +64,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
   }, [isEditing, startInEditMode]); 
 
 
-  const handleToggleComplete = (completed: boolean) => {
+  const handleToggleListComplete = (completed: boolean) => {
     onUpdateList(list.id, { completed });
   };
 
@@ -110,7 +110,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
 
   const handleCancelEdit = () => {
     if (list.title === "Untitled List" && editedTitle === "Untitled List" && startInEditMode) {
-        onDeleteListRequested(list.id); // Use onDeleteListRequested
+        onDeleteListRequested(list.id); 
     } else {
         setEditedTitle(list.title);
     }
@@ -121,7 +121,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
     let titleToSave = editedTitle.trim();
     if (titleToSave === "") {
         if (list.title === "Untitled List" && startInEditMode) {
-            onDeleteListRequested(list.id); // Use onDeleteListRequested
+            onDeleteListRequested(list.id); 
             setIsEditing(false);
             return;
         }
@@ -157,11 +157,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
           setHighlightedItemIds([]);
         }, 2000); 
       } else if (result && result.newSubitemTitles && result.newSubitemTitles.length === 0){
-        toast({
-            title: "No New Items",
-            description: "AI couldn't find any new items to suggest for this list right now.",
-            variant: "default",
-        });
+        // No toast for this case
       } else {
         toast({
             title: "Autogeneration Failed",
@@ -203,10 +199,10 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
           <Checkbox
             id={`list-${list.id}`}
             checked={list.completed}
-            onCheckedChange={(checked) => handleToggleComplete(!!checked)}
+            onCheckedChange={(checked) => handleToggleListComplete(!!checked)}
             onClick={(e) => e.stopPropagation()}
             className="h-6 w-6 flex-shrink-0"
-            aria-label={list.completed ? "Mark list as incomplete" : "Mark list as complete"}
+            aria-label={list.completed ? "Mark list as active" : "Mark list as complete"}
           />
           {isEditing ? (
              <Input
@@ -246,13 +242,17 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleToggleListComplete(!list.completed)}>
+                  {list.completed ? <Circle className="mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                  {list.completed ? "Mark as Active" : "Mark as Complete"}
+                </DropdownMenuItem>
                 {list.scanImageUrl && (
                   <DropdownMenuItem onClick={() => onViewScan?.(list.scanImageUrl!)}>
                     <Eye className="mr-2 h-4 w-4" />
                     View Scan
                   </DropdownMenuItem>
                 )}
-                {(list.scanImageUrl) && <DropdownMenuSeparator />}
+                {(list.scanImageUrl || !list.completed) && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   onClick={handleAutogenerateItems}
                   disabled={isGeneratingItems || list.completed}
@@ -274,7 +274,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
                   Delete Completed Items
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => onDeleteListRequested(list.id)} // Changed from onDeleteList
+                  onClick={() => onDeleteListRequested(list.id)} 
                   className="text-destructive focus:text-destructive focus:bg-destructive/10"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
