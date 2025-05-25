@@ -175,9 +175,9 @@ export default function Home() {
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
         const newParentList = await addList({ title: parentTitle }, currentImageFile);
-
+        
         if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id); 
+          setListToFocusId(newParentList.id);
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -357,134 +357,137 @@ export default function Home() {
 
       {(firebaseReady && currentUser || !firebaseReady) && (
         <main className="w-full max-w-2xl">
-          <section aria-labelledby="list-heading">
-            <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center mb-6 border-b">
-              <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
-                  <Plus className="mr-2 h-4 w-4" /> Add
-                </Button>
-                <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
-                  if (firebaseReady && !currentUser && isOpen) {
-                    toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
-                    setIsImportDialogOpen(false);
-                    return;
+          {/* Sticky Header Section */}
+          <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
+            <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
+                <Plus className="mr-2 h-4 w-4" /> Add
+              </Button>
+              <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
+                if (firebaseReady && !currentUser && isOpen) {
+                  toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
+                  setIsImportDialogOpen(false);
+                  return;
+                }
+                setIsImportDialogOpen(isOpen);
+                if (!isOpen) { 
+                  if (stream && !capturedImageFile) { 
+                      stopCameraStream();
+                      setHasCameraPermission(null); 
                   }
-                  setIsImportDialogOpen(isOpen);
-                  if (!isOpen) { 
-                    if (stream && !capturedImageFile) { 
-                        stopCameraStream();
-                        setHasCameraPermission(null); 
-                    }
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" disabled={firebaseReady && !currentUser && !isLoading}>
-                      <Camera className="mr-2 h-4 w-4" />
-                      Scan
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[480px]">
-                    <DialogHeader>
-                      <DialogTitle>Scan List</DialogTitle>
-                      <DialogDescription>
-                        Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content.
-                      </DialogDescription>
-                    </DialogHeader>
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" disabled={firebaseReady && !currentUser && !isLoading}>
+                    <Camera className="mr-2 h-4 w-4" />
+                    Scan
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[480px]">
+                  <DialogHeader>
+                    <DialogTitle>Scan List</DialogTitle>
+                    <DialogDescription>
+                      Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-4">
-                        {!imagePreviewUrl && (
-                          <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                            <video
-                              ref={videoRef}
-                              className={`w-full h-full object-cover ${!stream || !hasCameraPermission || imagePreviewUrl ? 'hidden' : ''}`}
-                              autoPlay
-                              playsInline 
-                              muted
-                            />
-                             {!stream && hasCameraPermission === null && !imagePreviewUrl && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-                             {hasCameraPermission === false && !imagePreviewUrl && (
-                              <Alert variant="destructive" className="m-4">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle>Camera Access Denied</AlertTitle>
-                                <AlertDescription>
-                                  Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
-                                </AlertDescription>
-                              </Alert>
-                            )}
-                          </div>
-                        )}
-                        
-                        {!imagePreviewUrl && stream && hasCameraPermission && (
-                          <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
-                            {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                            {isCapturing ? "Capturing..." : "Capture Photo"}
-                          </Button>
-                        )}
-                         {imagePreviewUrl && (
-                          <Button onClick={handleRetakePhoto} variant="outline" className="w-full" disabled={isProcessingImage || isCapturing}>
-                            <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
-                          </Button>
-                        )}
-                      </div>
-
-                      {imagePreviewUrl && capturedImageFile && (
-                        <div className="mt-4 border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
-                          <Image src={imagePreviewUrl} alt="Preview of scanned list" width={400} height={533} style={{ objectFit: 'contain', maxHeight: '320px', width: 'auto' }} data-ai-hint="handwritten list" />
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-4">
+                      {!imagePreviewUrl && (
+                        <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                          <video
+                            ref={videoRef}
+                            className={`w-full h-full object-cover ${!stream || !hasCameraPermission || imagePreviewUrl ? 'hidden' : ''}`}
+                            autoPlay
+                            playsInline 
+                            muted
+                          />
+                           {!stream && hasCameraPermission === null && !imagePreviewUrl && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                           {hasCameraPermission === false && !imagePreviewUrl && (
+                            <Alert variant="destructive" className="m-4">
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertTitle>Camera Access Denied</AlertTitle>
+                              <AlertDescription>
+                                Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
+                              </AlertDescription>
+                            </Alert>
+                          )}
                         </div>
                       )}
-                    </div>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                            stopCameraStream(); 
-                            setCapturedImageFile(null);
-                            setImagePreviewUrl(null);
-                            setHasCameraPermission(null);
-                        }}>Cancel</Button>
-                      </DialogClose>
-                      {capturedImageFile && (
-                        <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing || !capturedImageFile}>
-                          {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                          Convert list
+                      
+                      {!imagePreviewUrl && stream && hasCameraPermission && (
+                        <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
+                          {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                          {isCapturing ? "Capturing..." : "Capture Photo"}
                         </Button>
                       )}
-                    </DialogFooter>
-                    <canvas ref={canvasRef} className="hidden"></canvas>
-                  </DialogContent>
-                </Dialog>
-                
-                {firebaseReady && currentUser && (
-                  <DropdownMenu>
-                    <DropdownMenuTriggerComponent asChild>
-                      <Button variant="ghost" size="icon">
-                        <MenuIcon className="h-5 w-5" />
-                        <span className="sr-only">Open user menu</span>
-                      </Button>
-                    </DropdownMenuTriggerComponent>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
-                        <HelpCircle className="mr-2 h-4 w-4" />
-                        <span>Help</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleSignOut}>
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>Sign Out</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            </div>
+                       {imagePreviewUrl && (
+                        <Button onClick={handleRetakePhoto} variant="outline" className="w-full" disabled={isProcessingImage || isCapturing}>
+                          <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
+                        </Button>
+                      )}
+                    </div>
 
+                    {imagePreviewUrl && capturedImageFile && (
+                      <div className="mt-4 border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
+                        <Image src={imagePreviewUrl} alt="Preview of scanned list" width={400} height={533} style={{ objectFit: 'contain', maxHeight: '320px', width: 'auto' }} data-ai-hint="handwritten list" />
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
+                          stopCameraStream(); 
+                          setCapturedImageFile(null);
+                          setImagePreviewUrl(null);
+                          setHasCameraPermission(null);
+                      }}>Cancel</Button>
+                    </DialogClose>
+                    {capturedImageFile && (
+                      <Button onClick={handleExtractList} disabled={isProcessingImage || isCapturing || !capturedImageFile}>
+                        {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Convert list
+                      </Button>
+                    )}
+                  </DialogFooter>
+                  <canvas ref={canvasRef} className="hidden"></canvas>
+                </DialogContent>
+              </Dialog>
+              
+              {firebaseReady && currentUser && (
+                <DropdownMenu>
+                  <DropdownMenuTriggerComponent asChild>
+                    <Button variant="ghost" size="icon">
+                      <MenuIcon className="h-5 w-5" />
+                      <span className="sr-only">Open user menu</span>
+                    </Button>
+                  </DropdownMenuTriggerComponent>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      <span>Help</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Sign Out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </div>
+          
+          {/* Active Lists Section */}
+          <section aria-labelledby="list-heading" className="pt-6"> {/* Added pt-6 to prevent overlap with sticky header */}
             <div className="space-y-4">
               {renderActiveLists()}
             </div>
           </section>
+
            { (firebaseReady && currentUser || !firebaseReady) && (
              <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
                 {renderCompletedListSection()}
@@ -574,6 +577,8 @@ export default function Home() {
 
     
 
+
+    
 
     
 
