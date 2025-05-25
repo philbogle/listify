@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { generateSubitemsForList, type GenerateSubitemsInput } from "@/ai/flows/generateSubitemsFlow";
+import { cn } from "@/lib/utils";
 
 
 interface ListCardProps {
@@ -47,7 +48,8 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      requestAnimationFrame(() => {
+      requestAnimationFrame(() => { // Delays focus/select to ensure input is rendered and focusable
+        titleInputRef.current?.focus();
         titleInputRef.current?.select();
       });
       if (startInEditMode && onInitialEditDone) {
@@ -55,7 +57,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, startInEditMode]);
+  }, [isEditing]); // Removed startInEditMode from deps, as it's handled by the first useEffect
 
 
   const handleToggleComplete = (completed: boolean) => {
@@ -172,7 +174,13 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 
 
   return (
-    <Card className={`mb-4 shadow-lg origin-center transition-all duration-300 ease-in-out transform ${list.completed ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75" : "bg-card scale-100 opacity-100"}`}>
+    <Card 
+      className={cn(
+        "mb-4 shadow-lg origin-center transition-all duration-300 ease-in-out transform",
+        list.completed ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75" : "bg-card scale-100 opacity-100",
+        startInEditMode && "animate-list-card-enter" // Apply animation if newly added
+      )}
+    >
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
         <div className="flex items-center space-x-3 flex-grow min-w-0">
           <Checkbox
@@ -302,3 +310,4 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteList, onManag
 };
 
 export default ListCard;
+

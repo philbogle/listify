@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger,
+  DialogTrigger, // Ensured import
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger as DropdownMenuTriggerComponent, // aliasing to avoid potential name collision if needed, though not strictly necessary here
 } from "@/components/ui/dropdown-menu";
 import {
   Accordion,
@@ -30,7 +30,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, ChevronDown } from "lucide-react"; // Ensured ChevronDown
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -121,9 +121,8 @@ export default function Home() {
       stopCameraStream();
     }
 
-    // Cleanup function to stop camera stream when component unmounts or dialog closes
     return () => {
-      if (stream && !isImportDialogOpen) { // Ensure we only stop if the dialog isn't the reason it's open
+      if (stream && !isImportDialogOpen) { 
         stopCameraStream();
       }
     };
@@ -166,7 +165,7 @@ export default function Home() {
     }
 
     setIsProcessingImage(true);
-    const currentImageFile = capturedImageFile; // Capture current file in closure
+    const currentImageFile = capturedImageFile; 
 
     try {
       const imageDataUri = await fileToDataUri(currentImageFile);
@@ -177,10 +176,13 @@ export default function Home() {
         const parentTitle = result.parentListTitle.trim();
 
         if (parentTitle.toLowerCase().includes("no list found") || parentTitle.toLowerCase().includes("not a list") || parentTitle.toLowerCase().includes("unrecognized image content")) {
-          toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
+           if (parentTitle.toLowerCase().includes("unrecognized image content") || parentTitle.toLowerCase().includes("no actionable content found")) {
+              toast({ title: "Import Note", description: "No list found in the image, or the content was not recognized as a list.", variant: "default" });
+           }
         } else {
           const newParentList = await addList({ title: parentTitle }, currentImageFile);
           if (newParentList && newParentList.id) {
+            setListToFocusId(newParentList.id); 
             if (result.extractedSubitems && result.extractedSubitems.length > 0) {
               const subitemsToAdd: Subitem[] = result.extractedSubitems
                 .filter(si => si.title && si.title.trim() !== "")
@@ -194,7 +196,6 @@ export default function Home() {
                 await manageSubitems(newParentList.id, subitemsToAdd);
               }
             }
-             toast({ title: "List Imported", description: `"${parentTitle}" imported with ${result.extractedSubitems.length} items.`, variant: "default" });
           } else {
              toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
           }
@@ -238,8 +239,8 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        stopCameraStream(); 
-        setHasCameraPermission(true); // Keep permission as true, camera was used
+        // stopCameraStream(); // Keep stream active, only hide video player
+        setHasCameraPermission(true); 
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -248,7 +249,7 @@ export default function Home() {
   const handleRetakePhoto = () => {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null); // Re-check permission for new attempt
+    setHasCameraPermission(null); // This will re-trigger camera permission request and stream
   }
 
   const handleSignIn = async () => {
@@ -377,10 +378,10 @@ export default function Home() {
                     return;
                   }
                   setIsImportDialogOpen(isOpen);
-                  if (!isOpen) { // Closing the dialog
-                    if (stream && !capturedImageFile) { // If camera was active but no pic taken
+                  if (!isOpen) { 
+                    if (stream && !capturedImageFile) { 
                         stopCameraStream();
-                        setHasCameraPermission(null); // Reset permission state for next open
+                        setHasCameraPermission(null); 
                     }
                   }
                 }}>
@@ -404,13 +405,13 @@ export default function Home() {
                           <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-muted flex items-center justify-center">
                             <video
                               ref={videoRef}
-                              className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
+                              className={`w-full h-full object-cover ${!stream || !hasCameraPermission || imagePreviewUrl ? 'hidden' : ''}`}
                               autoPlay
-                              playsInline // Important for iOS
+                              playsInline 
                               muted
                             />
-                             {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-                             {hasCameraPermission === false && (
+                             {!stream && hasCameraPermission === null && !imagePreviewUrl && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                             {hasCameraPermission === false && !imagePreviewUrl && (
                               <Alert variant="destructive" className="m-4">
                                 <AlertTriangle className="h-4 w-4" />
                                 <AlertTitle>Camera Access Denied</AlertTitle>
@@ -444,7 +445,7 @@ export default function Home() {
                     <DialogFooter>
                       <DialogClose asChild>
                         <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                            stopCameraStream();
+                            stopCameraStream(); // Ensure stream is stopped
                             setCapturedImageFile(null);
                             setImagePreviewUrl(null);
                             setHasCameraPermission(null);
@@ -463,12 +464,12 @@ export default function Home() {
                 
                 {firebaseReady && currentUser && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTriggerComponent asChild>
                       <Button variant="ghost" size="icon">
                         <MenuIcon className="h-5 w-5" />
                         <span className="sr-only">Open user menu</span>
                       </Button>
-                    </DropdownMenuTrigger>
+                    </DropdownMenuTriggerComponent>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
@@ -580,3 +581,5 @@ export default function Home() {
 
     
 
+
+    
