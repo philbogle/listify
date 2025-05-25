@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger, 
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger as DropdownMenuTriggerComponent, 
+  DropdownMenuTrigger as DropdownMenuTriggerComponent,
 } from "@/components/ui/dropdown-menu";
 import {
   Accordion,
@@ -202,7 +202,7 @@ export default function Home() {
     }
 
     return () => {
-      if (stream && !isImportDialogOpen) { 
+      if (stream && !isImportDialogOpen) {
         stopCameraStream();
       }
     };
@@ -263,15 +263,12 @@ export default function Home() {
     let finalImageFileToProcess = capturedImageFile;
 
     if (completedCrop && imgRef.current && (capturedImageFile || imagePreviewUrl)) {
-        // If capturedImageFile is null (e.g. if only preview URL was set and then cropped),
-        // we need to ensure fileName is valid.
         const fileName = capturedImageFile ? capturedImageFile.name : `cropped-image-${Date.now()}.jpg`;
         const croppedFile = await getCroppedImageFile(imgRef.current, completedCrop, fileName);
         if (croppedFile) {
             finalImageFileToProcess = croppedFile;
         } else {
             toast({ title: "Cropping Failed", description: "Could not crop the image. Using original.", variant: "destructive" });
-            // Fallback to original if capturedImageFile exists
             if (!capturedImageFile) {
                  toast({ title: "Processing Error", description: "Original image not available for fallback.", variant: "destructive" });
                  setIsProcessingImage(false);
@@ -279,8 +276,6 @@ export default function Home() {
             }
         }
     } else if (!capturedImageFile) {
-        // This case should ideally not be hit if imagePreviewUrl is set but capturedImageFile is not,
-        // unless we allow direct URL input for cropping which is not the current flow.
         toast({ title: "No Image File", description: "No image file available to process.", variant: "destructive" });
         setIsProcessingImage(false);
         return;
@@ -292,7 +287,7 @@ export default function Home() {
       setIsProcessingImage(false);
       return;
     }
-    
+
     try {
       const imageDataUri = await fileToDataUri(finalImageFileToProcess);
       const input: ExtractListFromImageInput = { imageDataUri };
@@ -300,11 +295,10 @@ export default function Home() {
 
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
-        // Pass the *finalImageFileToProcess* (which might be the cropped one) to addList
-        const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
-        
+        const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess);
+
         if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id); 
+          setListToFocusId(newParentList.id);
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -361,7 +355,7 @@ export default function Home() {
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        setHasCameraPermission(true); 
+        setHasCameraPermission(true);
         resetCropperState(); // Reset crop for new image
       }
       setIsCapturing(false);
@@ -424,7 +418,7 @@ export default function Home() {
 
     const remainingSubitems = listToDeleteCompletedFrom.subitems.filter(si => !si.completed);
     await manageSubitems(listToDeleteCompletedFrom.id, remainingSubitems);
-    
+
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
   };
@@ -527,7 +521,12 @@ export default function Home() {
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
           <h1 className="text-2xl font-semibold mb-2">Welcome to ListBot</h1>
-          <p className="text-muted-foreground mb-2 text-center">Your smart assistant for capturing, organizing, and completing lists.</p>
+          <p className="text-muted-foreground mb-2 text-center">An experimental, AI-powered app for scanning, organizing, and completing lists.</p>
+          <div className="text-4xl mt-4 mb-4 space-x-4">
+            <span>📸</span>
+            <span>📝</span>
+            <span>✨</span>
+          </div>
           <p className="text-muted-foreground mb-6 text-center">Sign in to manage and sync your lists across devices.</p>
            <Button onClick={handleSignIn} className="mt-4 px-8 py-6 text-lg">
             <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
@@ -558,9 +557,9 @@ export default function Home() {
               </Button>
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
                 setIsImportDialogOpen(isOpen);
-                if (!isOpen) { 
+                if (!isOpen) {
                   stopCameraStream();
-                  setHasCameraPermission(null); 
+                  setHasCameraPermission(null);
                   setImagePreviewUrl(null);
                   setCapturedImageFile(null);
                   resetCropperState();
@@ -588,7 +587,7 @@ export default function Home() {
                             ref={videoRef}
                             className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                             autoPlay
-                            playsInline 
+                            playsInline
                             muted
                           />
                            {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
@@ -610,7 +609,7 @@ export default function Home() {
                         )}
                       </div>
                     )}
-                    
+
                     {imagePreviewUrl && (
                       <div className="space-y-2">
                         <div className="border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
@@ -641,7 +640,7 @@ export default function Home() {
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                          stopCameraStream(); 
+                          stopCameraStream();
                           setCapturedImageFile(null);
                           setImagePreviewUrl(null);
                           setHasCameraPermission(null);
@@ -658,7 +657,7 @@ export default function Home() {
                   <canvas ref={canvasRef} className="hidden"></canvas>
                 </DialogContent>
               </Dialog>
-              
+
               {firebaseReady && currentUser && (
                 <DropdownMenu>
                   <DropdownMenuTriggerComponent asChild>
@@ -691,7 +690,7 @@ export default function Home() {
               )}
             </div>
           </div>
-          
+
           <section aria-labelledby="list-heading" className="pt-6">
             <div className="space-y-4">
               {renderActiveLists()}
@@ -816,20 +815,3 @@ export default function Home() {
     </div>
   );
 }
-    
-
-    
-
-
-    
-
-    
-
-    
-
-
-    
-
-    
-
-    
