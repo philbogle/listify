@@ -181,7 +181,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
 
   const handleCopyList = async () => {
     let textToCopy = `${list.title}\n`;
-    textToCopy += list.subitems.map(si => `${si.completed ? '[x]' : '[ ]'} ${si.title}`).join('\n');
+    textToCopy += list.subitems.map(si => `${si.completed ? '+' : '-'} ${si.title}`).join('\n');
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -208,7 +208,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
         list.completed
           ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
           : "bg-card scale-100 opacity-100",
-        !startInEditMode && "transition-all duration-300 ease-in-out" 
+        startInEditMode ? "" : "transition-all duration-300 ease-in-out" 
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
