@@ -15,10 +15,9 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
 });
 
-export const metadata: Metadata = { // metadata export is allowed here
+export const metadata: Metadata = {
   title: 'Mentalist - Manage Your Lists Efficiently',
   description: 'Mentalist helps you organize your work and life with an intuitive list management system.',
-  manifest: '/manifest.json', // Link to the manifest file
 };
 
 export default function RootLayout({
@@ -26,12 +25,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // useEffect for service worker has been moved to AppSetup
-
   return (
     <html lang="en">
       <head>
-        <meta name="theme-color" content="#4285F4" />
+        {/* <meta name="theme-color" content="#4285F4" /> */}
+        {/* <link rel="manifest" href="/manifest.json" /> */}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppSetup>
