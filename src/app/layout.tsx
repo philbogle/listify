@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Mentalist - Manage Your Lists Efficiently',
-  description: 'Mentalist helps you organize your work and life with an intuitive list management system.',
+  title: 'Mentalist - Scan anything to a list',
+  description: 'Mentalist converts printed and handwritten text and even arbitrary objects to easy-to-manage checklists. ',
 };
 
 export default function RootLayout({

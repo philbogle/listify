@@ -41,7 +41,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown } from "lucide-react"; // Smartphone icon removed
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -52,8 +52,6 @@ import type { User } from "firebase/auth";
 
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-
-// BeforeInstallPromptEvent interface removed
 
 const fileToDataUri = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -152,17 +150,11 @@ export default function Home() {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null); // Ref for the image in the cropper
-  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); // Example: 16 / 9 or undefined
-
-  // deferredInstallPrompt state removed
+  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
   }, []);
-
-  // useEffect for 'beforeinstallprompt' removed
-  // handleAddToHomeScreen function removed
-
 
   const stopCameraStream = useCallback(() => {
     if (stream) {
@@ -305,10 +297,9 @@ export default function Home() {
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
         const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess);
-        setListToFocusId(newParentList?.id || null);
-
-
+        
         if (newParentList && newParentList.id) {
+          setListToFocusId(newParentList.id); 
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -323,10 +314,10 @@ export default function Home() {
             }
           }
         } else {
-            // toast({ title: "Import Partially Failed", description: "Could not create the parent list. Subitems not added.", variant: "destructive" });
+            // No toast needed if parent list creation failed, addList hook handles error toast
         }
       } else {
-         // No toast for this case
+         // No toast for AI not finding actionable content or failing to suggest a title.
       }
     } catch (error: any) {
       console.error("Error extracting list from image:", error);
@@ -357,15 +348,15 @@ export default function Home() {
       return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stopCameraStream();
+    stopCameraStream(); // Stop the stream *before* showing the preview
 
     canvas.toBlob(async (blob) => {
       if (blob) {
         const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
-        setImagePreviewUrl(previewUrl);
-        setHasCameraPermission(true);
+        setImagePreviewUrl(previewUrl); // This will hide the video and show the cropper
+        setHasCameraPermission(true); // Keep this true as permission was granted
         resetCropperState();
       }
       setIsCapturing(false);
@@ -373,10 +364,10 @@ export default function Home() {
   };
 
   const handleRetakePhoto = () => {
-    setImagePreviewUrl(null);
+    setImagePreviewUrl(null); // Hide cropper
     setCapturedImageFile(null);
     resetCropperState();
-    setHasCameraPermission(null);
+    setHasCameraPermission(null); // This will re-trigger camera permission and stream in useEffect
   }
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -694,7 +685,6 @@ export default function Home() {
                       <HelpCircle className="mr-2 h-4 w-4" />
                       <span>Help</span>
                     </DropdownMenuItem>
-                    {/* "Add to Home Screen" DropdownMenuItem removed */}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
@@ -800,3 +790,4 @@ export default function Home() {
     </div>
   );
 }
+
