@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogTrigger, // Added DialogTrigger here
+  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -41,7 +41,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -252,7 +252,7 @@ export default function Home() {
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
-    if (!capturedImageFile && !imagePreviewUrl) { 
+    if (!capturedImageFile && !imagePreviewUrl) {
         toast({ title: "No Image", description: "Please capture or select an image first.", variant: "destructive" });
         return;
     }
@@ -300,7 +300,7 @@ export default function Home() {
         const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess);
 
         if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id); 
+          setListToFocusId(newParentList.id);
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const subitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -349,7 +349,7 @@ export default function Home() {
       return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stopCameraStream(); 
+    stopCameraStream();
 
     canvas.toBlob(async (blob) => {
       if (blob) {
@@ -358,7 +358,7 @@ export default function Home() {
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
         setHasCameraPermission(true);
-        resetCropperState(); 
+        resetCropperState();
       }
       setIsCapturing(false);
     }, 'image/jpeg', 0.9);
@@ -368,7 +368,7 @@ export default function Home() {
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
     resetCropperState();
-    setHasCameraPermission(null); 
+    setHasCameraPermission(null);
   }
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -377,10 +377,10 @@ export default function Home() {
     const newCrop = centerCrop(
       makeAspectCrop(
         {
-          unit: '%', 
-          width: 90, 
+          unit: '%',
+          width: 90,
         },
-        cropAspect || width / height, 
+        cropAspect || width / height,
         width,
         height
       ),
@@ -388,7 +388,7 @@ export default function Home() {
       height
     );
     setCrop(newCrop);
-    setCompletedCrop(undefined); 
+    setCompletedCrop(undefined);
   }
 
 
@@ -526,7 +526,7 @@ export default function Home() {
       {!currentUser && !isLoading && firebaseReady && (
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
-          <h1 className="text-2xl font-semibold mb-2">Welcome to Scandalist</h1>
+          <h1 className="text-2xl font-semibold mb-2">Welcome to Mentalist</h1>
           <p className="text-muted-foreground mb-2 text-center">An experimental, AI-powered app for scanning, organizing, and completing lists.</p>
            <div className="flex items-center justify-center space-x-6 text-muted-foreground my-4">
             <Camera className="h-10 w-10" />
@@ -721,10 +721,10 @@ export default function Home() {
               <Image
                 src={viewingScanUrl}
                 alt="Scanned list image"
-                width={600} 
+                width={600}
                 height={800}
-                style={{ 
-                  objectFit: 'contain', 
+                style={{
+                  objectFit: 'contain',
                   maxHeight: 'calc(70vh - 120px)', // Adjusted for footer space
                   width: 'auto',
                   transform: `scale(${scanZoomLevel})`,
@@ -791,4 +791,3 @@ export default function Home() {
     </div>
   );
 }
-
