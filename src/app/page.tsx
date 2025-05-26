@@ -41,7 +41,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -420,6 +420,7 @@ export default function Home() {
 
     const remainingSubitems = listToDeleteCompletedFrom.subitems.filter(si => !si.completed);
     await manageSubitems(listToDeleteCompletedFrom.id, remainingSubitems);
+    // Toast removed as per user request
 
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
@@ -525,7 +526,7 @@ export default function Home() {
       {!currentUser && !isLoading && firebaseReady && (
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
-          <h1 className="text-2xl font-semibold mb-2">Welcome to Mentalist</h1>
+          <h1 className="text-2xl font-semibold mb-2">Welcome to Listify</h1>
           <p className="text-muted-foreground mb-2 text-center">An experimental, AI-powered app for scanning, organizing, and completing lists.</p>
            <div className="flex items-center justify-center space-x-6 text-muted-foreground my-4">
             <Camera className="h-10 w-10" />
@@ -790,4 +791,3 @@ export default function Home() {
     </div>
   );
 }
-

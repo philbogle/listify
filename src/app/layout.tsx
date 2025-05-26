@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Mentalist - Scan anything to a list',
-  description: 'Mentalist converts printed and handwritten text and even arbitrary objects to easy-to-manage checklists. ',
+  title: 'Listify - Scan anything to a list',
+  description: 'Listify converts printed and handwritten text and even arbitrary objects to easy-to-manage checklists. ',
 };
 
 export default function RootLayout({

@@ -387,7 +387,7 @@ const ListCard: FC<ListCardProps> = ({ list, onUpdateList, onDeleteListRequested
           <DialogHeader>
             <DialogTitle>Autogenerate Items</DialogTitle>
             <DialogDescription>
-              Enter a prompt for the AI to generate items. It defaults to the list title.
+              Enter a prompt for the AI to generate items.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

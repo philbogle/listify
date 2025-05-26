@@ -29,9 +29,9 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md md:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Mentalist Help</DialogTitle>
+          <DialogTitle>Listify Help</DialogTitle>
           <DialogDescription className="text-left">
-            Mentalist lets you scan, organize, and complete lists. It is experimental and may be taken down at any time, so please don&apos;t use it for sensitive or important data.
+            Listify lets you scan, organize, and complete lists. It is experimental and may be taken down at any time, so please don&apos;t use it for sensitive or important data.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4 space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-2">
@@ -73,7 +73,7 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
               <AccordionTrigger className="text-sm font-semibold hover:no-underline">Technical Details</AccordionTrigger>
               <AccordionContent className="text-xs space-y-2">
                 <p>
-                  Mentalist is a full-stack web application built with modern technologies.
+                  Listify is a full-stack web application built with modern technologies.
                 </p>
                 <ul className="list-disc pl-5 space-y-1">
                   <li><strong>Frontend:</strong> Next.js (React framework) for the user interface, styled with Tailwind CSS and ShadCN UI components.</li>
