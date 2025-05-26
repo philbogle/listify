@@ -7,13 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
   DialogClose,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
 import {
@@ -41,7 +41,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -52,6 +52,17 @@ import type { User } from "firebase/auth";
 
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
+
+// Define the BeforeInstallPromptEvent interface
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
+
 
 const fileToDataUri = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -152,10 +163,46 @@ export default function Home() {
   const imgRef = useRef<HTMLImageElement>(null); // Ref for the image in the cropper
   const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); // Example: 16 / 9 or undefined
 
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
   }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredInstallPrompt(e as BeforeInstallPromptEvent);
+      console.log('\'beforeinstallprompt\' event was fired.');
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleAddToHomeScreen = async () => {
+    if (!deferredInstallPrompt) {
+      toast({
+        title: "Already installed or not available",
+        description: "This app might already be on your home screen, or the feature isn't available in this browser.",
+      });
+      return;
+    }
+    // Show the install prompt
+    deferredInstallPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, and can't use it again, discard it
+    setDeferredInstallPrompt(null);
+  };
+
 
   const stopCameraStream = useCallback(() => {
     if (stream) {
@@ -424,6 +471,7 @@ export default function Home() {
 
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
+    // toast({ title: "Completed items deleted", description: `Completed items from "${listToDeleteCompletedFrom.title}" have been removed.`});
   };
 
   const handleDeleteListRequested = (listId: string) => {
@@ -593,7 +641,7 @@ export default function Home() {
                             ref={videoRef}
                             className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                             autoPlay
-                            playsInline
+                            playsInline // Important for iOS
                             muted
                           />
                            {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
@@ -686,6 +734,15 @@ export default function Home() {
                       <HelpCircle className="mr-2 h-4 w-4" />
                       <span>Help</span>
                     </DropdownMenuItem>
+                    {deferredInstallPrompt && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleAddToHomeScreen}>
+                          <Smartphone className="mr-2 h-4 w-4" />
+                          <span>Add to Home Screen</span>
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
@@ -791,3 +848,6 @@ export default function Home() {
     </div>
   );
 }
+
+
+    
