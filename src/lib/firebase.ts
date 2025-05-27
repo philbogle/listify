@@ -139,7 +139,7 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
     subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })), // Firestore stores subitems as subtasks
     createdAt: serverTimestamp(),
     userId: userId,
-    scanImageUrls: listData.scanImageUrls || [], // Initialize with provided URLs or empty array
+    scanImageUrls: listData.scanImageUrls || [],
   };
   const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), docData);
   return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString(), scanImageUrls: docData.scanImageUrls };
@@ -147,6 +147,15 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
 
 const mapDocToList = (doc: DocumentData): List => {
   const data = doc.data();
+  let scanUrls: string[] = [];
+
+  if (data.scanImageUrls && Array.isArray(data.scanImageUrls)) {
+    scanUrls = data.scanImageUrls;
+  } else if (data.scanImageUrl && typeof data.scanImageUrl === 'string') {
+    // Backward compatibility for old single scanImageUrl
+    scanUrls = [data.scanImageUrl];
+  }
+
   return {
     id: doc.id,
     title: data.title,
@@ -158,7 +167,7 @@ const mapDocToList = (doc: DocumentData): List => {
       completed: st.completed
     })),
     userId: data.userId,
-    scanImageUrls: data.scanImageUrls || [], // Default to empty array if not present
+    scanImageUrls: scanUrls,
   } as List;
 };
 
@@ -241,6 +250,11 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
   if (firebaseUpdates.userId !== undefined) delete firebaseUpdates.userId;
   if (firebaseUpdates.id !== undefined) delete firebaseUpdates.id;
 
+  // Make sure to remove the old singular scanImageUrl if scanImageUrls is being set
+  if (firebaseUpdates.scanImageUrls !== undefined) {
+    firebaseUpdates.scanImageUrl = null; // or delete it, depending on preference
+  }
+
 
   // scanImageUrls will be passed as a complete array if it's being updated
   await updateDoc(listRef, firebaseUpdates);
@@ -297,3 +311,5 @@ export const isFirebaseConfigured = (): boolean => {
   const configured = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.projectId !== "YOUR_PROJECT_ID";
   return configured;
 };
+
+
