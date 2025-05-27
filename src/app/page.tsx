@@ -41,7 +41,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone, ScanLine } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -150,7 +150,12 @@ export default function Home() {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null); // Ref for the image in the cropper
-  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined);
+  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); // e.g. 16 / 9, undefined for freeform
+
+  // State for "Scan More Items" mode
+  const [scanningForListId, setScanningForListId] = useState<string | null>(null);
+  const [scanningListTitle, setScanningListTitle] = useState<string | null>(null);
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
@@ -199,6 +204,8 @@ export default function Home() {
         setImagePreviewUrl(null);
         setCapturedImageFile(null);
         resetCropperState();
+        setScanningForListId(null); 
+        setScanningListTitle(null);
       }
     }
 
@@ -226,13 +233,24 @@ export default function Home() {
       toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
       return;
     }
+    // If not in "scan more" mode already, clear the scanningForListId
+    if (!scanningForListId) {
+      setScanningForListId(null);
+      setScanningListTitle(null);
+    }
     setIsImportDialogOpen(true);
-    // Reset states when opening dialog
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
-    setHasCameraPermission(null); // Will trigger camera permission request if needed
+    setHasCameraPermission(null); 
     resetCropperState();
   };
+
+  const handleScanMoreItemsRequested = (listId: string, listTitle: string) => {
+    setScanningForListId(listId);
+    setScanningListTitle(listTitle);
+    handleOpenScanDialog(); // This will open the dialog in "scan more" mode
+  };
+
 
   const handleInitialEditDone = (listId: string) => {
     if (listId === listToFocusId) {
@@ -246,8 +264,10 @@ export default function Home() {
     setImagePreviewUrl(null);
     setHasCameraPermission(null);
     resetCropperState();
-    setIsImportDialogOpen(false); // This line closes the dialog
+    setIsImportDialogOpen(false); 
     stopCameraStream();
+    setScanningForListId(null);
+    setScanningListTitle(null);
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
@@ -294,30 +314,58 @@ export default function Home() {
       const input: ExtractListFromImageInput = { imageDataUri };
       const result = await extractListFromImage(input);
 
-      if (result && result.parentListTitle) {
-        const parentTitle = result.parentListTitle.trim();
-        const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess);
-        
-        if (newParentList && newParentList.id) {
-          setListToFocusId(newParentList.id); 
-          if (result.extractedSubitems && result.extractedSubitems.length > 0) {
-            const subitemsToAdd: Subitem[] = result.extractedSubitems
-              .filter(si => si.title && si.title.trim() !== "")
-              .map(si => ({
-                id: crypto.randomUUID(),
-                title: si.title.trim(),
-                completed: false,
-              }));
+      if (scanningForListId && scanningListTitle) { // Mode: Add to existing list
+        const existingList = activeLists.find(l => l.id === scanningForListId);
+        if (existingList && result.extractedSubitems && result.extractedSubitems.length > 0) {
+          const newSubitemsToAdd: Subitem[] = result.extractedSubitems
+            .filter(si => si.title && si.title.trim() !== "")
+            .map(si => ({
+              id: crypto.randomUUID(),
+              title: si.title.trim(),
+              completed: false,
+            }));
+          
+          if (newSubitemsToAdd.length > 0) {
+            const combinedSubitems = [...existingList.subitems, ...newSubitemsToAdd];
+            await manageSubitems(scanningForListId, combinedSubitems);
+            toast({
+              title: "Items Added",
+              description: `${newSubitemsToAdd.length} item(s) added to "${existingList.title}".`,
+              duration: 3000,
+            });
+          }
+        } else if (result.extractedSubitems && result.extractedSubitems.length === 0) {
+            // No new items found in this scan, no toast needed
+        } else if (!existingList) {
+            toast({ title: "List Not Found", description: `Could not find list "${scanningListTitle}" to add items to.`, variant: "destructive" });
+        }
+      } else { // Mode: Create new list
+        if (result && result.parentListTitle) {
+          const parentTitle = result.parentListTitle.trim();
+          // For new lists, pass the image file to addList for storage
+          const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
+          
+          if (newParentList && newParentList.id) {
+            setListToFocusId(newParentList.id); 
+            if (result.extractedSubitems && result.extractedSubitems.length > 0) {
+              const subitemsToAdd: Subitem[] = result.extractedSubitems
+                .filter(si => si.title && si.title.trim() !== "")
+                .map(si => ({
+                  id: crypto.randomUUID(),
+                  title: si.title.trim(),
+                  completed: false,
+                }));
 
-            if (subitemsToAdd.length > 0) {
-              await manageSubitems(newParentList.id, subitemsToAdd);
+              if (subitemsToAdd.length > 0) {
+                await manageSubitems(newParentList.id, subitemsToAdd);
+              }
             }
+          } else {
+              // No toast needed if parent list creation failed, addList hook handles error toast
           }
         } else {
-            // No toast needed if parent list creation failed, addList hook handles error toast
+           // No toast for AI not finding actionable content or failing to suggest a title.
         }
-      } else {
-         // No toast for AI not finding actionable content or failing to suggest a title.
       }
     } catch (error: any) {
       console.error("Error extracting list from image:", error);
@@ -348,15 +396,15 @@ export default function Home() {
       return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stopCameraStream(); // Stop the stream *before* showing the preview
+    stopCameraStream(); 
 
     canvas.toBlob(async (blob) => {
       if (blob) {
         const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
-        setImagePreviewUrl(previewUrl); // This will hide the video and show the cropper
-        setHasCameraPermission(true); // Keep this true as permission was granted
+        setImagePreviewUrl(previewUrl); 
+        setHasCameraPermission(true); 
         resetCropperState();
       }
       setIsCapturing(false);
@@ -364,10 +412,10 @@ export default function Home() {
   };
 
   const handleRetakePhoto = () => {
-    setImagePreviewUrl(null); // Hide cropper
+    setImagePreviewUrl(null); 
     setCapturedImageFile(null);
     resetCropperState();
-    setHasCameraPermission(null); // This will re-trigger camera permission and stream in useEffect
+    setHasCameraPermission(null); 
   }
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -379,7 +427,7 @@ export default function Home() {
           unit: '%',
           width: 90,
         },
-        cropAspect || width / height,
+        cropAspect || width / height, // Use aspect or derive from image
         width,
         height
       ),
@@ -387,7 +435,7 @@ export default function Home() {
       height
     );
     setCrop(newCrop);
-    setCompletedCrop(undefined);
+    setCompletedCrop(undefined); // Clear completed crop when new image loads
   }
 
 
@@ -401,7 +449,7 @@ export default function Home() {
 
   const handleViewScan = (imageUrl: string) => {
     setViewingScanUrl(imageUrl);
-    setScanZoomLevel(1); // Reset zoom level when opening a new scan
+    setScanZoomLevel(1); 
     setIsViewScanDialogOpen(true);
   };
 
@@ -459,6 +507,7 @@ export default function Home() {
         toast={toast}
         onViewScan={handleViewScan}
         onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
+        onScanMoreItemsRequested={handleScanMoreItemsRequested}
       />
     ));
   };
@@ -569,6 +618,8 @@ export default function Home() {
                   setImagePreviewUrl(null);
                   setCapturedImageFile(null);
                   resetCropperState();
+                  setScanningForListId(null); 
+                  setScanningListTitle(null);
                 }
               }}>
                 <DialogTrigger asChild>
@@ -579,9 +630,15 @@ export default function Home() {
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[480px]">
                   <DialogHeader>
-                    <DialogTitle>Scan List</DialogTitle>
+                    <DialogTitle>
+                      {scanningForListId && scanningListTitle 
+                        ? `Scan More Items for "${scanningListTitle}"` 
+                        : "Scan List"}
+                    </DialogTitle>
                     <DialogDescription>
-                      Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content.
+                      {scanningForListId
+                        ? "Take a picture to add more items to this list."
+                        : "Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content."}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -593,7 +650,7 @@ export default function Home() {
                             ref={videoRef}
                             className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                             autoPlay
-                            playsInline // Important for iOS
+                            playsInline 
                             muted
                           />
                            {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
@@ -651,6 +708,8 @@ export default function Home() {
                           setImagePreviewUrl(null);
                           setHasCameraPermission(null);
                           resetCropperState();
+                          setScanningForListId(null);
+                          setScanningListTitle(null);
                       }}>Cancel</Button>
                     </DialogClose>
                     { (capturedImageFile || imagePreviewUrl) && !isCapturing && (
@@ -725,7 +784,7 @@ export default function Home() {
                 height={800}
                 style={{
                   objectFit: 'contain',
-                  maxHeight: 'calc(70vh - 120px)', // Adjusted for footer space
+                  maxHeight: 'calc(70vh - 120px)', 
                   width: 'auto',
                   transform: `scale(${scanZoomLevel})`,
                   transformOrigin: 'center center',
@@ -791,3 +850,4 @@ export default function Home() {
     </div>
   );
 }
+
