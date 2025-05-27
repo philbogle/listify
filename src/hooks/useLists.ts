@@ -17,8 +17,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "firebase/auth";
 
-const LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX = "listbot_active_lists_";
-const LOCAL_STORAGE_COMPLETED_LISTS_KEY_PREFIX = "listbot_completed_lists_";
+const LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX = "listify_active_lists_";
+const LOCAL_STORAGE_COMPLETED_LISTS_KEY_PREFIX = "listify_completed_lists_";
 
 export const useLists = () => {
   const [activeLists, setActiveLists] = useState<List[]>([]);
@@ -40,20 +40,19 @@ export const useLists = () => {
       setActiveLists([]);
       setCompletedLists([]);
       setHasFetchedCompleted(false);
-      setIsLoading(true); 
-      if (!user) {
-        setIsLoading(false); 
-        setIsLoadingCompleted(false); 
-        if (!isFirebaseConfigured()) {
-          try {
-            const localActive = localStorage.getItem(getActiveLocalKey());
-            if (localActive) setActiveLists(JSON.parse(localActive).sort(sortLists));
-            const localCompleted = localStorage.getItem(getCompletedLocalKey());
-            if (localCompleted) setCompletedLists(JSON.parse(localCompleted).sort(sortLists));
-          } catch (error) {
-            console.error("Error loading lists from local storage (no Firebase, no user):", error);
-          }
+      setIsLoading(true);
+      if (!user && !isFirebaseConfigured()) {
+        try {
+          const localActive = localStorage.getItem(getActiveLocalKey());
+          if (localActive) setActiveLists(JSON.parse(localActive).sort(sortLists));
+          const localCompleted = localStorage.getItem(getCompletedLocalKey());
+          if (localCompleted) setCompletedLists(JSON.parse(localCompleted).sort(sortLists));
+        } catch (error) {
+          console.error("Error loading lists from local storage (no Firebase, no user):", error);
         }
+        setIsLoading(false);
+      } else if (!user && isFirebaseConfigured()){
+        setIsLoading(false);
       }
     });
     return () => unsubscribe();
@@ -63,9 +62,6 @@ export const useLists = () => {
   useEffect(() => {
     if (currentUser && isFirebaseConfigured()) {
       setIsLoading(true);
-      const localActiveKey = getActiveLocalKey(currentUser.uid);
-      const localCompletedKey = getCompletedLocalKey(currentUser.uid);
-
       getListsFromFirebase(currentUser.uid)
         .then((firebaseLists) => {
           setActiveLists(firebaseLists.sort(sortLists));
@@ -74,12 +70,12 @@ export const useLists = () => {
           console.error("Error loading active lists from Firebase:", error);
           toast({
             title: "Firebase Load Error",
-            description: "Could not load active lists. Check console.",
+            description: "Could not load active lists. Using local cache if available.",
             variant: "destructive",
             duration: 9000,
           });
           try {
-            const localListsData = localStorage.getItem(localActiveKey);
+            const localListsData = localStorage.getItem(getActiveLocalKey(currentUser.uid));
             if (localListsData) setActiveLists(JSON.parse(localListsData).sort(sortLists));
             else setActiveLists([]);
           } catch (e) {
@@ -92,31 +88,15 @@ export const useLists = () => {
         });
       
       setCompletedLists([]); 
-      setHasFetchedCompleted(false); 
+      setHasFetchedCompleted(false);
       try {
-        const localCompletedData = localStorage.getItem(localCompletedKey);
+        const localCompletedData = localStorage.getItem(getCompletedLocalKey(currentUser.uid));
         if (localCompletedData) {
             setCompletedLists(JSON.parse(localCompletedData).sort(sortLists));
         }
       } catch(e) {
         console.error("Failed to load completed lists from local storage on auth change", e);
       }
-
-    } else if (!currentUser && !isFirebaseConfigured()) {
-      setIsLoading(false);
-       try {
-        const localActive = localStorage.getItem(getActiveLocalKey());
-        if (localActive) setActiveLists(JSON.parse(localActive).sort(sortLists));
-        const localCompleted = localStorage.getItem(getCompletedLocalKey());
-        if (localCompleted) setCompletedLists(JSON.parse(localCompleted).sort(sortLists));
-      } catch (error) {
-        console.error("Error loading lists from local storage (no Firebase, no user) ineffect:", error);
-      }
-    } else if (!currentUser && isFirebaseConfigured()) {
-      setActiveLists([]);
-      setCompletedLists([]);
-      setHasFetchedCompleted(false);
-      setIsLoading(false);
     }
   }, [currentUser, toast, getActiveLocalKey, getCompletedLocalKey]);
 
@@ -143,40 +123,47 @@ export const useLists = () => {
 
   const fetchCompletedListsIfNeeded = useCallback(async () => {
     if (!currentUser || !isFirebaseConfigured()) {
-      if (!isFirebaseConfigured() && !hasFetchedCompleted) setHasFetchedCompleted(true); 
+      if (!isFirebaseConfigured() && !hasFetchedCompleted) {
+        setHasFetchedCompleted(true);
+        setIsLoadingCompleted(false);
+      }
       return;
     }
-    if (hasFetchedCompleted && !isLoadingCompleted) return; 
+    if (hasFetchedCompleted && !isLoadingCompleted && completedLists.length > 0) return; 
+    if (isLoadingCompleted) return;
+
 
     setIsLoadingCompleted(true);
-    const localKey = getCompletedLocalKey(currentUser.uid);
     try {
+      console.log("[useLists] Fetching completed lists from Firebase...");
       const firebaseCompletedLists = await getCompletedListsFromFirebase(currentUser.uid);
+      console.log("[useLists] Fetched completed lists from Firebase:", firebaseCompletedLists);
       setCompletedLists(firebaseCompletedLists.sort(sortLists));
+      setHasFetchedCompleted(true);
     } catch (error) {
       console.error("Error fetching completed lists from Firebase:", error);
       toast({
         title: "Firebase Load Error",
-        description: "Could not load completed lists. Check console.",
+        description: "Could not load completed lists. Using local cache if available.",
         variant: "destructive",
       });
        try { 
-          const localListsData = localStorage.getItem(localKey);
+          const localListsData = localStorage.getItem(getCompletedLocalKey(currentUser.uid));
           if (localListsData) setCompletedLists(JSON.parse(localListsData).sort(sortLists));
           else setCompletedLists([]);
         } catch (e) {
           console.error("Failed to load completed lists from local storage fallback", e);
           setCompletedLists([]);
         }
+        setHasFetchedCompleted(true); // Mark as fetched even on error to use cache
     } finally {
       setIsLoadingCompleted(false);
-      setHasFetchedCompleted(true);
     }
-  }, [currentUser, hasFetchedCompleted, isLoadingCompleted, toast, getCompletedLocalKey]);
+  }, [currentUser, hasFetchedCompleted, isLoadingCompleted, toast, getCompletedLocalKey, completedLists.length]);
 
 
   const addList = async (
-    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrl">,
+    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls">,
     capturedImageFile?: File | null
   ): Promise<List | undefined> => {
     if (!currentUser && isFirebaseConfigured()) {
@@ -185,38 +172,41 @@ export const useLists = () => {
     }
 
     const optimisticId = crypto.randomUUID();
-    const optimisticList: List = {
-      title: listData.title,
+    let optimisticList: List = {
+      ...listData,
       completed: false,
       subitems: [],
       userId: currentUser?.uid,
       id: optimisticId,
       createdAt: new Date().toISOString(),
+      scanImageUrls: [],
     };
 
     setActiveLists(prev => [optimisticList, ...prev].sort(sortLists));
 
     if (isFirebaseConfigured() && currentUser) {
       try {
-        const newListBase: Omit<List, "id" | "createdAt" | "scanImageUrl"> = { 
-            title: listData.title,
+        let initialScanUrl: string | undefined = undefined;
+        if (capturedImageFile) {
+          initialScanUrl = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, optimisticId); // Use optimisticId for initial path
+        }
+
+        const newListBase: Omit<List, "id" | "createdAt"> = { 
+            ...listData,
             completed: false,
             subitems: [], 
             userId: currentUser.uid,
+            scanImageUrls: initialScanUrl ? [initialScanUrl] : [],
         };
+        
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
-        let finalFirebaseList = { ...addedListFromFirebase, subitems: [] }; 
+        
+        // If uploadScanImageToFirebase used optimisticId, and addListToFirebase returns a new ID,
+        // we might need to update storage path or re-upload, but for simplicity, we assume optimisticId is fine for now.
+        // Or better, pass the final list ID to uploadScanImageToFirebase if it happens after list creation.
+        // For now, if initialScanUrl was based on optimisticId, it's okay. If it needed final ID, it'd be more complex.
 
-        if (capturedImageFile) {
-          try {
-            const downloadURL = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, addedListFromFirebase.id);
-            await updateListInFirebase(addedListFromFirebase.id, { scanImageUrl: downloadURL });
-            finalFirebaseList = { ...finalFirebaseList, scanImageUrl: downloadURL };
-          } catch (uploadError) {
-            console.error("Error uploading scan image or updating list with URL:", uploadError);
-            toast({ title: "Image Upload Failed", description: "List created, but image upload failed.", variant: "destructive" });
-          }
-        }
+        const finalFirebaseList = { ...addedListFromFirebase, subitems: [] }; 
         
         setActiveLists(prev => prev.map(l => l.id === optimisticId ? finalFirebaseList : l).sort(sortLists));
         return finalFirebaseList;
@@ -228,7 +218,9 @@ export const useLists = () => {
         return undefined;
       }
     } else if (!isFirebaseConfigured()) {
-      return optimisticList;
+      // For local-only, if an image was "captured", we can't store it.
+      // So scanImageUrls remains empty or undefined for purely local lists.
+      return { ...optimisticList, scanImageUrls: [] };
     }
     return undefined; 
   };
@@ -236,61 +228,58 @@ export const useLists = () => {
   const updateList = async (listId: string, updates: Partial<List>) => {
     let originalListState: List | undefined;
     let originalSourceArray: 'active' | 'completed' | null = null;
+    let listFound = false;
 
-    // Capture current state for rollback
-    const currentActiveList = activeLists.find(l => l.id === listId);
-    if (currentActiveList) {
-        originalListState = JSON.parse(JSON.stringify(currentActiveList));
+    setActiveLists(prev => {
+      const listIndex = prev.findIndex(l => l.id === listId);
+      if (listIndex > -1) {
+        originalListState = JSON.parse(JSON.stringify(prev[listIndex]));
         originalSourceArray = 'active';
-    } else {
-        const currentCompletedList = completedLists.find(l => l.id === listId);
-        if (currentCompletedList) {
-            originalListState = JSON.parse(JSON.stringify(currentCompletedList));
-            originalSourceArray = 'completed';
+        listFound = true;
+        if (updates.completed === true) { // Moving from active to completed
+          return prev.filter(l => l.id !== listId).sort(sortLists);
         }
+        return prev.map(l => l.id === listId ? { ...l, ...updates } : l).sort(sortLists);
+      }
+      return prev;
+    });
+
+    if (!listFound) {
+      setCompletedLists(prev => {
+        const listIndex = prev.findIndex(l => l.id === listId);
+        if (listIndex > -1) {
+          originalListState = JSON.parse(JSON.stringify(prev[listIndex]));
+          originalSourceArray = 'completed';
+          listFound = true;
+          if (updates.completed === false) { // Moving from completed to active
+            return prev.filter(l => l.id !== listId).sort(sortLists);
+          }
+          return prev.map(l => l.id === listId ? { ...l, ...updates } : l).sort(sortLists);
+        }
+        return prev;
+      });
     }
     
-    const updatedList = { ...(originalListState || {id: listId, title:'', completed:false, subitems:[], createdAt: new Date().toISOString(), userId: currentUser?.uid}), ...updates };
-
-
-    // Optimistic UI update
-    if (updates.completed === true && originalSourceArray === 'active') { 
-        setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
-        setCompletedLists(prev => [updatedList, ...prev.filter(c => c.id !== listId)].sort(sortLists));
-    } else if (updates.completed === false && originalSourceArray === 'completed') { 
-        setCompletedLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
-        setActiveLists(prev => [updatedList, ...prev.filter(a => a.id !== listId)].sort(sortLists));
-    } else { 
-        if (originalSourceArray === 'active') {
-             setActiveLists(prev => prev.map(l => l.id === listId ? updatedList : l).sort(sortLists));
-        } else if (originalSourceArray === 'completed') {
-             setCompletedLists(prev => prev.map(l => l.id === listId ? updatedList : l).sort(sortLists));
-        } else {
-          // If original list wasn't found (e.g., state update race on new list),
-          // try updating in active lists optimistically if it's an in-place update.
-          if (updates.completed === undefined || updates.completed === false) {
-            setActiveLists(prev => {
-                const existing = prev.find(l => l.id === listId);
-                if (existing) return prev.map(l => l.id === listId ? updatedList : l).sort(sortLists);
-                // If not found, maybe it was meant for completed and we didn't find it yet
-                return prev;
-            });
-          } else {
-             setCompletedLists(prev => {
-                const existing = prev.find(l => l.id === listId);
-                if (existing) return prev.map(l => l.id === listId ? updatedList : l).sort(sortLists);
-                return prev;
-            });
-          }
-        }
+    if (!originalListState && listFound) { // Should have been found if listFound is true
+         console.warn(`[useLists] updateList: List ${listId} was found for UI update but original state capture failed.`);
     }
+    
+    const updatedListForTargetArray = { ...(originalListState || {id: listId, title:'', completed:false, subitems:[], createdAt: new Date().toISOString(), userId: currentUser?.uid, scanImageUrls: []}), ...updates };
 
+    if (updates.completed === true && originalSourceArray === 'active') {
+      setCompletedLists(prev => [updatedListForTargetArray, ...prev.filter(c => c.id !== listId)].sort(sortLists));
+    } else if (updates.completed === false && originalSourceArray === 'completed') {
+      setActiveLists(prev => [updatedListForTargetArray, ...prev.filter(a => a.id !== listId)].sort(sortLists));
+    }
 
     if (isFirebaseConfigured() && currentUser) {
         try {
             const firebaseUpdates = { ...updates };
+            // Prevent non-editable fields from being sent
+            delete (firebaseUpdates as any).id; 
             delete (firebaseUpdates as any).userId; 
             delete (firebaseUpdates as any).createdAt; 
+            
             if (updates.subitems !== undefined) {
               (firebaseUpdates as any).subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
               delete firebaseUpdates.subitems;
@@ -301,22 +290,14 @@ export const useLists = () => {
             toast({ title: "Firebase Error", description: "Could not update list. Reverting.", variant: "destructive" });
             // Rollback
             if (originalListState && originalSourceArray) {
-                if (updates.completed === true && originalSourceArray === 'active') { 
-                    setCompletedLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
-                    setActiveLists(prev => [originalListState!, ...prev.filter(l => l.id !== listId && l.id !== originalListState!.id)].sort(sortLists));
-                } else if (updates.completed === false && originalSourceArray === 'completed') { 
-                    setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
-                    setCompletedLists(prev => [originalListState!, ...prev.filter(l => l.id !== listId && l.id !== originalListState!.id)].sort(sortLists));
-                } else { 
-                    if (originalSourceArray === 'active') {
-                        setActiveLists(prev => prev.map(l => l.id === listId ? originalListState! : l).sort(sortLists));
-                    } else {
-                        setCompletedLists(prev => prev.map(l => l.id === listId ? originalListState! : l).sort(sortLists));
-                    }
-                }
-            } else {
-                if (updates.completed === true) setCompletedLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
-                if (updates.completed === false) setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
+                setActiveLists(prevActive => {
+                    const currentActive = prevActive.filter(l => l.id !== listId);
+                    return (originalSourceArray === 'active' ? [originalListState, ...currentActive] : currentActive).sort(sortLists);
+                });
+                setCompletedLists(prevCompleted => {
+                    const currentCompleted = prevCompleted.filter(l => l.id !== listId);
+                    return (originalSourceArray === 'completed' ? [originalListState, ...currentCompleted] : currentCompleted).sort(sortLists);
+                });
             }
         }
     }
@@ -333,6 +314,7 @@ export const useLists = () => {
     if (isFirebaseConfigured() && currentUser) {
       try {
         await deleteListFromFirebase(listId);
+        // Consider deleting associated images from Storage here if needed
       } catch (error) {
         console.error("Error deleting list from Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not delete list. Reverting.", variant: "destructive" });
@@ -345,17 +327,16 @@ export const useLists = () => {
     }
   };
 
-  const manageSubitems = async (listId: string, newSubitems: Subitem[]) => {
+ const manageSubitems = async (listId: string, newSubitems: Subitem[]) => {
     let capturedOriginalSubitems: Subitem[] | undefined = undefined;
-    let listWasActive: boolean | undefined = undefined;
+    let listSourceForRollback: 'active' | 'completed' | 'unknown' = 'unknown';
 
-    // Optimistically update active lists and capture original subitems if found
     setActiveLists(prevActiveLists => {
       const listIndex = prevActiveLists.findIndex(l => l.id === listId);
       if (listIndex > -1) {
-        if (capturedOriginalSubitems === undefined) { // Capture only once
-          capturedOriginalSubitems = [...prevActiveLists[listIndex].subitems];
-          listWasActive = true;
+        if (capturedOriginalSubitems === undefined) {
+          capturedOriginalSubitems = JSON.parse(JSON.stringify(prevActiveLists[listIndex].subitems));
+          listSourceForRollback = 'active';
         }
         const updatedList = { ...prevActiveLists[listIndex], subitems: newSubitems };
         const newActiveLists = [...prevActiveLists];
@@ -365,14 +346,13 @@ export const useLists = () => {
       return prevActiveLists;
     });
 
-    // Optimistically update completed lists if not found in active (and not already captured)
-    if (listWasActive === undefined) {
+    if (listSourceForRollback === 'unknown') {
       setCompletedLists(prevCompletedLists => {
         const listIndex = prevCompletedLists.findIndex(l => l.id === listId);
         if (listIndex > -1) {
-          if (capturedOriginalSubitems === undefined) { // Capture only once
-            capturedOriginalSubitems = [...prevCompletedLists[listIndex].subitems];
-            listWasActive = false;
+          if (capturedOriginalSubitems === undefined) {
+            capturedOriginalSubitems = JSON.parse(JSON.stringify(prevCompletedLists[listIndex].subitems));
+            listSourceForRollback = 'completed';
           }
           const updatedList = { ...prevCompletedLists[listIndex], subitems: newSubitems };
           const newCompletedLists = [...prevCompletedLists];
@@ -383,16 +363,13 @@ export const useLists = () => {
       });
     }
     
-    // If after attempting optimistic updates, we still haven't captured original subitems,
-    // it implies the list was brand new (or state update is pending).
-    // For a truly new list, original subitems would be [].
     if (capturedOriginalSubitems === undefined) {
-        capturedOriginalSubitems = [];
-        // We assume a new list would be active by default if its source is unknown
-        // This typically happens when addList is called and manageSubitems immediately after.
-        if (listWasActive === undefined) listWasActive = true; 
+      // This implies the list was not found in active or completed during optimistic update.
+      // For a brand new list being processed immediately after creation, this might be expected.
+      // Default original subitems to empty for rollback in this case.
+      capturedOriginalSubitems = [];
+      if (listSourceForRollback === 'unknown') listSourceForRollback = 'active'; // Assume new lists are active
     }
-
 
     if (isFirebaseConfigured() && currentUser) {
       try {
@@ -401,15 +378,10 @@ export const useLists = () => {
         console.error("Error managing subitems in Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not update subitems. Reverting.", variant: "destructive" });
         
-        if (listWasActive === true) {
+        if (listSourceForRollback === 'active') {
           setActiveLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: capturedOriginalSubitems! } : l).sort(sortLists));
-        } else if (listWasActive === false) {
+        } else if (listSourceForRollback === 'completed') {
           setCompletedLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: capturedOriginalSubitems! } : l).sort(sortLists));
-        }
-        // Fallback if listWasActive was still undefined (should be rare with new logic)
-        // Rollback on active as new lists are added there.
-        else {
-             setActiveLists(prev => prev.map(l => l.id === listId ? { ...l, subitems: capturedOriginalSubitems! } : l).sort(sortLists));
         }
       }
     }
@@ -429,7 +401,3 @@ export const useLists = () => {
     manageSubitems,
   };
 };
-
-    
-
-    

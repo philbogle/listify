@@ -41,8 +41,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone, ScanLine } from "lucide-react";
-import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone, ScanLine, ChevronLeft, ChevronRight } from "lucide-react";
+import { isFirebaseConfigured, signInWithGoogle, signOutUser, uploadScanImageToFirebase } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
 import Image from "next/image";
@@ -124,19 +124,20 @@ export default function Home() {
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [capturedImageFile, setCapturedImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null); // For cropper source
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null); 
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const { toast } = useToast();
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null); // For camera capture
+  const canvasRef = useRef<HTMLCanvasElement>(null); 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [listToFocusId, setListToFocusId] = useState<string | null>(null);
 
   const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
-  const [viewingScanUrl, setViewingScanUrl] = useState<string | null>(null);
+  const [viewingScanUrls, setViewingScanUrls] = useState<string[] | null>(null);
+  const [currentScanIndex, setCurrentScanIndex] = useState(0);
   const [scanZoomLevel, setScanZoomLevel] = useState(1);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
 
@@ -146,13 +147,11 @@ export default function Home() {
   const [isConfirmDeleteListOpen, setIsConfirmDeleteListOpen] = useState(false);
   const [listToDeleteId, setListToDeleteId] = useState<string | null>(null);
 
-  // Cropping state
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const imgRef = useRef<HTMLImageElement>(null); // Ref for the image in the cropper
+  const imgRef = useRef<HTMLImageElement>(null); 
   const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); 
 
-  // State for "Scan More Items" mode
   const [scanningForListId, setScanningForListId] = useState<string | null>(null);
   const [scanningListTitle, setScanningListTitle] = useState<string | null>(null);
 
@@ -200,20 +199,13 @@ export default function Home() {
     } else if (!isImportDialogOpen && stream) {
       stopCameraStream();
     }
-
-    // No explicit reset of image/cropper states here,
-    // as onOpenChange for the Dialog handles full context reset.
-    // Individual scan start functions (handleOpenNewScanDialog, handleScanMoreItemsRequested)
-    // handle resetting image-specific states for a new session.
-
     return () => {
-      // Ensure stream is stopped if component unmounts while dialog is open
       if (stream && isImportDialogOpen) {
         stopCameraStream();
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl]); // stopCameraStream removed from deps as it's memoized
+  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl]);
 
   const handleAddNewList = async () => {
     if (!currentUser && firebaseReady) {
@@ -226,42 +218,36 @@ export default function Home() {
     }
   };
   
-  // Specifically for opening the scan dialog for a NEW list
   const handleOpenNewScanDialog = () => {
     if (firebaseReady && !currentUser) {
       toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
       return;
     }
-    // Explicitly set context for a new scan
     setScanningForListId(null);
     setScanningListTitle(null);
   
-    // Reset states for a new scan session
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
     setHasCameraPermission(null); 
     resetCropperState();
   
-    setIsImportDialogOpen(true); // Open the dialog
+    setIsImportDialogOpen(true);
   };
   
-  // Specifically for opening the scan dialog to ADD ITEMS to an EXISTING list
   const handleScanMoreItemsRequested = (listId: string, listTitle: string) => {
-    if (firebaseReady && !currentUser) { // Auth check consistent with other actions
+    if (firebaseReady && !currentUser) { 
       toast({ title: "Please Sign In", description: "You need to be signed in to scan more items.", variant: "destructive"});
       return;
     }
-    // Set context for "scan more items" mode
     setScanningForListId(listId);
     setScanningListTitle(listTitle);
   
-    // Reset states for this specific scan session (even if adding to existing list)
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
     setHasCameraPermission(null);
     resetCropperState();
   
-    setIsImportDialogOpen(true); // Open the dialog
+    setIsImportDialogOpen(true);
   };
 
 
@@ -275,11 +261,10 @@ export default function Home() {
     setIsProcessingImage(false);
     setCapturedImageFile(null);
     setImagePreviewUrl(null);
-    setHasCameraPermission(null); // Could be revisited if we want to keep permission state across dialog uses
+    setHasCameraPermission(null); 
     resetCropperState();
-    setIsImportDialogOpen(false); // This will trigger onOpenChange in Dialog, which resets scanningForListId
+    setIsImportDialogOpen(false); 
     stopCameraStream();
-    // scanningForListId and scanningListTitle are reset by Dialog's onOpenChange
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
@@ -314,7 +299,6 @@ export default function Home() {
         return;
     }
 
-
     if (!finalImageFileToProcess) {
       toast({ title: "Image Error", description: "No image available for conversion.", variant: "destructive" });
       setIsProcessingImage(false);
@@ -326,34 +310,45 @@ export default function Home() {
       const input: ExtractListFromImageInput = { imageDataUri };
       const result = await extractListFromImage(input);
 
-      if (scanningForListId && scanningListTitle) { // Mode: Add to existing list
-        const existingList = activeLists.find(l => l.id === scanningForListId);
+      if (scanningForListId && scanningListTitle && currentUser) { 
+        const existingList = activeLists.find(l => l.id === scanningForListId) || completedLists.find(l => l.id === scanningForListId);
         if (!existingList) {
             toast({ title: "List Not Found", description: `Could not find list "${scanningListTitle}" to add items to.`, variant: "destructive" });
-        } else if (result.extractedSubitems && result.extractedSubitems.length > 0) {
-          const newSubitemsToAdd: Subitem[] = result.extractedSubitems
-            .filter(si => si.title && si.title.trim() !== "")
-            .map(si => ({
-              id: crypto.randomUUID(),
-              title: si.title.trim(),
-              completed: false,
-            }));
-          
-          if (newSubitemsToAdd.length > 0) {
-            const combinedSubitems = [...existingList.subitems, ...newSubitemsToAdd];
-            await manageSubitems(scanningForListId, combinedSubitems);
-            toast({
-              title: "Items Added",
-              description: `${newSubitemsToAdd.length} item(s) added to "${existingList.title}".`,
-              duration: 3000,
-            });
+        } else {
+          let newScanUrl: string | undefined = undefined;
+          try {
+            newScanUrl = await uploadScanImageToFirebase(finalImageFileToProcess, currentUser.uid, scanningForListId);
+            const updatedScanImageUrls = [...(existingList.scanImageUrls || []), newScanUrl];
+            await updateList(scanningForListId, { scanImageUrls: updatedScanImageUrls });
+          } catch (uploadError) {
+             console.error("Error uploading additional scan image:", uploadError);
+             toast({ title: "Image Upload Failed", description: "Items might be added, but new scan image upload failed.", variant: "destructive" });
           }
-          // If newSubitemsToAdd.length is 0 (e.g. after filtering), no specific toast is needed.
+
+          if (result.extractedSubitems && result.extractedSubitems.length > 0) {
+            const newSubitemsToAdd: Subitem[] = result.extractedSubitems
+              .filter(si => si.title && si.title.trim() !== "")
+              .map(si => ({
+                id: crypto.randomUUID(),
+                title: si.title.trim(),
+                completed: false,
+              }));
+            
+            if (newSubitemsToAdd.length > 0) {
+              const combinedSubitems = [...existingList.subitems, ...newSubitemsToAdd];
+              await manageSubitems(scanningForListId, combinedSubitems);
+              toast({
+                title: "Items Added",
+                description: `${newSubitemsToAdd.length} item(s) added to "${existingList.title}".`,
+                duration: 3000,
+              });
+            }
+          }
         }
-        // If result.extractedSubitems is empty or null, no items found, no specific toast.
       } else { // Mode: Create new list
         if (result && result.parentListTitle) {
           const parentTitle = result.parentListTitle.trim();
+          // Pass the file to addList, it will handle the upload
           const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
           
           if (newParentList && newParentList.id) {
@@ -454,10 +449,13 @@ export default function Home() {
     await signOutUser();
   };
 
-  const handleViewScan = (imageUrl: string) => {
-    setViewingScanUrl(imageUrl);
-    setScanZoomLevel(1); 
-    setIsViewScanDialogOpen(true);
+  const handleViewScan = (imageUrls: string[]) => {
+    if (imageUrls && imageUrls.length > 0) {
+      setViewingScanUrls(imageUrls);
+      setCurrentScanIndex(0);
+      setScanZoomLevel(1); 
+      setIsViewScanDialogOpen(true);
+    }
   };
 
   const handleDeleteCompletedItemsRequested = (listId: string) => {
@@ -574,6 +572,19 @@ export default function Home() {
 
   const handleZoomIn = () => setScanZoomLevel(prev => Math.min(prev + 0.2, 3));
   const handleZoomOut = () => setScanZoomLevel(prev => Math.max(prev - 0.2, 0.5));
+
+  const handleNextScan = () => {
+    if (viewingScanUrls && currentScanIndex < viewingScanUrls.length - 1) {
+      setCurrentScanIndex(prev => prev + 1);
+      setScanZoomLevel(1);
+    }
+  };
+  const handlePrevScan = () => {
+    if (currentScanIndex > 0) {
+      setCurrentScanIndex(prev => prev - 1);
+      setScanZoomLevel(1);
+    }
+  };
 
 
   return (
@@ -709,8 +720,6 @@ export default function Home() {
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                          // Note: onOpenChange for Dialog already handles full reset including scanningForListId
-                          // This onClick is primarily for stopping stream if user cancels mid-capture or preview
                           stopCameraStream(); 
                       }}>Cancel</Button>
                     </DialogClose>
@@ -772,16 +781,30 @@ export default function Home() {
         </main>
       )}
 
-      <Dialog open={isViewScanDialogOpen} onOpenChange={setIsViewScanDialogOpen}>
+      <Dialog open={isViewScanDialogOpen} onOpenChange={(isOpen) => {
+        setIsViewScanDialogOpen(isOpen);
+        if (!isOpen) {
+          setViewingScanUrls(null);
+          setCurrentScanIndex(0);
+        }
+      }}>
         <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Scanned Image</DialogTitle>
+            <DialogTitle>
+              Scanned Image
+              {viewingScanUrls && viewingScanUrls.length > 1 && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  ({currentScanIndex + 1} of {viewingScanUrls.length})
+                </span>
+              )}
+            </DialogTitle>
           </DialogHeader>
-          {viewingScanUrl && (
+          {viewingScanUrls && viewingScanUrls[currentScanIndex] && (
             <div className="mt-4 flex justify-center items-center max-h-[70vh] overflow-auto bg-muted/10 p-2 rounded-md">
               <Image
-                src={viewingScanUrl}
-                alt="Scanned list image"
+                key={viewingScanUrls[currentScanIndex]} // Force re-render on image change
+                src={viewingScanUrls[currentScanIndex]}
+                alt={`Scanned list image ${currentScanIndex + 1}`}
                 width={600}
                 height={800}
                 style={{
@@ -796,7 +819,7 @@ export default function Home() {
               />
             </div>
           )}
-          <DialogFooter className="mt-4 sm:justify-between">
+          <DialogFooter className="mt-4 sm:justify-between items-center">
             <div className="flex items-center space-x-2">
                <Button onClick={handleZoomOut} variant="outline" size="icon" disabled={scanZoomLevel <= 0.5} aria-label="Zoom out">
                 <ZoomOut />
@@ -808,6 +831,16 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground">(Use two fingers to scroll)</p>
               )}
             </div>
+            {viewingScanUrls && viewingScanUrls.length > 1 && (
+              <div className="flex items-center space-x-2">
+                <Button onClick={handlePrevScan} variant="outline" size="icon" disabled={currentScanIndex === 0} aria-label="Previous scan">
+                  <ChevronLeft />
+                </Button>
+                <Button onClick={handleNextScan} variant="outline" size="icon" disabled={currentScanIndex === viewingScanUrls.length - 1} aria-label="Next scan">
+                  <ChevronRight />
+                </Button>
+              </div>
+            )}
             <DialogClose asChild>
               <Button type="button" variant="outline">Close</Button>
             </DialogClose>
@@ -852,4 +885,3 @@ export default function Home() {
     </div>
   );
 }
-

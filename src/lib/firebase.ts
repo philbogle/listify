@@ -53,7 +53,7 @@ try {
   }
 }
 
-const LISTS_COLLECTION = "tasks";
+const LISTS_COLLECTION = "tasks"; // This is still 'tasks' in Firestore as per previous context
 
 const getDb = () => {
   if (!db) {
@@ -131,20 +131,37 @@ export const onAuthUserChanged = (callback: (user: User | null) => void): (() =>
   return onAuthStateChanged(firebaseAuth, callback);
 };
 
-export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt" | "scanImageUrl">, userId: string): Promise<List> => {
+export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">, userId: string): Promise<List> => {
   const currentDb = getDb();
   const docData: any = {
     title: listData.title,
     completed: listData.completed,
-    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })),
+    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })), // Firestore stores subitems as subtasks
     createdAt: serverTimestamp(),
     userId: userId,
+    scanImageUrls: listData.scanImageUrls || [], // Initialize with provided URLs or empty array
   };
   const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), docData);
-  return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString() };
+  return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString(), scanImageUrls: docData.scanImageUrls };
 };
 
-// Fetches only ACTIVE lists
+const mapDocToList = (doc: DocumentData): List => {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    title: data.title,
+    completed: data.completed,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+    subitems: (data.subtasks || []).map((st: any) => ({
+      id: st.id || crypto.randomUUID(),
+      title: st.title,
+      completed: st.completed
+    })),
+    userId: data.userId,
+    scanImageUrls: data.scanImageUrls || [], // Default to empty array if not present
+  } as List;
+};
+
 export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
   if (!isFirebaseConfigured()) {
     console.warn("Firebase not configured, returning empty array for active lists.");
@@ -159,26 +176,11 @@ export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
     const q = query(
         collection(currentDb, LISTS_COLLECTION),
         where("userId", "==", userId),
-        where("completed", "==", false), // Only fetch active lists
+        where("completed", "==", false),
         orderBy("createdAt", "desc")
     );
     const querySnapshot: QuerySnapshot<DocumentData> = await getDocs(q);
-    return querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title,
-        completed: data.completed,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
-        subitems: (data.subtasks || []).map((st: any) => ({
-          id: st.id || crypto.randomUUID(),
-          title: st.title,
-          completed: st.completed
-        })),
-        userId: data.userId,
-        scanImageUrl: data.scanImageUrl,
-      } as List;
-    });
+    return querySnapshot.docs.map(mapDocToList);
   } catch (error: any) {
     console.error("Error fetching active lists from Firebase:", error);
     if (error.code === 'permission-denied') {
@@ -192,7 +194,6 @@ export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
   }
 };
 
-// Fetches only COMPLETED lists
 export const getCompletedListsFromFirebase = async (userId: string): Promise<List[]> => {
   if (!isFirebaseConfigured()) {
     console.warn("Firebase not configured, returning empty array for completed lists.");
@@ -207,26 +208,11 @@ export const getCompletedListsFromFirebase = async (userId: string): Promise<Lis
     const q = query(
         collection(currentDb, LISTS_COLLECTION),
         where("userId", "==", userId),
-        where("completed", "==", true), // Only fetch completed lists
+        where("completed", "==", true),
         orderBy("createdAt", "desc")
     );
     const querySnapshot: QuerySnapshot<DocumentData> = await getDocs(q);
-    return querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title,
-        completed: data.completed,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
-        subitems: (data.subtasks || []).map((st: any) => ({
-          id: st.id || crypto.randomUUID(),
-          title: st.title,
-          completed: st.completed
-        })),
-        userId: data.userId,
-        scanImageUrl: data.scanImageUrl,
-      } as List;
-    });
+    return querySnapshot.docs.map(mapDocToList);
   } catch (error: any) {
     console.error("Error fetching completed lists from Firebase:", error);
      if (error.code === 'permission-denied') {
@@ -250,19 +236,21 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
     firebaseUpdates.subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
     delete firebaseUpdates.subitems;
   }
-  if (updates.createdAt === undefined && firebaseUpdates.createdAt !== undefined) {
-    delete firebaseUpdates.createdAt;
-  }
-  if (updates.userId === undefined && firebaseUpdates.userId !== undefined) {
-    delete firebaseUpdates.userId;
-  }
+  // Ensure non-editable fields are not accidentally updated
+  if (firebaseUpdates.createdAt !== undefined) delete firebaseUpdates.createdAt;
+  if (firebaseUpdates.userId !== undefined) delete firebaseUpdates.userId;
+  if (firebaseUpdates.id !== undefined) delete firebaseUpdates.id;
 
+
+  // scanImageUrls will be passed as a complete array if it's being updated
   await updateDoc(listRef, firebaseUpdates);
 };
 
 export const deleteListFromFirebase = async (listId: string): Promise<void> => {
   const currentDb = getDb();
   await deleteDoc(doc(currentDb, LISTS_COLLECTION, listId));
+  // Note: Deleting associated images from Firebase Storage is not handled here.
+  // This would require iterating through scanImageUrls and deleting each file.
 };
 
 export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem[]): Promise<void> => {
@@ -277,7 +265,9 @@ export const uploadScanImageToFirebase = async (file: File, userId: string, list
     throw new Error("Firebase not configured. Image upload unavailable.");
   }
   const currentStorage = getFirebaseStorage();
-  const filePath = `scans/${userId}/${listId}/${file.name}`;
+  // Make file name more unique to prevent overwrites if multiple scans happen rapidly for the same list
+  const fileName = `${Date.now()}-${file.name}`;
+  const filePath = `scans/${userId}/${listId}/${fileName}`;
   const imageRef = storageRef(currentStorage, filePath);
 
   const uploadTask = uploadBytesResumable(imageRef, file);
