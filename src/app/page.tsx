@@ -150,7 +150,7 @@ export default function Home() {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null); // Ref for the image in the cropper
-  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); // e.g. 16 / 9, undefined for freeform
+  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); 
 
   // State for "Scan More Items" mode
   const [scanningForListId, setScanningForListId] = useState<string | null>(null);
@@ -199,23 +199,21 @@ export default function Home() {
       getCameraPermission();
     } else if (!isImportDialogOpen && stream) {
       stopCameraStream();
-      // Also reset image and cropper states when dialog closes fully
-      if (!isImportDialogOpen) {
-        setImagePreviewUrl(null);
-        setCapturedImageFile(null);
-        resetCropperState();
-        setScanningForListId(null); 
-        setScanningListTitle(null);
-      }
     }
 
+    // No explicit reset of image/cropper states here,
+    // as onOpenChange for the Dialog handles full context reset.
+    // Individual scan start functions (handleOpenNewScanDialog, handleScanMoreItemsRequested)
+    // handle resetting image-specific states for a new session.
+
     return () => {
-      if (stream && !isImportDialogOpen) {
+      // Ensure stream is stopped if component unmounts while dialog is open
+      if (stream && isImportDialogOpen) {
         stopCameraStream();
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isImportDialogOpen, currentUser]);
+  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl]); // stopCameraStream removed from deps as it's memoized
 
   const handleAddNewList = async () => {
     if (!currentUser && firebaseReady) {
@@ -227,28 +225,43 @@ export default function Home() {
       setListToFocusId(newList.id);
     }
   };
-
-  const handleOpenScanDialog = () => {
+  
+  // Specifically for opening the scan dialog for a NEW list
+  const handleOpenNewScanDialog = () => {
     if (firebaseReady && !currentUser) {
       toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
       return;
     }
-    // If not in "scan more" mode already, clear the scanningForListId
-    if (!scanningForListId) {
-      setScanningForListId(null);
-      setScanningListTitle(null);
-    }
-    setIsImportDialogOpen(true);
+    // Explicitly set context for a new scan
+    setScanningForListId(null);
+    setScanningListTitle(null);
+  
+    // Reset states for a new scan session
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
     setHasCameraPermission(null); 
     resetCropperState();
+  
+    setIsImportDialogOpen(true); // Open the dialog
   };
-
+  
+  // Specifically for opening the scan dialog to ADD ITEMS to an EXISTING list
   const handleScanMoreItemsRequested = (listId: string, listTitle: string) => {
+    if (firebaseReady && !currentUser) { // Auth check consistent with other actions
+      toast({ title: "Please Sign In", description: "You need to be signed in to scan more items.", variant: "destructive"});
+      return;
+    }
+    // Set context for "scan more items" mode
     setScanningForListId(listId);
     setScanningListTitle(listTitle);
-    handleOpenScanDialog(); // This will open the dialog in "scan more" mode
+  
+    // Reset states for this specific scan session (even if adding to existing list)
+    setImagePreviewUrl(null);
+    setCapturedImageFile(null);
+    setHasCameraPermission(null);
+    resetCropperState();
+  
+    setIsImportDialogOpen(true); // Open the dialog
   };
 
 
@@ -262,12 +275,11 @@ export default function Home() {
     setIsProcessingImage(false);
     setCapturedImageFile(null);
     setImagePreviewUrl(null);
-    setHasCameraPermission(null);
+    setHasCameraPermission(null); // Could be revisited if we want to keep permission state across dialog uses
     resetCropperState();
-    setIsImportDialogOpen(false); 
+    setIsImportDialogOpen(false); // This will trigger onOpenChange in Dialog, which resets scanningForListId
     stopCameraStream();
-    setScanningForListId(null);
-    setScanningListTitle(null);
+    // scanningForListId and scanningListTitle are reset by Dialog's onOpenChange
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
@@ -316,7 +328,9 @@ export default function Home() {
 
       if (scanningForListId && scanningListTitle) { // Mode: Add to existing list
         const existingList = activeLists.find(l => l.id === scanningForListId);
-        if (existingList && result.extractedSubitems && result.extractedSubitems.length > 0) {
+        if (!existingList) {
+            toast({ title: "List Not Found", description: `Could not find list "${scanningListTitle}" to add items to.`, variant: "destructive" });
+        } else if (result.extractedSubitems && result.extractedSubitems.length > 0) {
           const newSubitemsToAdd: Subitem[] = result.extractedSubitems
             .filter(si => si.title && si.title.trim() !== "")
             .map(si => ({
@@ -334,15 +348,12 @@ export default function Home() {
               duration: 3000,
             });
           }
-        } else if (result.extractedSubitems && result.extractedSubitems.length === 0) {
-            // No new items found in this scan, no toast needed
-        } else if (!existingList) {
-            toast({ title: "List Not Found", description: `Could not find list "${scanningListTitle}" to add items to.`, variant: "destructive" });
+          // If newSubitemsToAdd.length is 0 (e.g. after filtering), no specific toast is needed.
         }
+        // If result.extractedSubitems is empty or null, no items found, no specific toast.
       } else { // Mode: Create new list
         if (result && result.parentListTitle) {
           const parentTitle = result.parentListTitle.trim();
-          // For new lists, pass the image file to addList for storage
           const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
           
           if (newParentList && newParentList.id) {
@@ -360,11 +371,7 @@ export default function Home() {
                 await manageSubitems(newParentList.id, subitemsToAdd);
               }
             }
-          } else {
-              // No toast needed if parent list creation failed, addList hook handles error toast
           }
-        } else {
-           // No toast for AI not finding actionable content or failing to suggest a title.
         }
       }
     } catch (error: any) {
@@ -427,7 +434,7 @@ export default function Home() {
           unit: '%',
           width: 90,
         },
-        cropAspect || width / height, // Use aspect or derive from image
+        cropAspect || width / height, 
         width,
         height
       ),
@@ -435,7 +442,7 @@ export default function Home() {
       height
     );
     setCrop(newCrop);
-    setCompletedCrop(undefined); // Clear completed crop when new image loads
+    setCompletedCrop(undefined); 
   }
 
 
@@ -468,8 +475,7 @@ export default function Home() {
 
     const remainingSubitems = listToDeleteCompletedFrom.subitems.filter(si => !si.completed);
     await manageSubitems(listToDeleteCompletedFrom.id, remainingSubitems);
-    // Toast removed as per user request
-
+    
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
   };
@@ -623,7 +629,7 @@ export default function Home() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" onClick={handleOpenScanDialog} disabled={firebaseReady && !currentUser && !isLoading}>
+                  <Button variant="outline" onClick={handleOpenNewScanDialog} disabled={firebaseReady && !currentUser && !isLoading}>
                     <Camera className="mr-2 h-4 w-4" />
                     Scan
                   </Button>
@@ -703,13 +709,9 @@ export default function Home() {
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                          stopCameraStream();
-                          setCapturedImageFile(null);
-                          setImagePreviewUrl(null);
-                          setHasCameraPermission(null);
-                          resetCropperState();
-                          setScanningForListId(null);
-                          setScanningListTitle(null);
+                          // Note: onOpenChange for Dialog already handles full reset including scanningForListId
+                          // This onClick is primarily for stopping stream if user cancels mid-capture or preview
+                          stopCameraStream(); 
                       }}>Cancel</Button>
                     </DialogClose>
                     { (capturedImageFile || imagePreviewUrl) && !isCapturing && (
@@ -737,7 +739,7 @@ export default function Home() {
                      <DropdownMenuItem onClick={handleAddNewList} disabled={!currentUser && firebaseReady}>
                       <Plus className="mr-2 h-4 w-4" /> Add List
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenScanDialog} disabled={!currentUser && firebaseReady}>
+                    <DropdownMenuItem onClick={handleOpenNewScanDialog} disabled={!currentUser && firebaseReady}>
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
