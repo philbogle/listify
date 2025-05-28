@@ -7,31 +7,15 @@ To get started, take a look at src/app/page.tsx.
 
 ## Major Features
 
-*   **List Creation & Management:**
-    *   Create new lists with custom titles.
-    *   Add, edit, complete, and delete individual items within lists.
-*   **AI-Powered Image Scanning:**
-    *   Scan handwritten notes, printed text, or even physical objects using your device camera.
-    *   The AI interprets the image to create a new list or add items to an existing list.
-    *   Option to crop the image before processing for better accuracy.
-*   **AI-Powered Item Autogeneration:**
-    *   Suggests new items for a list based on its title and existing content.
-    *   The AI can generate a variable number of items, up to 50, depending on the list's context (e.g., more for recipes or well-defined sets).
-*   **User Authentication:**
-    *   Sign in with your Google account to save and sync your lists.
-    *   Lists are user-specific, ensuring privacy.
-*   **List Organization:**
-    *   Active lists are displayed prominently.
-    *   Completed lists are moved to a collapsible "Completed" section, which loads them on demand.
-*   **Scan Viewing:**
-    *   Save scanned images associated with your lists.
-    *   View multiple scans per list with zoom-in/out functionality.
-*   **Utility Actions:**
-    *   Copy list content (title and items with completion status) to the clipboard.
-    *   Delete all completed items from a list with a confirmation step.
-    *   Delete entire lists with confirmation.
-*   **Help & Information:**
-    *   In-app help screen explaining key features and technical details.
+*   **List Creation & Management:** Create, edit, complete, and delete lists and items.
+*   **AI Image Scanning:** Scan handwritten notes, printed text, or physical objects via camera to create/update lists.
+*   **Image Cropping:** Option to crop images before AI processing for better accuracy.
+*   **AI Item Autogeneration:** Suggests new list items based on title and existing content (up to 50 items).
+*   **User Authentication:** Google Sign-In for saving and syncing lists.
+*   **List Organization:** Active lists displayed prominently; completed lists in a collapsible, lazy-loaded section.
+*   **Multiple Scan Viewing:** Save and view multiple scanned images per list with zoom functionality.
+*   **Utility Actions:** Copy list content, delete completed items, and delete entire lists (with confirmation).
+*   **Help & Information:** In-app help screen explaining features and technical details.
 
 ## Technology & How It Works
 
