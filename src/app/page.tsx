@@ -200,12 +200,12 @@ export default function Home() {
       stopCameraStream();
     }
     return () => {
-      if (stream && isImportDialogOpen) {
+      if (stream && isImportDialogOpen) { // Only stop if the stream was active for this dialog
         stopCameraStream();
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl]);
+  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl, stopCameraStream]); // Added stopCameraStream
 
   const handleAddNewList = async () => {
     if (!currentUser && firebaseReady) {
@@ -265,6 +265,8 @@ export default function Home() {
     resetCropperState();
     setIsImportDialogOpen(false); 
     stopCameraStream();
+    setScanningForListId(null); 
+    setScanningListTitle(null);
   }, [stopCameraStream]);
 
   const handleExtractList = async () => {
@@ -348,7 +350,6 @@ export default function Home() {
       } else { // Mode: Create new list
         if (result && result.parentListTitle) {
           const parentTitle = result.parentListTitle.trim();
-          // Pass the file to addList, it will handle the upload
           const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
           
           if (newParentList && newParentList.id) {
@@ -726,7 +727,7 @@ export default function Home() {
                     { (capturedImageFile || imagePreviewUrl) && !isCapturing && (
                       <Button onClick={handleExtractList} disabled={isProcessingImage}>
                         {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Convert list
+                        Recognize List
                       </Button>
                     )}
                   </DialogFooter>
@@ -773,7 +774,7 @@ export default function Home() {
             </div>
           </section>
 
-           { (firebaseReady && currentUser || !firebaseReady) && (
+           {(firebaseReady && currentUser || !firebaseReady) && (
              <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
                 {renderCompletedListSection()}
             </section>
