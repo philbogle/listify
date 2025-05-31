@@ -64,8 +64,9 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
             <p>Completed lists are moved to a collapsible &quot;Completed&quot; section. Expand this to view them.</p>
           </div>
           <div>
-            <h4 className="font-semibold mb-0.5">User Accounts</h4>
+            <h4 className="font-semibold mb-0.5">User Accounts & App Access</h4>
             <p>Sign in with Google to save and sync your lists. Use the top-right menu for account actions like signing out or accessing this help screen.</p>
+            <p className="mt-1">On supported browsers (like Chrome on Android or Safari on iOS), you can often use the browser&apos;s menu to &quot;Add to Home Screen&quot; or &quot;Install app&quot;. This will add a Listify icon to your device for quick launching, similar to a native app.</p>
           </div>
 
           <Accordion type="single" collapsible className="w-full pt-2">
