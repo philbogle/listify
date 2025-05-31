@@ -13,6 +13,9 @@ import {
   isFirebaseConfigured,
   onAuthUserChanged,
   uploadScanImageToFirebase,
+  generateShareIdForList, // New import
+  removeShareIdFromList, // New import
+  getListByShareId, // New import for potentially fetching shared list data directly if needed elsewhere
 } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "firebase/auth";
@@ -155,7 +158,7 @@ export const useLists = () => {
           console.error("Failed to load completed lists from local storage fallback", e);
           setCompletedLists([]);
         }
-        setHasFetchedCompleted(true); // Mark as fetched even on error to use cache
+        setHasFetchedCompleted(true); 
     } finally {
       setIsLoadingCompleted(false);
     }
@@ -163,7 +166,7 @@ export const useLists = () => {
 
 
   const addList = async (
-    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls">,
+    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls" | "shareId">,
     capturedImageFile?: File | null
   ): Promise<List | undefined> => {
     if (!currentUser && isFirebaseConfigured()) {
@@ -180,6 +183,7 @@ export const useLists = () => {
       id: optimisticId,
       createdAt: new Date().toISOString(),
       scanImageUrls: [],
+      shareId: null,
     };
 
     setActiveLists(prev => [optimisticList, ...prev].sort(sortLists));
@@ -188,7 +192,7 @@ export const useLists = () => {
       try {
         let initialScanUrl: string | undefined = undefined;
         if (capturedImageFile) {
-          initialScanUrl = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, optimisticId); // Use optimisticId for initial path
+          initialScanUrl = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, optimisticId);
         }
 
         const newListBase: Omit<List, "id" | "createdAt"> = { 
@@ -197,15 +201,11 @@ export const useLists = () => {
             subitems: [], 
             userId: currentUser.uid,
             scanImageUrls: initialScanUrl ? [initialScanUrl] : [],
+            shareId: null,
         };
         
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
         
-        // If uploadScanImageToFirebase used optimisticId, and addListToFirebase returns a new ID,
-        // we might need to update storage path or re-upload, but for simplicity, we assume optimisticId is fine for now.
-        // Or better, pass the final list ID to uploadScanImageToFirebase if it happens after list creation.
-        // For now, if initialScanUrl was based on optimisticId, it's okay. If it needed final ID, it'd be more complex.
-
         const finalFirebaseList = { ...addedListFromFirebase, subitems: [] }; 
         
         setActiveLists(prev => prev.map(l => l.id === optimisticId ? finalFirebaseList : l).sort(sortLists));
@@ -218,9 +218,7 @@ export const useLists = () => {
         return undefined;
       }
     } else if (!isFirebaseConfigured()) {
-      // For local-only, if an image was "captured", we can't store it.
-      // So scanImageUrls remains empty or undefined for purely local lists.
-      return { ...optimisticList, scanImageUrls: [] };
+      return { ...optimisticList, scanImageUrls: [], shareId: null };
     }
     return undefined; 
   };
@@ -230,16 +228,18 @@ export const useLists = () => {
     let originalSourceArray: 'active' | 'completed' | null = null;
     let listFound = false;
 
+    const applyUpdates = (list: List) => ({ ...list, ...updates });
+
     setActiveLists(prev => {
       const listIndex = prev.findIndex(l => l.id === listId);
       if (listIndex > -1) {
         originalListState = JSON.parse(JSON.stringify(prev[listIndex]));
         originalSourceArray = 'active';
         listFound = true;
-        if (updates.completed === true) { // Moving from active to completed
+        if (updates.completed === true) { 
           return prev.filter(l => l.id !== listId).sort(sortLists);
         }
-        return prev.map(l => l.id === listId ? { ...l, ...updates } : l).sort(sortLists);
+        return prev.map(l => l.id === listId ? applyUpdates(l) : l).sort(sortLists);
       }
       return prev;
     });
@@ -251,20 +251,20 @@ export const useLists = () => {
           originalListState = JSON.parse(JSON.stringify(prev[listIndex]));
           originalSourceArray = 'completed';
           listFound = true;
-          if (updates.completed === false) { // Moving from completed to active
+          if (updates.completed === false) { 
             return prev.filter(l => l.id !== listId).sort(sortLists);
           }
-          return prev.map(l => l.id === listId ? { ...l, ...updates } : l).sort(sortLists);
+          return prev.map(l => l.id === listId ? applyUpdates(l) : l).sort(sortLists);
         }
         return prev;
       });
     }
     
-    if (!originalListState && listFound) { // Should have been found if listFound is true
+    if (!originalListState && listFound) {
          console.warn(`[useLists] updateList: List ${listId} was found for UI update but original state capture failed.`);
     }
     
-    const updatedListForTargetArray = { ...(originalListState || {id: listId, title:'', completed:false, subitems:[], createdAt: new Date().toISOString(), userId: currentUser?.uid, scanImageUrls: []}), ...updates };
+    const updatedListForTargetArray = applyUpdates(originalListState || {id: listId, title:'', completed:false, subitems:[], createdAt: new Date().toISOString(), userId: currentUser?.uid, scanImageUrls: [], shareId: null});
 
     if (updates.completed === true && originalSourceArray === 'active') {
       setCompletedLists(prev => [updatedListForTargetArray, ...prev.filter(c => c.id !== listId)].sort(sortLists));
@@ -275,7 +275,6 @@ export const useLists = () => {
     if (isFirebaseConfigured() && currentUser) {
         try {
             const firebaseUpdates = { ...updates };
-            // Prevent non-editable fields from being sent
             delete (firebaseUpdates as any).id; 
             delete (firebaseUpdates as any).userId; 
             delete (firebaseUpdates as any).createdAt; 
@@ -288,7 +287,6 @@ export const useLists = () => {
         } catch (error) {
             console.error("Error updating list in Firebase:", error);
             toast({ title: "Firebase Error", description: "Could not update list. Reverting.", variant: "destructive" });
-            // Rollback
             if (originalListState && originalSourceArray) {
                 setActiveLists(prevActive => {
                     const currentActive = prevActive.filter(l => l.id !== listId);
@@ -314,7 +312,6 @@ export const useLists = () => {
     if (isFirebaseConfigured() && currentUser) {
       try {
         await deleteListFromFirebase(listId);
-        // Consider deleting associated images from Storage here if needed
       } catch (error) {
         console.error("Error deleting list from Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not delete list. Reverting.", variant: "destructive" });
@@ -364,11 +361,8 @@ export const useLists = () => {
     }
     
     if (capturedOriginalSubitems === undefined) {
-      // This implies the list was not found in active or completed during optimistic update.
-      // For a brand new list being processed immediately after creation, this might be expected.
-      // Default original subitems to empty for rollback in this case.
       capturedOriginalSubitems = [];
-      if (listSourceForRollback === 'unknown') listSourceForRollback = 'active'; // Assume new lists are active
+      if (listSourceForRollback === 'unknown') listSourceForRollback = 'active'; 
     }
 
     if (isFirebaseConfigured() && currentUser) {
@@ -387,6 +381,44 @@ export const useLists = () => {
     }
   };
 
+  const shareList = async (listId: string): Promise<string | null> => {
+    if (!currentUser || !isFirebaseConfigured()) {
+      toast({ title: "Error", description: "You must be signed in to share lists.", variant: "destructive" });
+      return null;
+    }
+    try {
+      const newShareId = await generateShareIdForList(listId, currentUser.uid);
+      if (newShareId) {
+        await updateList(listId, { shareId: newShareId }); // This will update local state
+        toast({ title: "List Shared!", description: "A public share link has been created." });
+        return newShareId;
+      } else {
+        toast({ title: "Sharing Failed", description: "Could not generate a share link.", variant: "destructive" });
+        return null;
+      }
+    } catch (error) {
+      console.error("Error sharing list:", error);
+      toast({ title: "Sharing Error", description: "An error occurred while trying to share the list.", variant: "destructive" });
+      return null;
+    }
+  };
+
+  const unshareList = async (listId: string): Promise<void> => {
+    if (!currentUser || !isFirebaseConfigured()) {
+      toast({ title: "Error", description: "You must be signed in to manage sharing.", variant: "destructive" });
+      return;
+    }
+    try {
+      await removeShareIdFromList(listId, currentUser.uid);
+      await updateList(listId, { shareId: null }); // This will update local state
+      toast({ title: "Sharing Stopped", description: "The list is no longer publicly shared." });
+    } catch (error) {
+      console.error("Error unsharing list:", error);
+      toast({ title: "Unsharing Error", description: "An error occurred while trying to stop sharing.", variant: "destructive" });
+    }
+  };
+
+
   return {
     activeLists,
     completedLists,
@@ -399,5 +431,9 @@ export const useLists = () => {
     updateList,
     deleteList,
     manageSubitems,
+    shareList, // Expose new method
+    unshareList, // Expose new method
+    getListByShareId, // Potentially useful for the shared page later
   };
 };
+

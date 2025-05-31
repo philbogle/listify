@@ -15,6 +15,8 @@ import {
   where,
   type DocumentData,
   type QuerySnapshot,
+  limit,
+  getDoc,
 } from "firebase/firestore";
 import {
   getAuth,
@@ -53,7 +55,7 @@ try {
   }
 }
 
-const LISTS_COLLECTION = "tasks"; // This is still 'tasks' in Firestore as per previous context
+const LISTS_COLLECTION = "tasks";
 
 const getDb = () => {
   if (!db) {
@@ -136,13 +138,14 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
   const docData: any = {
     title: listData.title,
     completed: listData.completed,
-    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })), // Firestore stores subitems as subtasks
+    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })),
     createdAt: serverTimestamp(),
     userId: userId,
     scanImageUrls: listData.scanImageUrls || [],
+    shareId: null, // Initialize shareId as null
   };
   const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), docData);
-  return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString(), scanImageUrls: docData.scanImageUrls };
+  return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString(), scanImageUrls: docData.scanImageUrls, shareId: null };
 };
 
 const mapDocToList = (doc: DocumentData): List => {
@@ -152,7 +155,6 @@ const mapDocToList = (doc: DocumentData): List => {
   if (data.scanImageUrls && Array.isArray(data.scanImageUrls)) {
     scanUrls = data.scanImageUrls;
   } else if (data.scanImageUrl && typeof data.scanImageUrl === 'string') {
-    // Backward compatibility for old single scanImageUrl
     scanUrls = [data.scanImageUrl];
   }
 
@@ -168,6 +170,7 @@ const mapDocToList = (doc: DocumentData): List => {
     })),
     userId: data.userId,
     scanImageUrls: scanUrls,
+    shareId: data.shareId || null, // Map shareId
   } as List;
 };
 
@@ -245,26 +248,23 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
     firebaseUpdates.subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
     delete firebaseUpdates.subitems;
   }
-  // Ensure non-editable fields are not accidentally updated
+
   if (firebaseUpdates.createdAt !== undefined) delete firebaseUpdates.createdAt;
   if (firebaseUpdates.userId !== undefined) delete firebaseUpdates.userId;
   if (firebaseUpdates.id !== undefined) delete firebaseUpdates.id;
 
-  // Make sure to remove the old singular scanImageUrl if scanImageUrls is being set
+
   if (firebaseUpdates.scanImageUrls !== undefined) {
-    firebaseUpdates.scanImageUrl = null; // or delete it, depending on preference
+    firebaseUpdates.scanImageUrl = null;
   }
+  // shareId can be updated directly if it's in updates
 
-
-  // scanImageUrls will be passed as a complete array if it's being updated
   await updateDoc(listRef, firebaseUpdates);
 };
 
 export const deleteListFromFirebase = async (listId: string): Promise<void> => {
   const currentDb = getDb();
   await deleteDoc(doc(currentDb, LISTS_COLLECTION, listId));
-  // Note: Deleting associated images from Firebase Storage is not handled here.
-  // This would require iterating through scanImageUrls and deleting each file.
 };
 
 export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem[]): Promise<void> => {
@@ -279,7 +279,6 @@ export const uploadScanImageToFirebase = async (file: File, userId: string, list
     throw new Error("Firebase not configured. Image upload unavailable.");
   }
   const currentStorage = getFirebaseStorage();
-  // Make file name more unique to prevent overwrites if multiple scans happen rapidly for the same list
   const fileName = `${Date.now()}-${file.name}`;
   const filePath = `scans/${userId}/${listId}/${fileName}`;
   const imageRef = storageRef(currentStorage, filePath);
@@ -312,4 +311,56 @@ export const isFirebaseConfigured = (): boolean => {
   return configured;
 };
 
+// --- Sharing specific functions ---
+
+export const getListByShareId = async (shareId: string): Promise<List | null> => {
+  if (!isFirebaseConfigured()) {
+    console.warn("Firebase not configured, cannot get list by shareId.");
+    return null;
+  }
+  const currentDb = getDb();
+  try {
+    const q = query(collection(currentDb, LISTS_COLLECTION), where("shareId", "==", shareId), limit(1));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      return null;
+    }
+    return mapDocToList(querySnapshot.docs[0]);
+  } catch (error) {
+    console.error("Error fetching list by shareId:", error);
+    throw error; // Re-throw for the caller to handle
+  }
+};
+
+export const generateShareIdForList = async (listId: string, userId: string): Promise<string | null> => {
+  if (!isFirebaseConfigured()) return null;
+  const currentDb = getDb();
+  const listRef = doc(currentDb, LISTS_COLLECTION, listId);
+  
+  // Verify ownership
+  const listDoc = await getDoc(listRef);
+  if (!listDoc.exists() || listDoc.data()?.userId !== userId) {
+    console.error("User does not own this list or list does not exist.");
+    return null;
+  }
+
+  const newShareId = crypto.randomUUID();
+  await updateDoc(listRef, { shareId: newShareId });
+  return newShareId;
+};
+
+export const removeShareIdFromList = async (listId: string, userId: string): Promise<void> => {
+  if (!isFirebaseConfigured()) return;
+  const currentDb = getDb();
+  const listRef = doc(currentDb, LISTS_COLLECTION, listId);
+
+  // Verify ownership
+  const listDoc = await getDoc(listRef);
+  if (!listDoc.exists() || listDoc.data()?.userId !== userId) {
+    console.error("User does not own this list or list does not exist.");
+    throw new Error("Permission denied or list not found.");
+  }
+
+  await updateDoc(listRef, { shareId: null });
+};
 
