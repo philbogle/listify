@@ -370,7 +370,7 @@ export default function ScanDialog({
           <DialogTitle>
             {initialListId && initialListTitle
               ? `Scan More Items for "${initialListTitle}"`
-              : "Scan List"}
+              : "Scan"}
           </DialogTitle>
           <DialogDescription>
             {initialListId

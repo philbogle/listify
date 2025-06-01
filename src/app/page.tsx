@@ -43,7 +43,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, FileText } from "lucide-react"; 
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, FileText, UploadCloud } from "lucide-react"; 
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -312,10 +312,10 @@ export default function Home() {
                       <Plus className="mr-2 h-4 w-4" /> Enter Manually
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenScanDialogForNewList} className="py-3">
-                      <Camera className="mr-2 h-4 w-4" /> Scan List
+                      <Camera className="mr-2 h-4 w-4" /> Scan
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3" disabled={!currentUser}>
-                      <FileText className="mr-2 h-4 w-4" /> Import List
+                      <UploadCloud className="mr-2 h-4 w-4" /> Import/Dictate
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

@@ -44,8 +44,12 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
             <p>Once a list is created, click &quot;Add Item&quot; at the bottom of its card to add a new item.</p>
           </div>
           <div>
-            <h4 className="font-semibold mb-0.5">Scanning Lists/Items</h4>
+            <h4 className="font-semibold mb-0.5">Scanning</h4>
             <p>Click &quot;Scan&quot; (or select from the menu). Use your camera to take a picture of handwriting, printed text, or physical items. You can crop the image before conversion. The AI will create a list. Scanned images can be viewed via the list&apos;s menu (&quot;View Scan&quot; option).</p>
+          </div>
+          <div>
+            <h4 className="font-semibold mb-0.5">Importing/Dictating</h4>
+            <p>Choose &quot;Import/Dictate&quot; from the &quot;Add&quot; menu. Paste text or use your mobile device&apos;s keyboard dictation feature into the dialog. The AI will then attempt to convert this text into a structured list.</p>
           </div>
           <div>
             <h4 className="font-semibold mb-0.5">Autogenerating Items</h4>

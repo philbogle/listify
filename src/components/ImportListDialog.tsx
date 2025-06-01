@@ -57,7 +57,7 @@ export default function ImportListDialog({
       return;
     }
     if (!currentUser) {
-      toast({ title: "Sign In Required", description: "Please sign in to import lists.", variant: "destructive" });
+      toast({ title: "Sign In Required", description: "Please sign in to import/dictate lists.", variant: "destructive" });
       onOpenChange(false);
       return;
     }
@@ -84,7 +84,7 @@ export default function ImportListDialog({
               await manageSubitems(newParentList.id, subitemsToAdd);
             }
           }
-          toast({ title: "List Imported!", description: `"${newParentList.title}" created from your text.` });
+          toast({ title: "List Imported/Dictated!", description: `"${newParentList.title}" created from your text.` });
           onOpenChange(false); 
         } else {
           toast({ title: "Import Failed", description: "Could not save the new list.", variant: "destructive" });
@@ -93,7 +93,7 @@ export default function ImportListDialog({
         toast({ title: "AI Processing Failed", description: "Could not understand the text to create a list.", variant: "destructive" });
       }
     } catch (aiError: any) {
-      console.error("Error creating list from imported text:", aiError);
+      console.error("Error creating list from imported/dictated text:", aiError);
       let errorMsg = "An error occurred while processing the text.";
       if (aiError.message && aiError.message.includes("GEMINI_API_KEY")) {
         errorMsg = "AI processing failed. Check API key configuration.";
@@ -110,7 +110,7 @@ export default function ImportListDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import List</DialogTitle>
+          <DialogTitle>Import/Dictate List</DialogTitle>
           <DialogDescription>
             Paste your list text below or use your mobile keyboard's microphone to dictate. The AI will try to structure it.
             {!currentUser && " Sign in to enable list creation."}
