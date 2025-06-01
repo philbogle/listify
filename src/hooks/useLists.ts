@@ -105,7 +105,7 @@ export const useLists = () => {
         let migratedCount = 0;
 
         if (localPendingActiveListsRaw || localPendingCompletedListsRaw) {
-          toast({ title: "Syncing Local Lists...", description: "Attempting to sync lists created while offline." });
+          // toast({ title: "Syncing Local Lists...", description: "Attempting to sync lists created while offline." }); // Toast for start of sync removed by prior request
           const pendingActive: List[] = localPendingActiveListsRaw ? JSON.parse(localPendingActiveListsRaw) : [];
           const pendingCompleted: List[] = localPendingCompletedListsRaw ? JSON.parse(localPendingCompletedListsRaw) : [];
           
@@ -130,9 +130,10 @@ export const useLists = () => {
               // For simplicity, we will clear the old pending keys. If migration fails, user has to recreate.
             }
           }
-          if (migratedCount > 0) {
-             toast({ title: "Local Lists Synced", description: `${migratedCount} list(s) have been synced to your account. Images from offline scans were not transferred.` });
-          }
+          // Removed toast for successful migration
+          // if (migratedCount > 0) {
+          //    toast({ title: "Local Lists Synced", description: `${migratedCount} list(s) have been synced to your account. Images from offline scans were not transferred.` });
+          // }
           // Clear pending migration storage regardless of individual errors to prevent re-migration attempts
           localStorage.removeItem(pendingActiveKey);
           localStorage.removeItem(pendingCompletedKey);
@@ -409,7 +410,7 @@ export const useLists = () => {
         toast({ title: "List Shared!", description: "A public share link has been created." });
         return newShareId;
       } else {
-        toast({ title: "Sharing Failed", description: "Could not generate a share link.", variant: "destructive" });
+         toast({ title: "Sharing Failed", description: "Could not generate a share link.", variant: "destructive" });
         return null;
       }
     } catch (error) {
