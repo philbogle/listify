@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger as DropdownMenuTriggerComponent,
+  DropdownMenuTrigger, 
 } from "@/components/ui/dropdown-menu";
 import {
   Accordion,
@@ -48,7 +48,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 
 export default function Home() {
@@ -291,54 +291,35 @@ export default function Home() {
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
             <TooltipProvider delayDuration={100}>
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <Button variant="outline" onClick={handleAddNewList} >
-                  <Plus className="mr-2 h-4 w-4" /> Enter
-                </Button>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" onClick={() => setIsDictateDialogOpen(true)} className="px-2 sm:px-3">
-                        <Mic className="h-4 w-4 md:mr-2" />
-                        <span className="hidden md:inline">Dictate</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="default">
+                      <Plus className="mr-2 h-4 w-4" /> Add
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="md:hidden">
-                    <p>Dictate a new list</p>
-                  </TooltipContent>
-                </Tooltip>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleAddNewList}>
+                      <Plus className="mr-2 h-4 w-4" /> Enter Manually
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleOpenScanDialogForNewList}>
+                      <Camera className="mr-2 h-4 w-4" /> Scan List
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)}>
+                      <Mic className="mr-2 h-4 w-4" /> Dictate List
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 
-                <Tooltip>
-                   <TooltipTrigger asChild>
-                    <Button variant="outline" onClick={handleOpenScanDialogForNewList} className="px-2 sm:px-3">
-                        <Camera className="h-4 w-4 md:mr-2" />
-                        <span className="hidden md:inline">Scan</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="md:hidden">
-                    <p>Scan a new list</p>
-                  </TooltipContent>
-                </Tooltip>
-
                 {firebaseReady && currentUser && (
                   <DropdownMenu>
-                    <DropdownMenuTriggerComponent asChild>
+                    <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
                         <MenuIcon className="h-5 w-5" />
                         <span className="sr-only">Open user menu</span>
                       </Button>
-                    </DropdownMenuTriggerComponent>
+                    </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                       <DropdownMenuItem onClick={handleAddNewList}>
-                        <Plus className="mr-2 h-4 w-4" /> Add List
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)}>
-                        <Mic className="mr-2 h-4 w-4" /> Dictate List
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleOpenScanDialogForNewList}>
-                        <Camera className="mr-2 h-4 w-4" /> Scan List
-                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
                         <HelpCircle className="mr-2 h-4 w-4" />
