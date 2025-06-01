@@ -51,8 +51,8 @@ export default function DictateDialog({
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!recognitionRef.current) {
         const rec = new SpeechRecognitionAPI();
-        rec.continuous = true; // Keeps listening even after pauses
-        rec.interimResults = true; // Provides results as they are being processed
+        rec.continuous = true;
+        rec.interimResults = true;
         rec.lang = 'en-US';
         recognitionRef.current = rec;
       }
@@ -62,31 +62,29 @@ export default function DictateDialog({
       currentRecognition.onstart = () => {
         setIsListening(true);
         setSpeechError(null);
-        setDictatedText(""); // Reset final transcript for the new session
-        setInterimTranscript(""); // Reset interim transcript
+        setDictatedText(""); 
+        setInterimTranscript(""); 
       };
 
       currentRecognition.onresult = (event: SpeechRecognitionEvent) => {
-        let final_transcript_parts: string[] = [];
-        let latest_interim_part = "";
-
+        let fullFinalTranscript = "";
+        // Rebuild the full final transcript from all final segments
         for (let i = 0; i < event.results.length; ++i) {
-          const segment = event.results[i];
-          const transcript_piece = segment[0].transcript.trim();
-
-          if (segment.isFinal) {
-            if (transcript_piece) {
-              final_transcript_parts.push(transcript_piece);
-            }
-          } else {
-            if (transcript_piece) {
-              latest_interim_part = transcript_piece; // Keep the latest non-empty interim
-            }
+          if (event.results[i].isFinal) {
+            fullFinalTranscript += event.results[i][0].transcript.trim() + " ";
           }
         }
-        
-        setDictatedText(final_transcript_parts.join(" "));
-        setInterimTranscript(latest_interim_part);
+        setDictatedText(fullFinalTranscript.trim());
+
+        // Determine the current interim part (it's the last segment if it's not final)
+        let currentInterim = "";
+        if (event.results.length > 0) {
+          const lastResultSegment = event.results[event.results.length - 1];
+          if (!lastResultSegment.isFinal) {
+            currentInterim = lastResultSegment[0].transcript.trim();
+          }
+        }
+        setInterimTranscript(currentInterim);
       };
 
       currentRecognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -108,21 +106,24 @@ export default function DictateDialog({
 
       currentRecognition.onend = () => {
         setIsListening(false);
-        // If there's a final interim transcript part that wasn't marked as final, append it.
+        // When recognition ends, if there's a lingering interim transcript, append it to the final.
+        // The interimTranscript state should already hold the last non-final part.
         setInterimTranscript(currentInterimVal => {
-          const trimmedInterim = currentInterimVal.trim();
-          if (trimmedInterim) {
-            setDictatedText(prevFinal => {
-              const trimmedFinal = prevFinal.trim();
-              if (!trimmedFinal) return trimmedInterim; // If final was empty, interim is everything
-              return trimmedFinal + " " + trimmedInterim;
-            });
-          }
-          return ""; // Clear interim transcript display value
+            const trimmedInterim = currentInterimVal.trim();
+            if (trimmedInterim) {
+                setDictatedText(prevFinal => {
+                    const finalAccumulated = prevFinal.trim();
+                    if (!finalAccumulated) return trimmedInterim;
+                    // Avoid appending if the interim is already effectively part of the final
+                    if (finalAccumulated.endsWith(trimmedInterim)) return finalAccumulated;
+                    return finalAccumulated + " " + trimmedInterim;
+                });
+            }
+            return ""; // Clear interim state for the UI for next session
         });
       };
     }
-  }, [setIsListening, setSpeechError, setDictatedText, setInterimTranscript, setHasMicPermission]);
+  }, [setIsListening, setSpeechError, setDictatedText, setInterimTranscript, setHasMicPermission, toast]);
 
 
   const handleStartListening = async () => {
@@ -138,8 +139,8 @@ export default function DictateDialog({
     }
 
     try {
-      // `onstart` will clear dictatedText and interimTranscript
       setSpeechError(null);
+      // onstart will clear dictatedText and interimTranscript
       recognitionRef.current.start();
     } catch (err: any) {
       console.error("Error starting speech recognition:", err);
@@ -157,9 +158,8 @@ export default function DictateDialog({
   };
 
   const handleProcessDictation = async () => {
-    // dictatedText should contain the full final transcript after onend.
-    // Interim transcript is already incorporated or cleared by onend.
-    const textToProcess = dictatedText.trim();
+    // Use the combination of the final dictated text and any last interim part for processing
+    const textToProcess = (dictatedText.trim() + (interimTranscript.trim() ? (dictatedText.trim() ? " " : "") + interimTranscript.trim() : "")).trim();
 
     if (!textToProcess) {
       toast({ title: "Nothing to process", description: "Please dictate some text first.", variant: "destructive" });
@@ -199,12 +199,10 @@ export default function DictateDialog({
     onOpenChange(openState); 
     if (!openState) {
       if (recognitionRef.current && isListening) {
-        recognitionRef.current.stop(); // Stop listening if dialog is closed
+        recognitionRef.current.stop(); 
       }
-      // State like dictatedText, interimTranscript, speechError will be reset by onstart or when dialog reopens
       setIsListening(false); 
     } else {
-      // When dialog opens, set initial states (onstart will also run if listening starts)
       setDictatedText("");
       setInterimTranscript("");
       setSpeechError(null);
@@ -220,8 +218,7 @@ export default function DictateDialog({
     setInterimTranscript("");
     setSpeechError(null);
     if (recognitionRef.current && isListening) {
-      recognitionRef.current.abort(); // Abort current recognition
-      // User will need to click "Start Listening" again. `onstart` will reset states.
+      recognitionRef.current.abort(); 
     }
   };
 
@@ -257,9 +254,9 @@ export default function DictateDialog({
             value={displayedText}
             readOnly={isListening} 
             onChange={(e) => {
-              if (!isListening) { // Allow manual edits if not listening
+              if (!isListening) { 
                 setDictatedText(e.target.value);
-                setInterimTranscript(""); // Clear interim if user types
+                setInterimTranscript(""); 
               }
             }}
             rows={6}
@@ -297,7 +294,7 @@ export default function DictateDialog({
           </DialogClose>
           <Button 
             onClick={handleProcessDictation} 
-            disabled={isProcessingDictation || isListening || !dictatedText.trim() || !recognitionRef.current}
+            disabled={isProcessingDictation || isListening || !displayedText.trim() || !recognitionRef.current}
           >
             {isProcessingDictation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Create List from Text
@@ -307,4 +304,3 @@ export default function DictateDialog({
     </Dialog>
   );
 }
-
