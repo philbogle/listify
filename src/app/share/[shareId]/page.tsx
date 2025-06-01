@@ -170,9 +170,18 @@ export default function SharedListPage() {
         setIsLoading(false);
         setError(null);
       },
-      (err) => {
+      (err: any) => { // Changed 'Error' to 'any' to access err.message without type conflict
         console.error("Error listening to shared list:", err);
-        setError("Could not load the shared list. It might have been deleted or the link is incorrect.");
+        let displayError = "Could not load the shared list. It might have been deleted or the link is incorrect.";
+        if (err.message) {
+          // Attempt to provide a more user-friendly message for common permission errors
+          if (err.message.toLowerCase().includes("permission-denied") || err.message.toLowerCase().includes("insufficient permissions")) {
+            displayError = "Access denied. This list may not be shared publicly or there's a configuration issue. Please check Firebase security rules.";
+          } else {
+            displayError += ` (Details: ${err.message})`;
+          }
+        }
+        setError(displayError);
         setList(null);
         setIsLoading(false);
       }
@@ -279,7 +288,7 @@ export default function SharedListPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
         <Card className="w-full max-w-md shadow-lg">
             <CardHeader>
-                <CardTitle className="text-center text-destructive">Error</CardTitle>
+                <CardTitle className="text-center text-destructive">Error Loading List</CardTitle>
             </CardHeader>
             <CardContent>
                 <Alert variant="destructive" className="text-center">
@@ -303,9 +312,9 @@ export default function SharedListPage() {
                 <CardTitle className="text-center">List Not Found</CardTitle>
             </CardHeader>
             <CardContent>
-                <Alert variant="destructive" className="text-center">
-                     <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
-                    <AlertDescription>The shared list could not be found. It may have been unshared or deleted.</AlertDescription>
+                <Alert variant="default" className="text-center"> {/* Changed to default variant for "Not Found" */}
+                     <AlertTriangle className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
+                    <AlertDescription>The shared list could not be found. It may have been unshared or deleted, or the link is incorrect.</AlertDescription>
                 </Alert>
                  <Button onClick={() => router.push('/')} className="w-full mt-6">
                     <Home className="mr-2 h-4 w-4" /> Go to Homepage
@@ -419,3 +428,5 @@ export default function SharedListPage() {
     </div>
   );
 }
+
+    
