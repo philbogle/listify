@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { List, Subitem } from "@/types/list";
 import { useToast } from "@/hooks/use-toast";
 import { extractListFromText, type ExtractListFromTextInput } from "@/ai/flows/extractListFromTextFlow";
@@ -39,20 +39,29 @@ export default function DictateDialog({
 }: DictateDialogProps) {
   const { toast } = useToast();
   const [isListening, setIsListening] = useState(false);
-  const [dictatedText, setDictatedText] = useState(""); // Stores the final, confirmed transcript
-  const [interimTranscript, setInterimTranscript] = useState(""); // Stores the current, unconfirmed transcript part
+  const [dictatedText, setDictatedText] = useState(""); 
+  const [interimTranscript, setInterimTranscript] = useState(""); 
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [isProcessingDictation, setIsProcessingDictation] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [hasMicPermission, setHasMicPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (!isOpen) {
+      // Ensure to stop listening and clean up if dialog is closed externally
+      if (recognitionRef.current && isListening) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false); // Ensure isListening state is false
+      return; // Don't initialize if not open
+    }
+
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!recognitionRef.current) {
         const rec = new SpeechRecognitionAPI();
-        rec.continuous = true;
-        rec.interimResults = true;
+        rec.continuous = true; // Important for ongoing dictation
+        rec.interimResults = true; // Get results as they come
         rec.lang = 'en-US';
         recognitionRef.current = rec;
       }
@@ -62,29 +71,26 @@ export default function DictateDialog({
       currentRecognition.onstart = () => {
         setIsListening(true);
         setSpeechError(null);
-        setDictatedText(""); 
-        setInterimTranscript(""); 
+        setDictatedText(""); // Clear previous final transcript
+        setInterimTranscript(""); // Clear previous interim transcript
       };
 
       currentRecognition.onresult = (event: SpeechRecognitionEvent) => {
-        let fullFinalTranscript = "";
-        // Rebuild the full final transcript from all final segments
-        for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            fullFinalTranscript += event.results[i][0].transcript.trim() + " ";
-          }
-        }
-        setDictatedText(fullFinalTranscript.trim());
+        let finalTranscriptContent = '';
+        let interimTranscriptContent = '';
 
-        // Determine the current interim part (it's the last segment if it's not final)
-        let currentInterim = "";
-        if (event.results.length > 0) {
-          const lastResultSegment = event.results[event.results.length - 1];
-          if (!lastResultSegment.isFinal) {
-            currentInterim = lastResultSegment[0].transcript.trim();
+        for (let i = 0; i < event.results.length; i++) {
+          const segment = event.results[i];
+          const transcript = segment[0].transcript;
+          if (segment.isFinal) {
+            finalTranscriptContent += transcript;
+          } else {
+            interimTranscriptContent += transcript;
           }
         }
-        setInterimTranscript(currentInterim);
+        
+        setDictatedText(finalTranscriptContent);
+        setInterimTranscript(interimTranscriptContent);
       };
 
       currentRecognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -106,29 +112,41 @@ export default function DictateDialog({
 
       currentRecognition.onend = () => {
         setIsListening(false);
-        // When recognition ends, if there's a lingering interim transcript, append it to the final.
-        // The interimTranscript state should already hold the last non-final part.
-        setInterimTranscript(currentInterimVal => {
-            const trimmedInterim = currentInterimVal.trim();
-            if (trimmedInterim) {
-                setDictatedText(prevFinal => {
-                    const finalAccumulated = prevFinal.trim();
-                    if (!finalAccumulated) return trimmedInterim;
-                    // Avoid appending if the interim is already effectively part of the final
-                    if (finalAccumulated.endsWith(trimmedInterim)) return finalAccumulated;
-                    return finalAccumulated + " " + trimmedInterim;
-                });
-            }
-            return ""; // Clear interim state for the UI for next session
-        });
+        // If there was any final interim text, merge it into the dictatedText.
+        // `displayedText` for processing will use this combined state.
+        if (interimTranscript.trim()) {
+          setDictatedText(prevFinal => (prevFinal + " " + interimTranscript).trim());
+        }
+        setInterimTranscript(""); // Clear interim for UI for next session
       };
+
+      // Cleanup function for the useEffect
+      return () => {
+        if (currentRecognition) {
+          currentRecognition.onstart = null;
+          currentRecognition.onresult = null;
+          currentRecognition.onerror = null;
+          currentRecognition.onend = null;
+          if (isListening) { // Check React state `isListening`
+            currentRecognition.stop();
+          }
+        }
+      };
+    } else if (isOpen) { // If dialog is open but speech recognition is not supported
+        setSpeechError("Speech recognition is not supported by your browser.");
     }
-  }, [setIsListening, setSpeechError, setDictatedText, setInterimTranscript, setHasMicPermission, toast]);
+  // Key dependencies: isOpen ensures re-setup if dialog re-opens.
+  // State setters are generally stable but good to include.
+  // interimTranscript is now read in onend.
+  }, [isOpen, isListening, interimTranscript, setIsListening, setSpeechError, setDictatedText, setInterimTranscript, setHasMicPermission, toast]);
 
 
   const handleStartListening = async () => {
     if (!recognitionRef.current) {
       setSpeechError("Speech recognition not initialized or not supported.");
+      if (!(typeof window !== 'undefined' && ('SpeechRecognition'in window || 'webkitSpeechRecognition'in window))) {
+          setSpeechError("Speech recognition is not supported by your browser.");
+      }
       return;
     }
     if (isListening) return;
@@ -144,21 +162,27 @@ export default function DictateDialog({
       recognitionRef.current.start();
     } catch (err: any) {
       console.error("Error starting speech recognition:", err);
-      setSpeechError(`Could not start microphone: ${err.message}. Ensure permission is granted.`);
-      if (err.name === 'NotAllowedError' || err.name === 'SecurityError') setHasMicPermission(false);
-      setIsListening(false);
+      let errorDetail = err.message || "Unknown error";
+      if (err.name === 'InvalidStateError' && !isListening) {
+          // Attempt to restart if it's in a weird state but not listening
+          console.log("Attempting to abort and restart recognition due to InvalidStateError");
+          recognitionRef.current.abort(); // Abort previous instance
+          recognitionRef.current.start(); // Try starting again
+      } else {
+        setSpeechError(`Could not start microphone: ${errorDetail}. Ensure permission is granted.`);
+        if (err.name === 'NotAllowedError' || err.name === 'SecurityError') setHasMicPermission(false);
+        setIsListening(false);
+      }
     }
   };
 
   const handleStopListening = () => {
     if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-      // onend will handle final processing of any interim transcript
+      recognitionRef.current.stop(); // This will trigger 'onend'
     }
   };
 
   const handleProcessDictation = async () => {
-    // Use the combination of the final dictated text and any last interim part for processing
     const textToProcess = (dictatedText.trim() + (interimTranscript.trim() ? (dictatedText.trim() ? " " : "") + interimTranscript.trim() : "")).trim();
 
     if (!textToProcess) {
@@ -203,26 +227,28 @@ export default function DictateDialog({
       }
       setIsListening(false); 
     } else {
+      // Reset states when dialog is opened, onstart will handle full reset before listening
       setDictatedText("");
       setInterimTranscript("");
       setSpeechError(null);
-      if (!recognitionRef.current && !(typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window))) {
+      setHasMicPermission(null); 
+       if (!(typeof window !== 'undefined' && ('SpeechRecognition'in window || 'webkitSpeechRecognition'in window))) {
           setSpeechError("Speech recognition is not supported by your browser.");
       }
-      setHasMicPermission(null); 
     }
   };
 
   const handleClearDictatedText = () => {
     setDictatedText("");
     setInterimTranscript("");
-    setSpeechError(null);
+    setSpeechError(null); // Clear any previous errors
     if (recognitionRef.current && isListening) {
-      recognitionRef.current.abort(); 
+      recognitionRef.current.stop(); // Stop listening
+      // recognitionRef.current.start(); // Optionally restart listening immediately, or let user click "Start"
     }
   };
 
-  const displayedText = (dictatedText.trim() + (interimTranscript.trim() ? (dictatedText.trim() ? " " : "") + interimTranscript.trim() : "")).trim();
+  const displayedText = (dictatedText + (interimTranscript ? (dictatedText ? " " : "") + interimTranscript : "")).trim();
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogOpeChange}>
@@ -245,7 +271,7 @@ export default function DictateDialog({
                 <MicOff className="mr-2 h-5 w-5" /> Stop Listening
               </Button>
             )}
-            <Button onClick={handleClearDictatedText} variant="outline" size="icon" title="Clear Text" disabled={isListening || isProcessingDictation}>
+            <Button onClick={handleClearDictatedText} variant="outline" size="icon" title="Clear Text" disabled={isProcessingDictation}>
               <Eraser className="h-5 w-5" />
             </Button>
           </div>
@@ -255,7 +281,7 @@ export default function DictateDialog({
             readOnly={isListening} 
             onChange={(e) => {
               if (!isListening) { 
-                setDictatedText(e.target.value);
+                setDictatedText(e.target.value); // Allow manual editing if not listening
                 setInterimTranscript(""); 
               }
             }}
@@ -269,7 +295,7 @@ export default function DictateDialog({
               <AlertDescription>{speechError}</AlertDescription>
             </Alert>
           )}
-          {hasMicPermission === false && !speechError && (
+          {hasMicPermission === false && !speechError && ( /* Only show if no other speechError is active */
               <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>Microphone Access Denied</AlertTitle>
@@ -278,15 +304,7 @@ export default function DictateDialog({
                   </AlertDescription>
               </Alert>
           )}
-          {!recognitionRef.current && typeof window !== 'undefined' && !('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && !speechError && (
-              <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Browser Not Supported</AlertTitle>
-                  <AlertDescription>
-                      Speech recognition is not supported by your current browser.
-                  </AlertDescription>
-              </Alert>
-          )}
+          {/* Message for browser not supported moved to handleStartListening and handleDialogOpeChange to set speechError state */}
         </div>
         <DialogFooter>
           <DialogClose asChild>
@@ -304,3 +322,4 @@ export default function DictateDialog({
     </Dialog>
   );
 }
+
