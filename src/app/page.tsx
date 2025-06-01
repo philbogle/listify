@@ -601,29 +601,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      {!currentUser && firebaseReady && !isLoading && ( // Only show big sign-in prompt if Firebase is ready and user is not signed in AND not loading
-         <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
-          <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
-          <h1 className="text-2xl font-semibold mb-2">Welcome to Listify</h1>
-          <p className="text-muted-foreground mb-2 text-center">An experimental, AI-powered app for scanning, organizing, and completing lists.</p>
-           <div className="flex items-center justify-center space-x-6 text-muted-foreground my-4">
-            <Camera className="h-10 w-10" />
-            <ListChecks className="h-10 w-10" />
-            <Sparkles className="h-10 w-10" />
-          </div>
-          <p className="text-muted-foreground mb-2 text-center">
-            You can start creating lists now—they'll be saved locally.
+      {!currentUser && firebaseReady && !isLoading && ( 
+         <div className="w-full max-w-2xl mt-10 mb-8 flex flex-col items-center p-6 bg-card border rounded-lg shadow-md">
+          <UserCircle className="mx-auto h-12 w-12 text-primary mb-4" />
+          <h1 className="text-xl font-semibold mb-2">Welcome to Listify!</h1>
+          <p className="text-muted-foreground mb-1 text-center text-sm">
+            You&apos;re currently using Listify locally.
           </p>
-          <p className="text-muted-foreground mb-6 text-center">
-            Sign in with Google to sync your lists across devices and enable cloud features.
+          <p className="text-muted-foreground mb-4 text-center text-sm">
+            Sign in with Google to sync your lists and enable cloud features like sharing.
           </p>
-           <Button onClick={handleSignIn} className="mt-4 px-8 py-6 text-lg">
+           <Button onClick={handleSignIn} className="px-6 py-3 text-base">
             <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
           </Button>
         </div>
       )}
 
-      {/* Firebase Not Configured Banner - shows if firebaseConfig.ts is not properly set up */}
       {!firebaseReady && !isLoading && ( 
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
           <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
@@ -637,13 +630,14 @@ export default function Home() {
         </div>
       )}
       
-      {/* Main content area: show if loading, or if firebase not ready (pure local mode), or if firebase ready and user is present */}
-      {(isLoading || !firebaseReady || (firebaseReady && currentUser)) && (
+      {/* Main content area: Always show if not loading skeletons initially, or if loading is done. */}
+      {/* The anonymous welcome prompt is now displayed above this main content if applicable. */}
+      {(isLoading || !isLoading) && (
         <main className="w-full max-w-2xl">
           <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" onClick={handleAddNewList} > {/* Add button always enabled */}
+              <Button variant="outline" onClick={handleAddNewList} >
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
@@ -659,7 +653,6 @@ export default function Home() {
                 }
               }}>
                 <DialogTrigger asChild>
-                   {/* Scan button always enabled */}
                   <Button variant="outline" onClick={handleOpenNewScanDialog} >
                     <Camera className="mr-2 h-4 w-4" />
                     Scan
@@ -755,7 +748,7 @@ export default function Home() {
                 </DialogContent>
               </Dialog>
 
-              {firebaseReady && currentUser && ( // Menu only if Firebase is ready AND user is signed in
+              {firebaseReady && currentUser && ( 
                 <DropdownMenu>
                   <DropdownMenuTriggerComponent asChild>
                     <Button variant="ghost" size="icon">
@@ -785,7 +778,7 @@ export default function Home() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-               {firebaseReady && !currentUser && ( // Show Sign In button in top bar if FB ready and no user
+               {firebaseReady && !currentUser && ( 
                   <Button variant="outline" onClick={handleSignIn}>
                       <LogIn className="mr-2 h-4 w-4" /> Sign In
                   </Button>
@@ -794,9 +787,21 @@ export default function Home() {
           </div>
 
           <section aria-labelledby="list-heading" className="pt-6">
-            <div className="space-y-4">
-              {renderActiveLists()}
-            </div>
+            {isLoading ? ( // Show skeletons only if truly loading, not just for anonymous empty state
+                Array.from({ length: 2 }).map((_, index) => (
+                    <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
+                    <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
+                    <Skeleton className="h-6 w-4/5 inline-block" />
+                    <div className="mt-4 space-y-2">
+                        <Skeleton className="h-8 w-full" />
+                    </div>
+                    </div>
+                ))
+            ) : (
+                <div className="space-y-4">
+                    {renderActiveLists()}
+                </div>
+            )}
           </section>
 
           <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
@@ -804,11 +809,6 @@ export default function Home() {
           </section>
         </main>
       )}
-
-      {/* This is the area that shows if Firebase is configured, but no user is signed in, AND we are not loading. */}
-      {/* This is effectively covered by the !currentUser && firebaseReady && !isLoading block at the top for the main prompt. */}
-      {/* The list rendering itself is handled by the main content block conditions. */}
-
 
       <Dialog open={isViewScanDialogOpen} onOpenChange={(isOpen) => {
         setIsViewScanDialogOpen(isOpen);
@@ -914,3 +914,6 @@ export default function Home() {
     </div>
   );
 }
+
+
+    
