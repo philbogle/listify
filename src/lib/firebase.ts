@@ -17,6 +17,8 @@ import {
   type QuerySnapshot,
   limit,
   getDoc,
+  onSnapshot, // Added for real-time listener
+  type Unsubscribe, // Added for listener cleanup
 } from "firebase/firestore";
 import {
   getAuth,
@@ -142,24 +144,29 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
     createdAt: serverTimestamp(),
     userId: userId,
     scanImageUrls: listData.scanImageUrls || [],
-    shareId: null, // Initialize shareId as null
+    shareId: null,
   };
   const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), docData);
   return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString(), scanImageUrls: docData.scanImageUrls, shareId: null };
 };
 
-const mapDocToList = (doc: DocumentData): List => {
-  const data = doc.data();
-  let scanUrls: string[] = [];
+const mapDocToList = (docSnap: DocumentData): List => {
+  const data = docSnap.data();
+  if (!data) {
+    throw new Error(`Document data is undefined for doc.id: ${docSnap.id}`);
+  }
 
+  let scanUrls: string[] = [];
   if (data.scanImageUrls && Array.isArray(data.scanImageUrls)) {
     scanUrls = data.scanImageUrls;
   } else if (data.scanImageUrl && typeof data.scanImageUrl === 'string') {
+    // Backward compatibility for old single image URL
     scanUrls = [data.scanImageUrl];
   }
 
+
   return {
-    id: doc.id,
+    id: docSnap.id,
     title: data.title,
     completed: data.completed,
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
@@ -170,7 +177,7 @@ const mapDocToList = (doc: DocumentData): List => {
     })),
     userId: data.userId,
     scanImageUrls: scanUrls,
-    shareId: data.shareId || null, // Map shareId
+    shareId: data.shareId || null,
   } as List;
 };
 
@@ -255,9 +262,9 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
 
 
   if (firebaseUpdates.scanImageUrls !== undefined) {
-    firebaseUpdates.scanImageUrl = null;
+    // scanImageUrls is already an array, so no need to map scanImageUrl to null
   }
-  // shareId can be updated directly if it's in updates
+
 
   await updateDoc(listRef, firebaseUpdates);
 };
@@ -311,7 +318,6 @@ export const isFirebaseConfigured = (): boolean => {
   return configured;
 };
 
-// --- Sharing specific functions ---
 
 export const getListByShareId = async (shareId: string): Promise<List | null> => {
   if (!isFirebaseConfigured()) {
@@ -328,16 +334,76 @@ export const getListByShareId = async (shareId: string): Promise<List | null> =>
     return mapDocToList(querySnapshot.docs[0]);
   } catch (error) {
     console.error("Error fetching list by shareId:", error);
-    throw error; // Re-throw for the caller to handle
+    throw error;
   }
 };
+
+export const listenToListByShareId = (
+  shareId: string,
+  onUpdate: (list: List | null) => void,
+  onError: (error: Error) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) {
+    onError(new Error("Firebase not configured. Cannot listen to shared list."));
+    return () => {}; // Return a no-op unsubscribe function
+  }
+  const currentDb = getDb();
+  let unsubscribeDocListener: Unsubscribe = () => {};
+
+  // First, find the document ID using the shareId
+  const q = query(collection(currentDb, LISTS_COLLECTION), where("shareId", "==", shareId), limit(1));
+  
+  const unsubscribeQueryListener = onSnapshot(q, (querySnapshot) => {
+    if (unsubscribeDocListener) { // Unsubscribe from previous doc listener if shareId mapping changes (should be rare)
+      unsubscribeDocListener();
+    }
+
+    if (querySnapshot.empty) {
+      onUpdate(null); // No list found with this shareId
+      return;
+    }
+    
+    const listDoc = querySnapshot.docs[0];
+    const listDocumentId = listDoc.id;
+
+    // Now listen to changes on that specific document ID
+    unsubscribeDocListener = onSnapshot(doc(currentDb, LISTS_COLLECTION, listDocumentId), (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const listData = mapDocToList(docSnapshot);
+        // Ensure it's still the correct shared list (shareId might have been removed)
+        if (listData.shareId === shareId) {
+          onUpdate(listData);
+        } else {
+          onUpdate(null); // ShareId was removed or changed, no longer accessible this way
+        }
+      } else {
+        onUpdate(null); // Document was deleted
+      }
+    }, (error) => {
+      console.error(`Error listening to shared list document (ID: ${listDocumentId}):`, error);
+      onError(error);
+    });
+
+  }, (error) => {
+    console.error(`Error querying for shareId (${shareId}):`, error);
+    onError(error);
+  });
+
+  // Return a function that unsubscribes from both listeners
+  return () => {
+    unsubscribeQueryListener();
+    if (unsubscribeDocListener) {
+      unsubscribeDocListener();
+    }
+  };
+};
+
 
 export const generateShareIdForList = async (listId: string, userId: string): Promise<string | null> => {
   if (!isFirebaseConfigured()) return null;
   const currentDb = getDb();
   const listRef = doc(currentDb, LISTS_COLLECTION, listId);
   
-  // Verify ownership
   const listDoc = await getDoc(listRef);
   if (!listDoc.exists() || listDoc.data()?.userId !== userId) {
     console.error("User does not own this list or list does not exist.");
@@ -354,7 +420,6 @@ export const removeShareIdFromList = async (listId: string, userId: string): Pro
   const currentDb = getDb();
   const listRef = doc(currentDb, LISTS_COLLECTION, listId);
 
-  // Verify ownership
   const listDoc = await getDoc(listRef);
   if (!listDoc.exists() || listDoc.data()?.userId !== userId) {
     console.error("User does not own this list or list does not exist.");
@@ -363,4 +428,3 @@ export const removeShareIdFromList = async (listId: string, userId: string): Pro
 
   await updateDoc(listRef, { shareId: null });
 };
-
