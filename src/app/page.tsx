@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
-import DictateDialog from "@/components/DictateDialog"; // Added DictateDialog
+import DictateDialog from "@/components/DictateDialog";
+import ImportListDialog from "@/components/ImportListDialog"; // Added ImportListDialog
 
 import {
   AlertDialog,
@@ -43,7 +44,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react"; // Added Mic
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic, FileText } from "lucide-react"; // Added FileText, re-added Mic
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -93,7 +94,8 @@ export default function Home() {
     initialListTitle: string | null;
   }>({ open: false, initialListId: null, initialListTitle: null });
 
-  const [isDictateDialogOpen, setIsDictateDialogOpen] = useState(false); // State for DictateDialog
+  const [isDictateDialogOpen, setIsDictateDialogOpen] = useState(false);
+  const [isImportListDialogOpen, setIsImportListDialogOpen] = useState(false); // State for ImportListDialog
 
 
   useEffect(() => {
@@ -122,6 +124,14 @@ export default function Home() {
         return;
     }
     setIsDictateDialogOpen(true);
+  };
+
+  const handleOpenImportListDialog = () => {
+    if (!currentUser) {
+        toast({ title: "Sign In Required", description: "Please sign in to import lists.", variant: "destructive" });
+        return;
+    }
+    setIsImportListDialogOpen(true);
   };
 
 
@@ -317,6 +327,9 @@ export default function Home() {
                      <DropdownMenuItem onClick={handleOpenDictateDialog} className="py-3" disabled={!currentUser}>
                       <Mic className="mr-2 h-4 w-4" /> Dictate List
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3" disabled={!currentUser}>
+                      <FileText className="mr-2 h-4 w-4" /> Import List
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 
@@ -405,6 +418,16 @@ export default function Home() {
       <DictateDialog
         isOpen={isDictateDialogOpen}
         onOpenChange={setIsDictateDialogOpen}
+        currentUser={currentUser}
+        addList={addList}
+        manageSubitems={manageSubitems}
+        toast={toast}
+        setListToFocusId={setListToFocusId}
+      />
+
+      <ImportListDialog
+        isOpen={isImportListDialogOpen}
+        onOpenChange={setIsImportListDialogOpen}
         currentUser={currentUser}
         addList={addList}
         manageSubitems={manageSubitems}
@@ -517,5 +540,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
