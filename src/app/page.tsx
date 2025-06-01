@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
-import DictateDialog from "@/components/DictateDialog"; // Import the new DictateDialog
+import DictateDialog from "@/components/DictateDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,7 +42,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic, UserCircle } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -290,7 +290,7 @@ export default function Home() {
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
             <div className="flex items-center space-x-2">
               <Button variant="outline" onClick={handleAddNewList} >
-                <Plus className="mr-2 h-4 w-4" /> Add
+                <Plus className="mr-2 h-4 w-4" /> Enter
               </Button>
 
               <Button variant="outline" onClick={() => setIsDictateDialogOpen(true)} title="Dictate a new list">
