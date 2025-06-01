@@ -22,7 +22,7 @@ import { extractListFromText, type ExtractListFromTextInput } from "@/ai/flows/e
 interface DictateDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  currentUser: User | null; // Needed for AI flow potentially if it becomes user-aware
+  currentUser: User | null;
   addList: (listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls" | "shareId">) => Promise<List | undefined>;
   manageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
   toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
@@ -43,14 +43,19 @@ export default function DictateDialog({
   const [interimTranscript, setInterimTranscript] = useState("");
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [isProcessingList, setIsProcessingList] = useState(false);
-  const [hasMicPermission, setHasMicPermission] = useState<boolean |null>(null);
+  const [hasMicPermission, setHasMicPermission] = useState<boolean | null>(null);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const interimTranscriptRef = useRef(interimTranscript); // Ref to hold current interimTranscript for onend
+  const interimTranscriptRef = useRef(interimTranscript);
+  const latestFinalTranscriptRef = useRef(latestFinalTranscript);
 
   useEffect(() => {
     interimTranscriptRef.current = interimTranscript;
   }, [interimTranscript]);
+
+  useEffect(() => {
+    latestFinalTranscriptRef.current = latestFinalTranscript;
+  }, [latestFinalTranscript]);
 
   const resetDialogState = useCallback(() => {
     setIsListening(false);
@@ -58,7 +63,6 @@ export default function DictateDialog({
     setInterimTranscript("");
     setSpeechError(null);
     setIsProcessingList(false);
-    // Do not reset hasMicPermission here, as it's usually granted once per session
   }, []);
 
   useEffect(() => {
@@ -70,68 +74,78 @@ export default function DictateDialog({
       return;
     }
 
-    if (hasMicPermission === null && typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(() => {
-          setHasMicPermission(true);
-          try {
-            const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const rec = new SpeechRecognitionAPI();
-            rec.continuous = true;
-            rec.interimResults = true;
-            rec.lang = 'en-US';
-            recognitionRef.current = rec;
-          } catch (e: any) {
-            console.error("Error initializing SpeechRecognition:", e);
-            setSpeechError(`Speech recognition init failed: ${e.message}. Try refreshing.`);
-            setHasMicPermission(false); // Could be a setup error rather than permission
-          }
-        })
-        .catch((err) => {
-          console.error("Error getting microphone permission:", err);
-          setHasMicPermission(false);
-          setSpeechError("Microphone permission denied. Please enable it in your browser settings.");
-        });
-    } else if (recognitionRef.current && isOpen && hasMicPermission) {
-       // Re-attach listeners if dialog re-opens and recognition object exists
-      const currentRecognition = recognitionRef.current;
+    if (hasMicPermission === null && typeof window !== 'undefined') {
+      if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(() => {
+            setHasMicPermission(true);
+            try {
+              const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+              const rec = new SpeechRecognitionAPI();
+              rec.continuous = true; // Keep listening even after a pause
+              rec.interimResults = true;
+              rec.lang = 'en-US';
+              recognitionRef.current = rec;
+            } catch (e: any) {
+              console.error("Error initializing SpeechRecognition:", e);
+              setSpeechError(`Speech recognition init failed: ${e.message}. Try refreshing.`);
+              setHasMicPermission(false);
+              recognitionRef.current = null; 
+            }
+          })
+          .catch((err) => {
+            console.error("Error getting microphone permission:", err);
+            setHasMicPermission(false);
+            setSpeechError("Microphone permission denied. Please enable it in your browser settings.");
+          });
+      } else {
+        setSpeechError("Speech recognition not supported in this browser. Try Chrome.");
+        setHasMicPermission(false);
+      }
+    }
 
+    const currentRecognition = recognitionRef.current;
+    if (currentRecognition && isOpen && hasMicPermission) {
       currentRecognition.onstart = () => {
         setIsListening(true);
         setSpeechError(null);
-        setLatestFinalTranscript(""); // Clear previous final transcript
-        setInterimTranscript("");   // Clear previous interim transcript
+        setLatestFinalTranscript(""); 
+        setInterimTranscript("");   
         console.log("Speech recognition started.");
       };
 
       currentRecognition.onresult = (event: SpeechRecognitionEvent) => {
-        let newFinalTextInThisEvent = '';
-        let latestInterimTextInThisEvent = '';
-
+        let currentInterimForThisEvent = "";
+        
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const segment = event.results[i][0].transcript;
+          const segmentTranscript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            newFinalTextInThisEvent += segment.trim() + ' ';
+            setLatestFinalTranscript(prevFinal => {
+              const trimmedPrev = prevFinal.trim();
+              const trimmedSegment = segmentTranscript.trim();
+              return trimmedPrev ? `${trimmedPrev} ${trimmedSegment}` : trimmedSegment;
+            });
+            // If a part becomes final, clear the current interim display for this event,
+            // as the next non-final result will be the new interim.
+            currentInterimForThisEvent = ""; 
           } else {
-            latestInterimTextInThisEvent = segment; 
+            // Always overwrite with the latest non-final segment from this event.
+            // This ensures only the most current interim phrase is captured.
+            currentInterimForThisEvent = segmentTranscript;
           }
         }
-        
-        if (newFinalTextInThisEvent.trim()) {
-          setLatestFinalTranscript(prev => (prev + ' ' + newFinalTextInThisEvent).trim());
-        }
-        setInterimTranscript(latestInterimTextInThisEvent.trim());
+        setInterimTranscript(currentInterimForThisEvent.trim());
       };
 
       currentRecognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error("Speech recognition error:", event.error, event.message);
         if (event.error === "aborted") {
-          // Often happens when dialog is closed while listening, or .stop() is called.
-          // Potentially also if mic is disconnected.
-          console.log("Speech recognition aborted. Likely intentional or mic issue.");
-          // Don't set a user-facing error for simple aborts if it's due to stopping.
-          // If it's not due to manual stop, onend might clarify.
-          return; 
+            // Typically, this happens if .stop() is called or the dialog is closed.
+            // We don't want to show a user-facing error for this.
+            console.log("Speech recognition aborted (likely intentional).");
+            // Ensure listening state is correctly updated if not already done by onend.
+            if(isListening) setIsListening(false);
+            return; 
         }
 
         let errorMsg = `Error: ${event.error}. ${event.message || ''}`;
@@ -141,52 +155,49 @@ export default function DictateDialog({
           errorMsg = 'Audio capture error. Check your microphone connection.';
         } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
           errorMsg = 'Microphone access was denied. Please enable it in your browser settings and try again.';
-          setHasMicPermission(false); // Update permission state
+          setHasMicPermission(false);
         } else if (event.error === 'network') {
           errorMsg = 'Network error during speech recognition. Please check your connection.';
         }
         setSpeechError(errorMsg);
-        setIsListening(false);
+        setIsListening(false); 
       };
 
       currentRecognition.onend = () => {
         setIsListening(false);
+        // Use the ref here to get the latest interim transcript, as state might be stale in this closure
+        if (interimTranscriptRef.current.trim()) {
+          setLatestFinalTranscript(prevFinal => {
+            const trimmedPrev = prevFinal.trim();
+            const trimmedInterim = interimTranscriptRef.current.trim();
+            return trimmedPrev ? `${trimmedPrev} ${trimmedInterim}` : trimmedInterim;
+          });
+        }
+        setInterimTranscript(""); 
         console.log("Speech recognition ended.");
-        // If there's any remaining interim text when recognition stops, append it.
-        setLatestFinalTranscript(prevFinal => {
-            let updatedFinal = prevFinal;
-            if (interimTranscriptRef.current.trim()) {
-                updatedFinal = (prevFinal + ' ' + interimTranscriptRef.current).trim();
-            }
-            setInterimTranscript(''); // Clear interim after appending
-            return updatedFinal;
-        });
       };
     }
     
-    // Cleanup
     return () => {
-      if (recognitionRef.current) {
-        const rec = recognitionRef.current;
-        rec.onstart = null;
-        rec.onresult = null;
-        rec.onerror = null;
-        rec.onend = null;
-        if (isListening) { // Only stop if it was actively listening
-          rec.stop();
+      if (currentRecognition) {
+        currentRecognition.onstart = null;
+        currentRecognition.onresult = null;
+        currentRecognition.onerror = null;
+        currentRecognition.onend = null;
+        if (isListening) { 
+          currentRecognition.stop();
         }
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, hasMicPermission, resetDialogState]); // isListening was removed as it caused re-runs that stopped recognition
+  }, [ isOpen, hasMicPermission, resetDialogState, toast, currentUser, addList, manageSubitems, setListToFocusId, onOpenChange, isListening ]);
 
 
   const handleToggleListening = () => {
     if (!hasMicPermission || !recognitionRef.current) {
       setSpeechError("Microphone not available or permission denied. Please check browser settings.");
-      if(hasMicPermission === null) { // Prompt for permission if not yet determined
+      if(hasMicPermission === null) {
           navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(() => setHasMicPermission(true))
+            .then(() => setHasMicPermission(true)) // Will trigger useEffect to init
             .catch(() => {
                 setHasMicPermission(false);
                 setSpeechError("Microphone permission denied.");
@@ -199,38 +210,42 @@ export default function DictateDialog({
       recognitionRef.current.stop();
     } else {
       try {
+        // Clear previous transcripts explicitly before starting
         setLatestFinalTranscript(""); 
         setInterimTranscript(""); 
         recognitionRef.current.start();
       } catch (e: any) {
-        // This can happen if .start() is called too soon after .stop() or on an ended session
         console.error("Error trying to start recognition:", e.message);
-        if (e.name === 'InvalidStateError') {
-          setSpeechError("Recognition busy. Please wait a moment and try again.");
-          // Attempt to reset and re-initialize if in a bad state
+        if (e.name === 'InvalidStateError' && !isListening) {
+           // Attempt to re-init if in a bad state and not already trying to listen
            try {
             const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognitionRef.current = new SpeechRecognitionAPI();
-            if (recognitionRef.current) {
-                recognitionRef.current.continuous = true;
-                recognitionRef.current.interimResults = true;
-                recognitionRef.current.lang = 'en-US';
-                 setSpeechError("Recognition re-initialized. Please try again.");
-            }
-           } catch (initError) {
-             setSpeechError("Failed to re-initialize recognition. Try refreshing the page.");
-           }
+            const rec = new SpeechRecognitionAPI();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+            recognitionRef.current = rec; // Re-assign
+            setSpeechError("Recognition re-initialized. Please try starting again.");
+            // Trigger useEffect re-run to attach listeners
+            setHasMicPermission(null); // Temporarily set to null to re-trigger permission check and setup in useEffect
+            setTimeout(() => setHasMicPermission(true), 0); // Then quickly set back to true
 
+           } catch (initError: any) {
+             setSpeechError(`Failed to re-initialize recognition: ${initError.message}. Try refreshing the page.`);
+             recognitionRef.current = null; // Ensure it's null if re-init fails
+           }
         } else {
           setSpeechError(`Could not start listening: ${e.message}`);
         }
-        setIsListening(false); // Ensure listening state is false
+        setIsListening(false);
       }
     }
   };
 
   const handleCreateListFromText = async () => {
-    if (!latestFinalTranscript.trim()) {
+    // Use latestFinalTranscriptRef.current as state might not be updated yet from onend
+    const textToProcess = latestFinalTranscriptRef.current.trim();
+    if (!textToProcess) {
       toast({ title: "Nothing to Add", description: "Please dictate some text first.", variant: "destructive" });
       return;
     }
@@ -241,7 +256,7 @@ export default function DictateDialog({
 
     setIsProcessingList(true);
     try {
-      const input: ExtractListFromTextInput = { dictatedText: latestFinalTranscript.trim() };
+      const input: ExtractListFromTextInput = { dictatedText: textToProcess };
       const result = await extractListFromText(input);
 
       if (result && result.parentListTitle) {
@@ -261,7 +276,7 @@ export default function DictateDialog({
             }
           }
           toast({ title: "List Created!", description: `"${newParentList.title}" created from dictated text.` });
-          onOpenChange(false); // Close dialog on success
+          onOpenChange(false); 
         } else {
             toast({ title: "List Creation Failed", description: "Could not save the new list.", variant: "destructive" });
         }
@@ -281,8 +296,8 @@ export default function DictateDialog({
       setIsProcessingList(false);
     }
   };
-
-  const displayedText = (latestFinalTranscript + " " + interimTranscript).trim();
+  
+  const displayedText = (latestFinalTranscriptRef.current.trim() + " " + interimTranscriptRef.current.trim()).trim();
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -301,17 +316,27 @@ export default function DictateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {hasMicPermission === false && !speechError?.includes("denied") && (
+        {hasMicPermission === false && speechError?.includes("denied") && (
+             <Alert variant="destructive" className="my-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Microphone Access Denied</AlertTitle>
+                <AlertDescription>
+                Microphone permission was denied. Please enable it in your browser settings and try again. You might need to refresh the page.
+                </AlertDescription>
+            </Alert>
+        )}
+         {hasMicPermission === false && !speechError?.includes("denied") && (
              <Alert variant="destructive" className="my-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Microphone Issue</AlertTitle>
                 <AlertDescription>
-                Could not access the microphone. It might be disconnected or in use by another application. Please check and try again.
+                {speechError || "Could not access the microphone. It might be disconnected or speech recognition is not supported."}
                 </AlertDescription>
             </Alert>
         )}
 
-        {speechError && (
+
+        {speechError && !speechError.includes("denied") && (
           <Alert variant="destructive" className="my-4">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Speech Recognition Error</AlertTitle>
@@ -325,11 +350,11 @@ export default function DictateDialog({
               !recognitionRef.current && hasMicPermission === null ? "Initializing microphone..." :
               hasMicPermission === false ? "Microphone access denied or unavailable." :
               isListening ? "Listening..." :
-              speechError ? "An error occurred. Try again." :
+              speechError ? "An error occurred. Try starting again." :
               "Dictated text will appear here..."
             }
             value={displayedText}
-            readOnly={isListening}
+            readOnly={isListening} // Make it editable when not listening
             onChange={(e) => {
                 if (!isListening) { // Allow editing if not listening
                     setLatestFinalTranscript(e.target.value);
@@ -358,7 +383,7 @@ export default function DictateDialog({
             </DialogClose>
             <Button
                 onClick={handleCreateListFromText}
-                disabled={!latestFinalTranscript.trim() || isProcessingList || isListening || !currentUser}
+                disabled={!latestFinalTranscriptRef.current.trim() || isProcessingList || isListening || !currentUser}
                 className="w-full sm:w-auto"
             >
                 {isProcessingList ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
@@ -370,4 +395,3 @@ export default function DictateDialog({
   );
 }
 
-    
