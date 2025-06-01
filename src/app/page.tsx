@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
+import DictateDialog from "@/components/DictateDialog"; // Added DictateDialog
 
 import {
   AlertDialog,
@@ -42,7 +43,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react"; // Added Mic
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -92,6 +93,8 @@ export default function Home() {
     initialListTitle: string | null;
   }>({ open: false, initialListId: null, initialListTitle: null });
 
+  const [isDictateDialogOpen, setIsDictateDialogOpen] = useState(false); // State for DictateDialog
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
@@ -112,6 +115,15 @@ export default function Home() {
   const handleOpenScanDialogForExistingList = (listId: string, listTitle: string) => {
     setScanDialogProps({ open: true, initialListId: listId, initialListTitle: listTitle });
   };
+
+  const handleOpenDictateDialog = () => {
+    if (!currentUser) {
+        toast({ title: "Sign In Required", description: "Please sign in to use the dictation feature.", variant: "destructive" });
+        return;
+    }
+    setIsDictateDialogOpen(true);
+  };
+
 
   const handleInitialEditDone = (listId: string) => {
     if (listId === listToFocusId) {
@@ -302,6 +314,9 @@ export default function Home() {
                     <DropdownMenuItem onClick={handleOpenScanDialogForNewList} className="py-3">
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
+                     <DropdownMenuItem onClick={handleOpenDictateDialog} className="py-3" disabled={!currentUser}>
+                      <Mic className="mr-2 h-4 w-4" /> Dictate List
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 
@@ -386,6 +401,17 @@ export default function Home() {
         initialListId={scanDialogProps.initialListId}
         initialListTitle={scanDialogProps.initialListTitle}
       />
+
+      <DictateDialog
+        isOpen={isDictateDialogOpen}
+        onOpenChange={setIsDictateDialogOpen}
+        currentUser={currentUser}
+        addList={addList}
+        manageSubitems={manageSubitems}
+        toast={toast}
+        setListToFocusId={setListToFocusId}
+      />
+
 
       <Dialog open={isViewScanDialogOpen} onOpenChange={(isOpen) => {
         setIsViewScanDialogOpen(isOpen);
@@ -491,3 +517,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

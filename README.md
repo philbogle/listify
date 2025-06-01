@@ -1,7 +1,7 @@
 
 # Listify
 
-This is a mobile-first web app for scanning and managing lists. It can recognize handwritten and printed text as well as arbitrary collections of objects, turning them into manageable checklists.
+This is a mobile-first web app for scanning and managing lists. It can recognize handwritten and printed text as well as arbitrary collections of objects, turning them into manageable checklists. Users can also dictate lists.
 
 To get started, take a look at src/app/page.tsx.
 
@@ -9,9 +9,10 @@ To get started, take a look at src/app/page.tsx.
 
 *   **List Creation & Management:** Create, edit, complete, and delete lists and items.
 *   **AI Image Scanning:** Scan handwritten notes, printed text, or physical objects via camera to create/update lists.
+*   **AI Text Dictation:** Dictate list content, and the AI will structure it into a list title and items (requires sign-in).
 *   **Image Cropping:** Option to crop images before AI processing for better accuracy.
-*   **AI Item Autogeneration:** Suggests new list items based on title and existing content (up to 50 items).
-*   **User Authentication:** Google Sign-In for saving and syncing lists.
+*   **AI Item Autogeneration:** Suggests new list items based on title and existing content (up to 50 items, requires sign-in).
+*   **User Authentication:** Google Sign-In for saving and syncing lists, and enabling AI features.
 *   **List Organization:** Active lists displayed prominently; completed lists in a collapsible, lazy-loaded section.
 *   **Multiple Scan Viewing:** Save and view multiple scanned images per list with zoom functionality.
 *   **Utility Actions:** Copy list content, delete completed items, and delete entire lists (with confirmation).
@@ -26,11 +27,14 @@ Listify is a full-stack web application built with modern technologies:
 *   **Styling:** [Tailwind CSS](https://tailwindcss.com/) for utility-first CSS styling.
 *   **AI & Backend Logic:**
     *   [Genkit](https://firebase.google.com/docs/genkit) (an open-source framework from Firebase) is used to define and manage AI flows.
-    *   **AI Model:** Google's `gemini-2.0-flash` model (via Genkit's Google AI plugin) is used for image recognition (extracting list titles and items from images) and for generating new subitem suggestions.
+    *   **AI Model:** Google's `gemini-2.0-flash` model (via Genkit's Google AI plugin) is used for image recognition (extracting list titles and items from images), text interpretation (from dictation), and for generating new subitem suggestions.
+    *   **Speech Recognition:** The browser's built-in Web Speech API is used for client-side voice-to-text conversion.
 *   **Database, Authentication & Storage:**
     *   [Firebase Firestore](https://firebase.google.com/docs/firestore) (a NoSQL cloud database) is used to store list data and user information.
     *   [Firebase Authentication](https://firebase.google.com/docs/auth) handles user sign-in with Google.
     *   [Firebase Storage](https://firebase.google.com/docs/storage) is used to store the scanned images.
 *   **Development Environment:** This application was primarily developed with AI assistance from Firebase Studio's App Prototyper.
 
-The application allows users to create lists manually or by scanning images. When an image is scanned, it's sent to a Genkit AI flow that uses Gemini to interpret the image content. The flow attempts to identify a list title and individual items (or objects if no clear list is found). These are then used to create a new list or append to an existing one. Similarly, the autogenerate feature uses a Genkit flow to call Gemini with the list's context to suggest new items. All list data is persisted in Firestore per user.
+The application allows users to create lists manually, by scanning images, or by dictating. When an image is scanned, it's sent to a Genkit AI flow that uses Gemini to interpret the image content. When text is dictated, it's processed by a similar Genkit flow. These flows attempt to identify a list title and individual items. These are then used to create a new list or append to an existing one. Similarly, the autogenerate feature uses a Genkit flow to call Gemini with the list's context to suggest new items. All list data is persisted in Firestore per user.
+
+    
