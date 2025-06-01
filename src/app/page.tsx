@@ -42,12 +42,13 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic, UserCircle } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 export default function Home() {
@@ -288,54 +289,71 @@ export default function Home() {
         <main className="w-full max-w-2xl">
           <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" onClick={handleAddNewList} >
-                <Plus className="mr-2 h-4 w-4" /> Enter
-              </Button>
+            <TooltipProvider delayDuration={100}>
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <Button variant="outline" onClick={handleAddNewList} >
+                  <Plus className="mr-2 h-4 w-4" /> Enter
+                </Button>
 
-              <Button variant="outline" onClick={() => setIsDictateDialogOpen(true)} title="Dictate a new list">
-                  <Mic className="mr-2 h-4 w-4" /> Dictate
-              </Button>
-              
-              <Button variant="outline" onClick={handleOpenScanDialogForNewList}>
-                  <Camera className="mr-2 h-4 w-4" />
-                  Scan
-              </Button>
-
-              {firebaseReady && currentUser && (
-                <DropdownMenu>
-                  <DropdownMenuTriggerComponent asChild>
-                    <Button variant="ghost" size="icon">
-                      <MenuIcon className="h-5 w-5" />
-                      <span className="sr-only">Open user menu</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" onClick={() => setIsDictateDialogOpen(true)} className="px-2 sm:px-3">
+                        <Mic className="h-4 w-4 md:mr-2" />
+                        <span className="hidden md:inline">Dictate</span>
                     </Button>
-                  </DropdownMenuTriggerComponent>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                     <DropdownMenuItem onClick={handleAddNewList}>
-                      <Plus className="mr-2 h-4 w-4" /> Add List
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)}>
-                      <Mic className="mr-2 h-4 w-4" /> Dictate List
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenScanDialogForNewList}>
-                      <Camera className="mr-2 h-4 w-4" /> Scan List
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
-                      <HelpCircle className="mr-2 h-4 w-4" />
-                      <span>Help</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sign Out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="md:hidden">
+                    <p>Dictate a new list</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                   <TooltipTrigger asChild>
+                    <Button variant="outline" onClick={handleOpenScanDialogForNewList} className="px-2 sm:px-3">
+                        <Camera className="h-4 w-4 md:mr-2" />
+                        <span className="hidden md:inline">Scan</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="md:hidden">
+                    <p>Scan a new list</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                {firebaseReady && currentUser && (
+                  <DropdownMenu>
+                    <DropdownMenuTriggerComponent asChild>
+                      <Button variant="ghost" size="icon">
+                        <MenuIcon className="h-5 w-5" />
+                        <span className="sr-only">Open user menu</span>
+                      </Button>
+                    </DropdownMenuTriggerComponent>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                       <DropdownMenuItem onClick={handleAddNewList}>
+                        <Plus className="mr-2 h-4 w-4" /> Add List
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)}>
+                        <Mic className="mr-2 h-4 w-4" /> Dictate List
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleOpenScanDialogForNewList}>
+                        <Camera className="mr-2 h-4 w-4" /> Scan List
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
+                        <HelpCircle className="mr-2 h-4 w-4" />
+                        <span>Help</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Sign Out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </TooltipProvider>
           </div>
 
           <section aria-labelledby="list-heading" className="pt-6">
@@ -505,4 +523,3 @@ export default function Home() {
     </div>
   );
 }
-
