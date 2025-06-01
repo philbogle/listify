@@ -41,7 +41,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone, ScanLine, ChevronLeft, ChevronRight, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone, ScanLine, ChevronLeft, ChevronRight, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser, uploadScanImageToFirebase } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -600,23 +600,7 @@ export default function Home() {
 
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      {!currentUser && firebaseReady && !isLoading && ( 
-         <div className="w-full max-w-2xl mt-10 mb-8 flex flex-col items-center p-6 bg-card border rounded-lg shadow-md">
-          <UserCircle className="mx-auto h-12 w-12 text-primary mb-4" />
-          <h1 className="text-xl font-semibold mb-2">Welcome to Listify!</h1>
-          <p className="text-muted-foreground mb-1 text-center text-sm">
-            You&apos;re currently using Listify locally.
-          </p>
-          <p className="text-muted-foreground mb-4 text-center text-sm">
-            Sign in with Google to sync your lists and enable cloud features like sharing.
-          </p>
-           <Button onClick={handleSignIn} className="px-6 py-3 text-base">
-            <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
-          </Button>
-        </div>
-      )}
-
+    <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative pb-32"> {/* Added pb-32 for space for fixed bottom panel */}
       {!firebaseReady && !isLoading && ( 
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
           <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
@@ -631,7 +615,7 @@ export default function Home() {
       )}
       
       {/* Main content area: Always show if not loading skeletons initially, or if loading is done. */}
-      {/* The anonymous welcome prompt is now displayed above this main content if applicable. */}
+      {/* The anonymous welcome prompt is now displayed at the bottom if applicable. */}
       {(isLoading || !isLoading) && (
         <main className="w-full max-w-2xl">
           <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
@@ -911,9 +895,27 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {!currentUser && firebaseReady && !isLoading && ( 
+         <div className="fixed bottom-0 left-0 right-0 z-20 w-full flex justify-center">
+           <div className="w-full max-w-2xl flex flex-col items-center p-4 sm:p-6 bg-card border-t rounded-t-lg shadow-lg">
+             <h1 className="text-xl font-semibold mb-2">Welcome to Listify!</h1>
+             <p className="text-muted-foreground mb-1 text-center text-sm">
+               You&apos;re currently using Listify locally.
+             </p>
+             <p className="text-muted-foreground mb-4 text-center text-sm">
+               Sign in with Google to sync your lists and enable cloud features like sharing.
+             </p>
+             <Button onClick={handleSignIn} className="px-6 py-3 text-base">
+               <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
+             </Button>
+           </div>
+         </div>
+      )}
     </div>
   );
 }
 
+
+    
 
     
