@@ -42,7 +42,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -285,7 +285,7 @@ export default function Home() {
         </div>
       )}
 
-      {(isLoading || firebaseReady || !firebaseReady) && (
+      {(isLoading || !firebaseReady || (firebaseReady && currentUser) || (firebaseReady && !currentUser)) && (
         <main className="w-full max-w-2xl">
           <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
@@ -298,13 +298,13 @@ export default function Home() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleAddNewList}>
+                    <DropdownMenuItem onClick={handleAddNewList} className="py-3">
                       <Plus className="mr-2 h-4 w-4" /> Enter Manually
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenScanDialogForNewList}>
+                    <DropdownMenuItem onClick={handleOpenScanDialogForNewList} className="py-3">
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)}>
+                    <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)} className="py-3">
                       <Mic className="mr-2 h-4 w-4" /> Dictate List
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -369,7 +369,7 @@ export default function Home() {
                 Sign in with Google to sync your lists and enable cloud features like sharing and AI item generation.
               </p>
               <Button onClick={handleSignIn} className="px-6 py-3 text-base">
-                <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
+                Sign in with Google
               </Button>
             </div>
           )}
@@ -504,3 +504,4 @@ export default function Home() {
     </div>
   );
 }
+
