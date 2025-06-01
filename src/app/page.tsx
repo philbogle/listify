@@ -41,7 +41,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone, ScanLine, ChevronLeft, ChevronRight } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, UserCircle, Menu as MenuIcon, Eye, HelpCircle, Sparkles, Trash2, ZoomIn, ZoomOut, ChevronDown, Smartphone, ScanLine, ChevronLeft, ChevronRight, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser, uploadScanImageToFirebase } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
@@ -118,6 +118,8 @@ export default function Home() {
     updateList,
     deleteList,
     manageSubitems,
+    shareList,
+    unshareList,
   } = useLists();
 
 
@@ -200,12 +202,12 @@ export default function Home() {
       stopCameraStream();
     }
     return () => {
-      if (stream && isImportDialogOpen) { // Only stop if the stream was active for this dialog
+      if (stream && isImportDialogOpen) { 
         stopCameraStream();
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl, stopCameraStream]); // Added stopCameraStream
+  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl, stopCameraStream]); 
 
   const handleAddNewList = async () => {
     if (!currentUser && firebaseReady) {
@@ -347,7 +349,7 @@ export default function Home() {
             }
           }
         }
-      } else { // Mode: Create new list
+      } else { 
         if (result && result.parentListTitle) {
           const parentTitle = result.parentListTitle.trim();
           const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
@@ -513,6 +515,8 @@ export default function Home() {
         onViewScan={handleViewScan}
         onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
         onScanMoreItemsRequested={handleScanMoreItemsRequested}
+        shareList={shareList}
+        unshareList={unshareList}
       />
     ));
   };
@@ -803,7 +807,7 @@ export default function Home() {
           {viewingScanUrls && viewingScanUrls[currentScanIndex] && (
             <div className="mt-4 flex justify-center items-center max-h-[70vh] overflow-auto bg-muted/10 p-2 rounded-md">
               <Image
-                key={viewingScanUrls[currentScanIndex]} // Force re-render on image change
+                key={viewingScanUrls[currentScanIndex]} 
                 src={viewingScanUrls[currentScanIndex]}
                 alt={`Scanned list image ${currentScanIndex + 1}`}
                 width={600}
@@ -886,3 +890,4 @@ export default function Home() {
     </div>
   );
 }
+
