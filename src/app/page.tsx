@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
+import ScanDialog from "@/components/ScanDialog"; // Import the new ScanDialog
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,68 +43,13 @@ import {
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic, MicOff, Eraser } from "lucide-react";
-import { isFirebaseConfigured, signInWithGoogle, signOutUser, uploadScanImageToFirebase } from "@/lib/firebase";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic, MicOff, Eraser } from "lucide-react";
+import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; // Removed uploadScanImageToFirebase
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
-import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
 import { extractListFromText, type ExtractListFromTextInput } from "@/ai/flows/extractListFromTextFlow";
-
-
-import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
-
-const fileToDataUri = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-async function getCroppedImageFile(
-  image: HTMLImageElement,
-  crop: PixelCrop,
-  fileName: string
-): Promise<File | null> {
-  const canvas = document.createElement('canvas');
-  const scaleX = image.naturalWidth / image.width;
-  const scaleY = image.naturalHeight / image.height;
-
-  canvas.width = Math.floor(crop.width * scaleX);
-  canvas.height = Math.floor(crop.height * scaleY);
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    console.error('Failed to get 2d context for cropping.');
-    return null;
-  }
-
-  ctx.drawImage(
-    image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        console.error('Canvas to Blob conversion failed.');
-        resolve(null);
-        return;
-      }
-      resolve(new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() }));
-    }, 'image/jpeg', 0.9);
-  });
-}
 
 
 export default function Home() {
@@ -112,7 +58,7 @@ export default function Home() {
     completedLists,
     isLoading,
     isLoadingCompleted,
-    currentUser, 
+    currentUser,
     fetchCompletedListsIfNeeded,
     hasFetchedCompleted,
     addList,
@@ -125,17 +71,8 @@ export default function Home() {
 
 
   const [firebaseReady, setFirebaseReady] = useState(false);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [capturedImageFile, setCapturedImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null); 
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const { toast } = useToast();
 
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null); 
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [listToFocusId, setListToFocusId] = useState<string | null>(null);
 
   const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
@@ -150,13 +87,13 @@ export default function Home() {
   const [isConfirmDeleteListOpen, setIsConfirmDeleteListOpen] = useState(false);
   const [listToDeleteId, setListToDeleteId] = useState<string | null>(null);
 
-  const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const imgRef = useRef<HTMLImageElement>(null); 
-  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); 
+  // State for ScanDialog
+  const [scanDialogProps, setScanDialogProps] = useState<{
+    open: boolean;
+    initialListId: string | null;
+    initialListTitle: string | null;
+  }>({ open: false, initialListId: null, initialListTitle: null });
 
-  const [scanningForListId, setScanningForListId] = useState<string | null>(null);
-  const [scanningListTitle, setScanningListTitle] = useState<string | null>(null);
 
   // Dictation Feature State
   const [isDictateDialogOpen, setIsDictateDialogOpen] = useState(false);
@@ -173,67 +110,20 @@ export default function Home() {
     setFirebaseReady(isFirebaseConfigured());
   }, []);
 
-  const stopCameraStream = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-    }
-  }, [stream]);
-
-  const resetCropperState = () => {
-    setCrop(undefined);
-    setCompletedCrop(undefined);
-  };
-
-  useEffect(() => {
-    if (isImportDialogOpen && hasCameraPermission === null && !imagePreviewUrl) {
-      const getCameraPermission = async () => {
-        try {
-          const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-          setStream(mediaStream);
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings.',
-          });
-        }
-      };
-      getCameraPermission();
-    } else if (!isImportDialogOpen && stream) {
-      stopCameraStream();
-    }
-    return () => {
-      if (stream && isImportDialogOpen) { 
-        stopCameraStream();
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isImportDialogOpen, hasCameraPermission, imagePreviewUrl, stopCameraStream]); 
-
   // Effect to initialize SpeechRecognition instance
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!recognitionRef.current) { // Initialize only once
         const rec = new SpeechRecognitionAPI();
-        rec.continuous = true; // Keep listening even after short pauses
-        rec.interimResults = true; // Get results while the user is still speaking
-        rec.lang = 'en-US'; // Default language
+        rec.continuous = true; 
+        rec.interimResults = true; 
+        rec.lang = 'en-US'; 
 
         rec.onstart = () => {
           setIsListening(true);
           setSpeechError(null);
-          setInterimTranscript(""); 
+          setInterimTranscript("");
         };
 
         rec.onresult = (event) => {
@@ -271,13 +161,13 @@ export default function Home() {
 
         rec.onend = () => {
           setIsListening(false);
-          setInterimTranscript(""); 
+          setInterimTranscript("");
         };
         recognitionRef.current = rec;
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
 
   const handleAddNewList = async () => {
@@ -286,226 +176,20 @@ export default function Home() {
       setListToFocusId(newList.id);
     }
   };
-  
-  const handleOpenNewScanDialog = () => {
-    setScanningForListId(null);
-    setScanningListTitle(null);
-  
-    setImagePreviewUrl(null);
-    setCapturedImageFile(null);
-    setHasCameraPermission(null); 
-    resetCropperState();
-  
-    setIsImportDialogOpen(true);
-  };
-  
-  const handleScanMoreItemsRequested = (listId: string, listTitle: string) => {
-    setScanningForListId(listId);
-    setScanningListTitle(listTitle);
-  
-    setImagePreviewUrl(null);
-    setCapturedImageFile(null);
-    setHasCameraPermission(null);
-    resetCropperState();
-  
-    setIsImportDialogOpen(true);
+
+  const handleOpenScanDialogForNewList = () => {
+    setScanDialogProps({ open: true, initialListId: null, initialListTitle: null });
   };
 
+  const handleOpenScanDialogForExistingList = (listId: string, listTitle: string) => {
+    setScanDialogProps({ open: true, initialListId: listId, initialListTitle: listTitle });
+  };
 
   const handleInitialEditDone = (listId: string) => {
     if (listId === listToFocusId) {
       setListToFocusId(null);
     }
   };
-
-  const resetImportDialog = useCallback(() => {
-    setIsProcessingImage(false);
-    setCapturedImageFile(null);
-    setImagePreviewUrl(null);
-    setHasCameraPermission(null); 
-    resetCropperState();
-    setIsImportDialogOpen(false); 
-    stopCameraStream();
-    setScanningForListId(null); 
-    setScanningListTitle(null);
-  }, [stopCameraStream]);
-
-  const handleExtractList = async () => {
-    if (!capturedImageFile && !imagePreviewUrl) {
-        toast({ title: "No Image", description: "Please capture or select an image first.", variant: "destructive" });
-        return;
-    }
-
-    setIsProcessingImage(true);
-    let finalImageFileToProcess = capturedImageFile;
-
-    if (completedCrop && imgRef.current && (capturedImageFile || imagePreviewUrl)) {
-        const fileName = capturedImageFile ? capturedImageFile.name : `cropped-image-${Date.now()}.jpg`;
-        const croppedFile = await getCroppedImageFile(imgRef.current, completedCrop, fileName);
-        if (croppedFile) {
-            finalImageFileToProcess = croppedFile;
-        } else {
-            toast({ title: "Cropping Failed", description: "Could not crop the image. Using original.", variant: "destructive" });
-            if (!capturedImageFile) {
-                 toast({ title: "Processing Error", description: "Original image not available for fallback.", variant: "destructive" });
-                 setIsProcessingImage(false);
-                 return;
-            }
-        }
-    } else if (!capturedImageFile) {
-        toast({ title: "No Image File", description: "No image file available to process.", variant: "destructive" });
-        setIsProcessingImage(false);
-        return;
-    }
-
-    if (!finalImageFileToProcess) {
-      toast({ title: "Image Error", description: "No image available for conversion.", variant: "destructive" });
-      setIsProcessingImage(false);
-      return;
-    }
-
-    try {
-      const imageDataUri = await fileToDataUri(finalImageFileToProcess);
-      const input: ExtractListFromImageInput = { imageDataUri };
-      const result = await extractListFromImage(input);
-
-      if (scanningForListId && scanningListTitle) { 
-        const existingList = activeLists.find(l => l.id === scanningForListId) || completedLists.find(l => l.id === scanningForListId);
-        if (!existingList) {
-            toast({ title: "List Not Found", description: `Could not find list "${scanningListTitle}" to add items to.`, variant: "destructive" });
-        } else {
-          if (currentUser && isFirebaseConfigured()) { 
-            try {
-              const newScanUrl = await uploadScanImageToFirebase(finalImageFileToProcess, currentUser.uid, scanningForListId);
-              const updatedScanImageUrls = [...(existingList.scanImageUrls || []), newScanUrl];
-              await updateList(scanningForListId, { scanImageUrls: updatedScanImageUrls }); 
-            } catch (uploadError) {
-               console.error("Error uploading additional scan image:", uploadError);
-               toast({ title: "Image Upload Failed", description: "Items might be added, but new scan image upload failed.", variant: "destructive" });
-            }
-          } else if (!currentUser && isFirebaseConfigured()){
-            toast({ title: "Sign In to Save Scan", description: "Sign in to permanently save scanned images with your lists.", duration: 5000});
-          }
-          
-
-          if (result.extractedSubitems && result.extractedSubitems.length > 0) {
-            const newSubitemsToAdd: Subitem[] = result.extractedSubitems
-              .filter(si => si.title && si.title.trim() !== "")
-              .map(si => ({
-                id: crypto.randomUUID(),
-                title: si.title.trim(),
-                completed: false,
-              }));
-            
-            if (newSubitemsToAdd.length > 0) {
-              const combinedSubitems = [...existingList.subitems, ...newSubitemsToAdd];
-              await manageSubitems(scanningForListId, combinedSubitems); 
-              toast({
-                title: "Items Added",
-                description: `${newSubitemsToAdd.length} item(s) added to "${existingList.title}".`,
-                duration: 3000,
-              });
-            }
-          }
-        }
-      } else { 
-        if (result && result.parentListTitle) {
-          const parentTitle = result.parentListTitle.trim();
-          
-          const newParentList = await addList({ title: parentTitle }, currentUser ? finalImageFileToProcess : null); 
-          
-          if (newParentList && newParentList.id) {
-            setListToFocusId(newParentList.id); 
-            if (result.extractedSubitems && result.extractedSubitems.length > 0) {
-              const subitemsToAdd: Subitem[] = result.extractedSubitems
-                .filter(si => si.title && si.title.trim() !== "")
-                .map(si => ({
-                  id: crypto.randomUUID(),
-                  title: si.title.trim(),
-                  completed: false,
-                }));
-
-              if (subitemsToAdd.length > 0) {
-                await manageSubitems(newParentList.id, subitemsToAdd); 
-              }
-            }
-            if (!currentUser && isFirebaseConfigured() && finalImageFileToProcess) {
-                 toast({ title: "Sign In to Save Scan", description: "List created locally. Sign in to save this scan image with your list.", duration: 5000});
-            }
-          }
-        }
-      }
-    } catch (error: any) {
-      console.error("Error extracting list from image:", error);
-      let errorMsg = "An unexpected error occurred while processing the image.";
-      if (error.message && error.message.includes("GEMINI_API_KEY")) {
-        errorMsg = "AI processing failed. Check API key configuration.";
-      } else if (error.message) {
-        errorMsg = `AI processing error: ${error.message.substring(0,100)}${error.message.length > 100 ? '...' : ''}`;
-      }
-      toast({ title: "Import Error", description: errorMsg, variant: "destructive" });
-    } finally {
-      resetImportDialog();
-    }
-  };
-
-  const handleCaptureImage = async () => {
-    if (!videoRef.current || !canvasRef.current || !stream) return;
-    setIsCapturing(true);
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      setIsCapturing(false);
-      return;
-    }
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stopCameraStream(); 
-
-    canvas.toBlob(async (blob) => {
-      if (blob) {
-        const capturedFile = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-        setCapturedImageFile(capturedFile);
-        const previewUrl = URL.createObjectURL(capturedFile);
-        setImagePreviewUrl(previewUrl); 
-        setHasCameraPermission(true); 
-        resetCropperState();
-      }
-      setIsCapturing(false);
-    }, 'image/jpeg', 0.9);
-  };
-
-  const handleRetakePhoto = () => {
-    setImagePreviewUrl(null); 
-    setCapturedImageFile(null);
-    resetCropperState();
-    setHasCameraPermission(null); 
-  }
-
-  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
-    imgRef.current = e.currentTarget;
-    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
-    const newCrop = centerCrop(
-      makeAspectCrop(
-        {
-          unit: '%',
-          width: 90,
-        },
-        cropAspect || width / height, 
-        width,
-        height
-      ),
-      width,
-      height
-    );
-    setCrop(newCrop);
-    setCompletedCrop(undefined); 
-  }
-
 
   const handleSignIn = async () => {
     await signInWithGoogle();
@@ -519,7 +203,7 @@ export default function Home() {
     if (imageUrls && imageUrls.length > 0) {
       setViewingScanUrls(imageUrls);
       setCurrentScanIndex(0);
-      setScanZoomLevel(1); 
+      setScanZoomLevel(1);
       setIsViewScanDialogOpen(true);
     }
   };
@@ -539,7 +223,7 @@ export default function Home() {
 
     const remainingSubitems = listToDeleteCompletedFrom.subitems.filter(si => !si.completed);
     await manageSubitems(listToDeleteCompletedFrom.id, remainingSubitems);
-    
+
     setIsConfirmDeleteCompletedOpen(false);
     setListToDeleteCompletedFrom(null);
   };
@@ -574,13 +258,11 @@ export default function Home() {
         setSpeechError('Microphone access was denied. Please enable it in your browser settings and try again.');
         return;
     }
-    
+
     try {
-      //   setDictatedText(""); // Clear previous full text for a new session
       setInterimTranscript("");
       setSpeechError(null);
       recognitionRef.current.start();
-      // Note: onstart in the effect will set isListening and hasMicPermission (optimistically)
     } catch (err: any) {
       console.error("Error starting speech recognition:", err);
       setSpeechError(`Could not start microphone: ${err.message}. Ensure permission is granted.`);
@@ -593,7 +275,6 @@ export default function Home() {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
     }
-    // isListening will be set to false by the 'onend' event
   };
 
   const handleProcessDictation = async () => {
@@ -619,7 +300,7 @@ export default function Home() {
           }
         }
         toast({ title: "List Created!", description: `"${result.parentListTitle}" created from your dictation.` });
-        setIsDictateDialogOpen(false); // Close dialog on success
+        setIsDictateDialogOpen(false); 
       } else {
         toast({ title: "Processing Error", description: "Could not extract a list from the dictated text. Please try rephrasing or check the text.", variant: "destructive" });
       }
@@ -637,20 +318,16 @@ export default function Home() {
       if (recognitionRef.current && isListening) {
         recognitionRef.current.stop();
       }
-      // Reset dictation states when dialog closes, but keep dictatedText for potential resume
       setInterimTranscript("");
-      setSpeechError(null); 
+      setSpeechError(null);
       setIsListening(false);
-      // Do NOT reset dictatedText here, user might want to resume or process it.
-      // Reset only if processing was successful or explicitly cleared.
     } else {
-      // Dialog is opening
       if (!recognitionRef.current && !(typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window))) {
           setSpeechError("Speech recognition is not supported by your browser.");
       } else {
-          setSpeechError(null); // Clear previous errors
+          setSpeechError(null); 
       }
-      setHasMicPermission(null); 
+      setHasMicPermission(null);
     }
   };
 
@@ -658,11 +335,6 @@ export default function Home() {
     setDictatedText("");
     setInterimTranscript("");
     setSpeechError(null);
-    if (recognitionRef.current && isListening) {
-      // Optionally stop and restart listening to clear any internal buffers of the API
-      // recognitionRef.current.stop();
-      // setTimeout(() => handleStartListening(), 100); // slight delay
-    }
   };
 
 
@@ -679,10 +351,10 @@ export default function Home() {
         toast={toast}
         onViewScan={handleViewScan}
         onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
-        onScanMoreItemsRequested={handleScanMoreItemsRequested}
+        onScanMoreItemsRequested={handleOpenScanDialogForExistingList} // Updated prop
         shareList={shareList}
         unshareList={unshareList}
-        isUserAuthenticated={!!currentUser} 
+        isUserAuthenticated={!!currentUser}
       />
     ));
   };
@@ -761,7 +433,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8">
-      {!firebaseReady && !isLoading && ( 
+      {!firebaseReady && !isLoading && (
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
           <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
           <div>
@@ -773,7 +445,7 @@ export default function Home() {
           </div>
         </div>
       )}
-      
+
       {(isLoading || firebaseReady || !firebaseReady) && (
         <main className="w-full max-w-2xl">
           <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
@@ -816,7 +488,7 @@ export default function Home() {
                       placeholder={isListening ? "Listening..." : (hasMicPermission === false ? "Microphone access denied." : "Your dictated text will appear here...")}
                       value={dictatedText + (interimTranscript ? (dictatedText ? " " : "") + interimTranscript : "")}
                       readOnly={isListening}
-                      onChange={(e) => !isListening && setDictatedText(e.target.value)} // Allow manual edits when not listening
+                      onChange={(e) => !isListening && setDictatedText(e.target.value)}
                       rows={6}
                       className="resize-none"
                     />
@@ -858,115 +530,12 @@ export default function Home() {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
-                setIsImportDialogOpen(isOpen);
-                if (!isOpen) {
-                  stopCameraStream();
-                  setHasCameraPermission(null);
-                  setImagePreviewUrl(null);
-                  setCapturedImageFile(null);
-                  resetCropperState();
-                  setScanningForListId(null); 
-                  setScanningListTitle(null);
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" onClick={handleOpenNewScanDialog} >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Scan
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[480px]">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {scanningForListId && scanningListTitle 
-                        ? `Scan More Items for "${scanningListTitle}"` 
-                        : "Scan List"}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {scanningForListId
-                        ? "Take a picture to add more items to this list."
-                        : "Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content."}
-                       {!currentUser && firebaseReady && " Images scanned while not signed in are not saved with the list."}
-                    </DialogDescription>
-                  </DialogHeader>
+              <Button variant="outline" onClick={handleOpenScanDialogForNewList}>
+                  <Camera className="mr-2 h-4 w-4" />
+                  Scan
+              </Button>
 
-                  <div className="grid gap-4 py-4">
-                    {!imagePreviewUrl && (
-                      <div className="space-y-4">
-                        <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                          <video
-                            ref={videoRef}
-                            className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
-                            autoPlay
-                            playsInline 
-                            muted
-                          />
-                           {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-                           {hasCameraPermission === false && (
-                            <Alert variant="destructive" className="m-4">
-                              <AlertTriangle className="h-4 w-4" />
-                              <AlertTitle>Camera Access Denied</AlertTitle>
-                              <AlertDescription>
-                                Please allow camera access in your browser settings to use this feature. You might need to refresh the page after granting permission.
-                              </AlertDescription>
-                            </Alert>
-                          )}
-                        </div>
-                        {stream && hasCameraPermission && (
-                          <Button onClick={handleCaptureImage} disabled={isCapturing || !stream || isProcessingImage} className="w-full">
-                            {isCapturing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                            {isCapturing ? "Capturing..." : "Capture Photo"}
-                          </Button>
-                        )}
-                      </div>
-                    )}
-
-                    {imagePreviewUrl && !isCapturing && (
-                      <div className="space-y-2">
-                        <div className="border rounded-md overflow-hidden max-h-80 flex justify-center items-center bg-muted/20 aspect-[3/4] mx-auto">
-                          <ReactCrop
-                            crop={crop}
-                            onChange={(_, percentCrop) => setCrop(percentCrop)}
-                            onComplete={(c) => setCompletedCrop(c)}
-                            aspect={cropAspect}
-                            minHeight={50}
-                            minWidth={50}
-                          >
-                            <img
-                              ref={imgRef}
-                              alt="Scan preview"
-                              src={imagePreviewUrl}
-                              onLoad={onImageLoad}
-                              style={{ maxHeight: '320px', objectFit: 'contain' }}
-                              data-ai-hint="handwritten list"
-                            />
-                          </ReactCrop>
-                        </div>
-                        <Button onClick={handleRetakePhoto} variant="outline" className="w-full" disabled={isProcessingImage || isCapturing}>
-                          <RefreshCw className="mr-2 h-4 w-4" /> Retake Photo
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline" disabled={isProcessingImage || isCapturing} onClick={() => {
-                          stopCameraStream(); 
-                      }}>Cancel</Button>
-                    </DialogClose>
-                    { (capturedImageFile || imagePreviewUrl) && !isCapturing && (
-                      <Button onClick={handleExtractList} disabled={isProcessingImage}>
-                        {isProcessingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Recognize List
-                      </Button>
-                    )}
-                  </DialogFooter>
-                  <canvas ref={canvasRef} className="hidden"></canvas>
-                </DialogContent>
-              </Dialog>
-
-              {firebaseReady && currentUser && ( 
+              {firebaseReady && currentUser && (
                 <DropdownMenu>
                   <DropdownMenuTriggerComponent asChild>
                     <Button variant="ghost" size="icon">
@@ -983,7 +552,7 @@ export default function Home() {
                     <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)}>
                       <Mic className="mr-2 h-4 w-4" /> Dictate List
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenNewScanDialog}>
+                    <DropdownMenuItem onClick={handleOpenScanDialogForNewList}>
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -1003,7 +572,7 @@ export default function Home() {
           </div>
 
           <section aria-labelledby="list-heading" className="pt-6">
-            {isLoading ? ( 
+            {isLoading ? (
                 Array.from({ length: 2 }).map((_, index) => (
                     <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
                     <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
@@ -1024,7 +593,7 @@ export default function Home() {
               {renderCompletedListSection()}
           </section>
 
-          {!currentUser && firebaseReady && !isLoading && ( 
+          {!currentUser && firebaseReady && !isLoading && (
             <div className="w-full max-w-2xl flex flex-col items-center p-4 sm:p-6 mt-12 bg-card border rounded-lg shadow-md">
               <h1 className="text-xl font-semibold mb-2">Welcome to Listify!</h1>
               <p className="text-muted-foreground mb-1 text-center text-sm">
@@ -1040,6 +609,22 @@ export default function Home() {
           )}
         </main>
       )}
+
+      <ScanDialog
+        isOpen={scanDialogProps.open}
+        onOpenChange={(open) => setScanDialogProps(prev => ({ ...prev, open }))}
+        currentUser={currentUser}
+        firebaseReady={firebaseReady}
+        addList={addList}
+        updateList={updateList}
+        manageSubitems={manageSubitems}
+        activeLists={activeLists}
+        completedLists={completedLists}
+        toast={toast}
+        setListToFocusId={setListToFocusId}
+        initialListId={scanDialogProps.initialListId}
+        initialListTitle={scanDialogProps.initialListTitle}
+      />
 
       <Dialog open={isViewScanDialogOpen} onOpenChange={(isOpen) => {
         setIsViewScanDialogOpen(isOpen);
@@ -1062,14 +647,14 @@ export default function Home() {
           {viewingScanUrls && viewingScanUrls[currentScanIndex] && (
             <div className="mt-4 flex justify-center items-center max-h-[70vh] overflow-auto bg-muted/10 p-2 rounded-md">
               <Image
-                key={viewingScanUrls[currentScanIndex]} 
+                key={viewingScanUrls[currentScanIndex]}
                 src={viewingScanUrls[currentScanIndex]}
                 alt={`Scanned list image ${currentScanIndex + 1}`}
                 width={600}
                 height={800}
                 style={{
                   objectFit: 'contain',
-                  maxHeight: 'calc(70vh - 120px)', 
+                  maxHeight: 'calc(70vh - 120px)',
                   width: 'auto',
                   transform: `scale(${scanZoomLevel})`,
                   transformOrigin: 'center center',
@@ -1145,6 +730,3 @@ export default function Home() {
     </div>
   );
 }
-
-
-    
