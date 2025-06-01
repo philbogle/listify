@@ -41,13 +41,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, RefreshCw, LogIn, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic, MicOff, Eraser } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser, uploadScanImageToFirebase } from "@/lib/firebase";
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
+import { extractListFromText, type ExtractListFromTextInput } from "@/ai/flows/extractListFromTextFlow";
+
 
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -60,7 +63,6 @@ const fileToDataUri = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-// Helper function to generate a cropped image file
 async function getCroppedImageFile(
   image: HTMLImageElement,
   crop: PixelCrop,
@@ -156,6 +158,16 @@ export default function Home() {
   const [scanningForListId, setScanningForListId] = useState<string | null>(null);
   const [scanningListTitle, setScanningListTitle] = useState<string | null>(null);
 
+  // Dictation Feature State
+  const [isDictateDialogOpen, setIsDictateDialogOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [dictatedText, setDictatedText] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const [isProcessingDictation, setIsProcessingDictation] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [hasMicPermission, setHasMicPermission] = useState<boolean | null>(null);
+
 
   useEffect(() => {
     setFirebaseReady(isFirebaseConfigured());
@@ -207,6 +219,66 @@ export default function Home() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isImportDialogOpen, hasCameraPermission, imagePreviewUrl, stopCameraStream]); 
+
+  // Effect to initialize SpeechRecognition instance
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!recognitionRef.current) { // Initialize only once
+        const rec = new SpeechRecognitionAPI();
+        rec.continuous = true; // Keep listening even after short pauses
+        rec.interimResults = true; // Get results while the user is still speaking
+        rec.lang = 'en-US'; // Default language
+
+        rec.onstart = () => {
+          setIsListening(true);
+          setSpeechError(null);
+          setInterimTranscript(""); 
+        };
+
+        rec.onresult = (event) => {
+          let final_transcript_segment = '';
+          let current_interim_segment = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              final_transcript_segment += event.results[i][0].transcript + ' ';
+            } else {
+              current_interim_segment += event.results[i][0].transcript;
+            }
+          }
+          if (final_transcript_segment) {
+              setDictatedText(prev => (prev + final_transcript_segment).trim());
+          }
+          setInterimTranscript(current_interim_segment);
+        };
+
+        rec.onerror = (event) => {
+          console.error("Speech recognition error:", event.error, event.message);
+          let errorMsg = `Error: ${event.error}. ${event.message || ''}`;
+          if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+            errorMsg = 'Microphone access was denied. Please enable it in your browser settings and try again.';
+            setHasMicPermission(false);
+          } else if (event.error === 'no-speech') {
+            errorMsg = 'No speech detected. Please try again.';
+          } else if (event.error === 'audio-capture') {
+            errorMsg = 'Microphone not found or is busy. Please check your microphone setup.';
+          } else if (event.error === 'network') {
+            errorMsg = 'Network error during speech recognition. Please check your connection.';
+          }
+          setSpeechError(errorMsg);
+          setIsListening(false);
+        };
+
+        rec.onend = () => {
+          setIsListening(false);
+          setInterimTranscript(""); 
+        };
+        recognitionRef.current = rec;
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+
 
   const handleAddNewList = async () => {
     const newList = await addList({ title: "Untitled List" });
@@ -303,9 +375,8 @@ export default function Home() {
             toast({ title: "List Not Found", description: `Could not find list "${scanningListTitle}" to add items to.`, variant: "destructive" });
         } else {
           if (currentUser && isFirebaseConfigured()) { 
-            let newScanUrl: string | undefined = undefined;
             try {
-              newScanUrl = await uploadScanImageToFirebase(finalImageFileToProcess, currentUser.uid, scanningForListId);
+              const newScanUrl = await uploadScanImageToFirebase(finalImageFileToProcess, currentUser.uid, scanningForListId);
               const updatedScanImageUrls = [...(existingList.scanImageUrls || []), newScanUrl];
               await updateList(scanningForListId, { scanImageUrls: updatedScanImageUrls }); 
             } catch (uploadError) {
@@ -492,6 +563,108 @@ export default function Home() {
     return list?.title || "this list";
   };
 
+  const handleStartListening = async () => {
+    if (!recognitionRef.current) {
+      setSpeechError("Speech recognition not initialized or not supported.");
+      return;
+    }
+    if (isListening) return;
+
+    if (hasMicPermission === false) {
+        setSpeechError('Microphone access was denied. Please enable it in your browser settings and try again.');
+        return;
+    }
+    
+    try {
+      //   setDictatedText(""); // Clear previous full text for a new session
+      setInterimTranscript("");
+      setSpeechError(null);
+      recognitionRef.current.start();
+      // Note: onstart in the effect will set isListening and hasMicPermission (optimistically)
+    } catch (err: any) {
+      console.error("Error starting speech recognition:", err);
+      setSpeechError(`Could not start microphone: ${err.message}. Ensure permission is granted.`);
+      if (err.name === 'NotAllowedError' || err.name === 'SecurityError') setHasMicPermission(false);
+      setIsListening(false);
+    }
+  };
+
+  const handleStopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+    }
+    // isListening will be set to false by the 'onend' event
+  };
+
+  const handleProcessDictation = async () => {
+    if (!dictatedText.trim()) {
+      toast({ title: "Nothing to process", description: "Please dictate some text first.", variant: "destructive" });
+      return;
+    }
+    setIsProcessingDictation(true);
+    try {
+      const input: ExtractListFromTextInput = { textToProcess: dictatedText };
+      const result = await extractListFromText(input);
+      if (result && result.parentListTitle) {
+        const newParentList = await addList({ title: result.parentListTitle.trim() });
+        if (newParentList && newParentList.id) {
+          setListToFocusId(newParentList.id);
+          if (result.extractedSubitems && result.extractedSubitems.length > 0) {
+            const subitemsToAdd: Subitem[] = result.extractedSubitems
+              .filter(si => si.title && si.title.trim() !== "")
+              .map(si => ({ id: crypto.randomUUID(), title: si.title.trim(), completed: false }));
+            if (subitemsToAdd.length > 0) {
+              await manageSubitems(newParentList.id, subitemsToAdd);
+            }
+          }
+        }
+        toast({ title: "List Created!", description: `"${result.parentListTitle}" created from your dictation.` });
+        setIsDictateDialogOpen(false); // Close dialog on success
+      } else {
+        toast({ title: "Processing Error", description: "Could not extract a list from the dictated text. Please try rephrasing or check the text.", variant: "destructive" });
+      }
+    } catch (error: any) {
+      console.error("Error processing dictated text with AI:", error);
+      toast({ title: "AI Error", description: `Failed to process dictation: ${error.message}`, variant: "destructive" });
+    } finally {
+      setIsProcessingDictation(false);
+    }
+  };
+
+  const handleDictateDialogOpeChange = (isOpen: boolean) => {
+    setIsDictateDialogOpen(isOpen);
+    if (!isOpen) {
+      if (recognitionRef.current && isListening) {
+        recognitionRef.current.stop();
+      }
+      // Reset dictation states when dialog closes, but keep dictatedText for potential resume
+      setInterimTranscript("");
+      setSpeechError(null); 
+      setIsListening(false);
+      // Do NOT reset dictatedText here, user might want to resume or process it.
+      // Reset only if processing was successful or explicitly cleared.
+    } else {
+      // Dialog is opening
+      if (!recognitionRef.current && !(typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window))) {
+          setSpeechError("Speech recognition is not supported by your browser.");
+      } else {
+          setSpeechError(null); // Clear previous errors
+      }
+      setHasMicPermission(null); 
+    }
+  };
+
+  const handleClearDictatedText = () => {
+    setDictatedText("");
+    setInterimTranscript("");
+    setSpeechError(null);
+    if (recognitionRef.current && isListening) {
+      // Optionally stop and restart listening to clear any internal buffers of the API
+      // recognitionRef.current.stop();
+      // setTimeout(() => handleStartListening(), 100); // slight delay
+    }
+  };
+
 
   const renderListCards = (listsToRender: List[]) => {
     return listsToRender.map((list) => (
@@ -609,6 +782,82 @@ export default function Home() {
               <Button variant="outline" onClick={handleAddNewList} >
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
+
+              <Dialog open={isDictateDialogOpen} onOpenChange={handleDictateDialogOpeChange}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" title="Dictate a new list">
+                    <Mic className="mr-2 h-4 w-4" /> Dictate
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Dictate New List</DialogTitle>
+                    <DialogDescription>
+                      Click "Start Listening" and speak your list title and items. Click "Stop Listening" when done.
+                      The AI will then process the text to create your list.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="flex items-center justify-center space-x-2">
+                      {!isListening ? (
+                        <Button onClick={handleStartListening} disabled={hasMicPermission === false || !recognitionRef.current} className="flex-1">
+                          <Mic className="mr-2 h-5 w-5" /> Start Listening
+                        </Button>
+                      ) : (
+                        <Button onClick={handleStopListening} variant="destructive" className="flex-1">
+                          <MicOff className="mr-2 h-5 w-5" /> Stop Listening
+                        </Button>
+                      )}
+                      <Button onClick={handleClearDictatedText} variant="outline" size="icon" title="Clear Text" disabled={isListening || isProcessingDictation}>
+                        <Eraser className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    <Textarea
+                      placeholder={isListening ? "Listening..." : (hasMicPermission === false ? "Microphone access denied." : "Your dictated text will appear here...")}
+                      value={dictatedText + (interimTranscript ? (dictatedText ? " " : "") + interimTranscript : "")}
+                      readOnly={isListening}
+                      onChange={(e) => !isListening && setDictatedText(e.target.value)} // Allow manual edits when not listening
+                      rows={6}
+                      className="resize-none"
+                    />
+                    {speechError && (
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Speech Error</AlertTitle>
+                        <AlertDescription>{speechError}</AlertDescription>
+                      </Alert>
+                    )}
+                     {hasMicPermission === false && !speechError && (
+                        <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Microphone Access Denied</AlertTitle>
+                            <AlertDescription>
+                                Please enable microphone permissions in your browser settings to use dictation.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                     {!recognitionRef.current && typeof window !== 'undefined' && !('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && (
+                        <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Browser Not Supported</AlertTitle>
+                            <AlertDescription>
+                                Speech recognition is not supported by your current browser.
+                            </AlertDescription>
+                        </Alert>
+                     )}
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline" disabled={isProcessingDictation || isListening}>Cancel</Button>
+                    </DialogClose>
+                    <Button onClick={handleProcessDictation} disabled={isProcessingDictation || isListening || !dictatedText.trim() || !recognitionRef.current}>
+                      {isProcessingDictation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Create List from Text
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
                 setIsImportDialogOpen(isOpen);
                 if (!isOpen) {
@@ -731,6 +980,9 @@ export default function Home() {
                      <DropdownMenuItem onClick={handleAddNewList}>
                       <Plus className="mr-2 h-4 w-4" /> Add List
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)}>
+                      <Mic className="mr-2 h-4 w-4" /> Dictate List
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenNewScanDialog}>
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
@@ -779,7 +1031,7 @@ export default function Home() {
                 You&apos;re currently using Listify locally.
               </p>
               <p className="text-muted-foreground mb-4 text-center text-sm">
-                Sign in with Google to sync your lists and enable cloud features like sharing.
+                Sign in with Google to sync your lists and enable cloud features like sharing and AI item generation.
               </p>
               <Button onClick={handleSignIn} className="px-6 py-3 text-base">
                 <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
@@ -893,3 +1145,6 @@ export default function Home() {
     </div>
   );
 }
+
+
+    
