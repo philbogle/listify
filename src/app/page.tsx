@@ -42,7 +42,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogIn, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
