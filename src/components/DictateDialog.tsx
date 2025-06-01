@@ -46,91 +46,76 @@ export default function DictateDialog({
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [hasMicPermission, setHasMicPermission] = useState<boolean | null>(null);
 
-  // Effect to initialize SpeechRecognition instance
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!recognitionRef.current) { // Initialize only once
+      if (!recognitionRef.current) {
         const rec = new SpeechRecognitionAPI();
         rec.continuous = true;
         rec.interimResults = true;
         rec.lang = 'en-US';
-
-        rec.onstart = () => {
-          setIsListening(true);
-          setSpeechError(null);
-          // Do not clear dictatedText here, allow appending across stop/start if desired by user
-          // Interim transcript should be cleared for a new listening session segment
-          setInterimTranscript(""); 
-        };
-
-        rec.onresult = (event) => {
-          let currentFinalTranscript = "";
-          let currentInterimTranscript = "";
-
-          for (let i = 0; i < event.results.length; i++) {
-            const segment = event.results[i];
-            // If the segment is final, append its transcript to currentFinalTranscript
-            if (segment.isFinal) {
-              currentFinalTranscript += segment[0].transcript + ' ';
-            } else {
-              // Otherwise, append to currentInterimTranscript
-              currentInterimTranscript += segment[0].transcript;
-            }
-          }
-          
-          // Update dictatedText with the full final transcript from this session, trimmed.
-          // This replaces the previous dictatedText with the new complete final version.
-          if (currentFinalTranscript.trim()) {
-            setDictatedText(currentFinalTranscript.trim());
-          } else if (event.results.length > 0 && event.results[0].isFinal && currentFinalTranscript.trim() === "" && dictatedText !== "") {
-            // If the very first result of a new session is final and empty (e.g. silence),
-            // and there was previous dictated text, this logic might clear it.
-            // This might need adjustment if we want to append across manual stop/start actions.
-            // For now, this rebuilds from scratch for the current active listening session.
-            // If dictatedText was "A B" and new final is "", dictatedText becomes "".
-            // If dictatedText was "A B" and new final is "C", dictatedText becomes "C".
-            // If user wants to append, they should use the clear button less often.
-          }
-          
-          // Update interimTranscript with all non-final parts.
-          setInterimTranscript(currentInterimTranscript);
-        };
-
-        rec.onerror = (event) => {
-          console.error("Speech recognition error:", event.error, event.message);
-          let errorMsg = `Error: ${event.error}. ${event.message || ''}`;
-          if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-            errorMsg = 'Microphone access was denied. Please enable it in your browser settings and try again.';
-            setHasMicPermission(false);
-          } else if (event.error === 'no-speech') {
-            errorMsg = 'No speech detected. Please try again.';
-          } else if (event.error === 'audio-capture') {
-            errorMsg = 'Microphone not found or is busy. Please check your microphone setup.';
-          } else if (event.error === 'network') {
-            errorMsg = 'Network error during speech recognition. Please check your connection.';
-          }
-          setSpeechError(errorMsg);
-          setIsListening(false);
-        };
-
-        rec.onend = () => {
-          setIsListening(false);
-          // Consider if interimTranscript should be appended to dictatedText here if it's non-empty
-          // For now, let's assume final results are the primary source for dictatedText.
-          // If there's remaining interim text, it might mean the user stopped speaking mid-word.
-          // The current behavior is that it will just disappear from the textarea display once listening stops.
-          // To append it:
-          // if (interimTranscript.trim()) {
-          //   setDictatedText(prev => (prev ? prev + " " : "") + interimTranscript.trim());
-          // }
-          setInterimTranscript(""); // Clear interim when listening truly ends
-        };
         recognitionRef.current = rec;
       }
+
+      const currentRecognition = recognitionRef.current;
+
+      currentRecognition.onstart = () => {
+        setIsListening(true);
+        setSpeechError(null);
+        // dictatedText is cleared when dialog opens or on clear button press
+        setInterimTranscript(""); 
+      };
+
+      currentRecognition.onresult = (event: SpeechRecognitionEvent) => {
+        let newFinalTextPortion = "";
+        let currentInterim = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const segment = event.results[i];
+          if (segment.isFinal) {
+            newFinalTextPortion += segment[0].transcript;
+          } else {
+            currentInterim += segment[0].transcript;
+          }
+        }
+
+        if (newFinalTextPortion.trim()) {
+          setDictatedText(prev => (prev.trim() ? prev.trim() + " " : "") + newFinalTextPortion.trim());
+        }
+        setInterimTranscript(currentInterim);
+      };
+
+      currentRecognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech recognition error:", event.error, event.message);
+        let errorMsg = `Error: ${event.error}. ${event.message || ''}`;
+        if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          errorMsg = 'Microphone access was denied. Please enable it in your browser settings and try again.';
+          setHasMicPermission(false);
+        } else if (event.error === 'no-speech') {
+          errorMsg = 'No speech detected. Please try again.';
+        } else if (event.error === 'audio-capture') {
+          errorMsg = 'Microphone not found or is busy. Please check your microphone setup.';
+        } else if (event.error === 'network') {
+          errorMsg = 'Network error during speech recognition. Please check your connection.';
+        }
+        setSpeechError(errorMsg);
+        setIsListening(false);
+      };
+
+      currentRecognition.onend = () => {
+        setIsListening(false);
+        // If there's a final interim transcript, append it to dictated text.
+        // This can happen if speech ends before a final result.
+        setInterimTranscript(currentInterim => {
+            if (currentInterim.trim()) {
+                setDictatedText(prev => (prev.trim() ? prev.trim() + " " : "") + currentInterim.trim());
+            }
+            return ""; // Clear interim after processing
+        });
+      };
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Runs once on mount
+  // Add all state setters used in the callbacks to the dependency array
+  }, [setIsListening, setSpeechError, setInterimTranscript, setDictatedText, setHasMicPermission]);
 
 
   const handleStartListening = async () => {
@@ -146,9 +131,9 @@ export default function DictateDialog({
     }
 
     try {
-      // Don't clear dictatedText here, allow user to append if they stop/start.
-      // They can use the clear button if they want a fresh start.
-      setInterimTranscript(""); // Clear any stale interim text
+      // dictatedText is cleared on dialog open, or manually by user.
+      // No need to clear dictatedText here, to allow append if desired (though current UX clears on open)
+      setInterimTranscript(""); 
       setSpeechError(null);
       recognitionRef.current.start();
     } catch (err: any) {
@@ -166,7 +151,10 @@ export default function DictateDialog({
   };
 
   const handleProcessDictation = async () => {
-    const textToProcess = (dictatedText + (interimTranscript ? (dictatedText ? " " : "") + interimTranscript : "")).trim();
+    // Use a combined text from dictatedText and any final interimTranscript (which should be processed by onend)
+    // However, if Create List is clicked while still listening and there's interim, include it.
+    const textToProcess = (dictatedText + (interimTranscript ? (dictatedText.trim() && interimTranscript.trim() ? " " : "") + interimTranscript.trim() : "")).trim();
+
     if (!textToProcess) {
       toast({ title: "Nothing to process", description: "Please dictate some text first.", variant: "destructive" });
       return;
@@ -189,7 +177,7 @@ export default function DictateDialog({
           }
         }
         toast({ title: "List Created!", description: `"${result.parentListTitle}" created from your dictation.` });
-        onOpenChange(false); // Close dialog on success
+        onOpenChange(false); 
       } else {
         toast({ title: "Processing Error", description: "Could not extract a list from the dictated text. Please try rephrasing or check the text.", variant: "destructive" });
       }
@@ -202,23 +190,25 @@ export default function DictateDialog({
   };
 
   const handleDialogOpeChange = (openState: boolean) => {
-    onOpenChange(openState); // Call parent's handler
+    onOpenChange(openState); 
     if (!openState) {
       if (recognitionRef.current && isListening) {
         recognitionRef.current.stop();
       }
-      // Don't clear dictatedText when dialog closes, user might want to reopen and continue.
-      setInterimTranscript(""); // Clear interim transcript.
+      setInterimTranscript(""); 
       setSpeechError(null);
-      setIsListening(false); // Ensure listening state is reset.
+      setIsListening(false); 
     } else {
-      // Check support on dialog open
+      // Clear dictated text when dialog re-opens for a fresh session
+      setDictatedText("");
+      setInterimTranscript("");
+      setSpeechError(null);
       if (!recognitionRef.current && !(typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window))) {
           setSpeechError("Speech recognition is not supported by your browser.");
       } else {
           setSpeechError(null);
       }
-      setHasMicPermission(null); // Reset permission check on open
+      setHasMicPermission(null); 
     }
   };
 
@@ -226,11 +216,10 @@ export default function DictateDialog({
     setDictatedText("");
     setInterimTranscript("");
     setSpeechError(null);
-    // If listening, stop and restart to clear internal buffer of recognizer as well
     if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-      // A short delay might be needed before restarting, or simply stop and let user restart.
-      // For simplicity, just stop. User can click "Start Listening" again.
+      recognitionRef.current.abort(); // Abort might be better to stop and clear buffers
+      // Then restart if desired, or let user restart. For now, just aborts.
+      // recognitionRef.current.start(); // if you want to immediately restart
     }
   };
 
@@ -262,12 +251,12 @@ export default function DictateDialog({
           </div>
           <Textarea
             placeholder={isListening ? "Listening..." : (hasMicPermission === false ? "Microphone access denied." : "Your dictated text will appear here...")}
-            value={dictatedText + (interimTranscript ? (dictatedText && interimTranscript ? " " : "") + interimTranscript : "")}
-            readOnly={isListening && interimTranscript.length > 0} // Allow editing if not actively listening or no interim
+            value={dictatedText.trim() + (interimTranscript.trim() ? (dictatedText.trim() && interimTranscript.trim() ? " " : "") + interimTranscript.trim() : "")}
+            readOnly={isListening && interimTranscript.length > 0} 
             onChange={(e) => {
               if (!isListening) {
                 setDictatedText(e.target.value);
-                if (interimTranscript) setInterimTranscript(""); // Clear interim if user manually edits
+                if (interimTranscript) setInterimTranscript(""); 
               }
             }}
             rows={6}
@@ -315,6 +304,3 @@ export default function DictateDialog({
     </Dialog>
   );
 }
-
-
-      
