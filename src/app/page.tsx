@@ -48,7 +48,8 @@ import type { List, Subitem } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
-import type { User } from "firebase/auth";
+// User type no longer directly needed from firebase/auth here as useLists provides currentUser
+// import type { User } from "firebase/auth"; 
 
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -111,7 +112,7 @@ export default function Home() {
     completedLists,
     isLoading,
     isLoadingCompleted,
-    currentUser,
+    currentUser, // Provided by useLists
     fetchCompletedListsIfNeeded,
     hasFetchedCompleted,
     addList,
@@ -178,7 +179,10 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (isImportDialogOpen && hasCameraPermission === null && currentUser && !imagePreviewUrl) {
+    // Camera permission logic only runs if import dialog is open, and no image preview exists yet
+    // (meaning we are in camera mode, not preview/crop mode).
+    // For anonymous users, camera permission is still requested. Image upload is handled later.
+    if (isImportDialogOpen && hasCameraPermission === null && !imagePreviewUrl) {
       const getCameraPermission = async () => {
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -201,19 +205,17 @@ export default function Home() {
     } else if (!isImportDialogOpen && stream) {
       stopCameraStream();
     }
+    // Cleanup stream on component unmount or when dialog closes while stream is active.
     return () => {
       if (stream && isImportDialogOpen) { 
         stopCameraStream();
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isImportDialogOpen, currentUser, hasCameraPermission, imagePreviewUrl, stopCameraStream]); 
+  }, [isImportDialogOpen, hasCameraPermission, imagePreviewUrl, stopCameraStream]); 
 
   const handleAddNewList = async () => {
-    if (!currentUser && firebaseReady) {
-      toast({ title: "Please Sign In", description: "You need to be signed in to add lists.", variant: "destructive"});
-      return;
-    }
+    // addList hook will handle anonymous vs authenticated logic
     const newList = await addList({ title: "Untitled List" });
     if (newList && newList.id) {
       setListToFocusId(newList.id);
@@ -221,10 +223,6 @@ export default function Home() {
   };
   
   const handleOpenNewScanDialog = () => {
-    if (firebaseReady && !currentUser) {
-      toast({ title: "Please Sign In", description: "You need to be signed in to scan lists.", variant: "destructive"});
-      return;
-    }
     setScanningForListId(null);
     setScanningListTitle(null);
   
@@ -237,10 +235,6 @@ export default function Home() {
   };
   
   const handleScanMoreItemsRequested = (listId: string, listTitle: string) => {
-    if (firebaseReady && !currentUser) { 
-      toast({ title: "Please Sign In", description: "You need to be signed in to scan more items.", variant: "destructive"});
-      return;
-    }
     setScanningForListId(listId);
     setScanningListTitle(listTitle);
   
@@ -276,10 +270,6 @@ export default function Home() {
         toast({ title: "No Image", description: "Please capture or select an image first.", variant: "destructive" });
         return;
     }
-    if (!currentUser && firebaseReady) {
-      toast({ title: "Please Sign In", description: "You need to be signed in to import lists.", variant: "destructive"});
-      return;
-    }
 
     setIsProcessingImage(true);
     let finalImageFileToProcess = capturedImageFile;
@@ -314,20 +304,25 @@ export default function Home() {
       const input: ExtractListFromImageInput = { imageDataUri };
       const result = await extractListFromImage(input);
 
-      if (scanningForListId && scanningListTitle && currentUser) { 
+      if (scanningForListId && scanningListTitle) { 
         const existingList = activeLists.find(l => l.id === scanningForListId) || completedLists.find(l => l.id === scanningForListId);
         if (!existingList) {
             toast({ title: "List Not Found", description: `Could not find list "${scanningListTitle}" to add items to.`, variant: "destructive" });
         } else {
-          let newScanUrl: string | undefined = undefined;
-          try {
-            newScanUrl = await uploadScanImageToFirebase(finalImageFileToProcess, currentUser.uid, scanningForListId);
-            const updatedScanImageUrls = [...(existingList.scanImageUrls || []), newScanUrl];
-            await updateList(scanningForListId, { scanImageUrls: updatedScanImageUrls });
-          } catch (uploadError) {
-             console.error("Error uploading additional scan image:", uploadError);
-             toast({ title: "Image Upload Failed", description: "Items might be added, but new scan image upload failed.", variant: "destructive" });
+          if (currentUser && isFirebaseConfigured()) { // Only upload if signed in
+            let newScanUrl: string | undefined = undefined;
+            try {
+              newScanUrl = await uploadScanImageToFirebase(finalImageFileToProcess, currentUser.uid, scanningForListId);
+              const updatedScanImageUrls = [...(existingList.scanImageUrls || []), newScanUrl];
+              await updateList(scanningForListId, { scanImageUrls: updatedScanImageUrls }); // updateList from useLists
+            } catch (uploadError) {
+               console.error("Error uploading additional scan image:", uploadError);
+               toast({ title: "Image Upload Failed", description: "Items might be added, but new scan image upload failed.", variant: "destructive" });
+            }
+          } else if (!currentUser && isFirebaseConfigured()){
+            toast({ title: "Sign In to Save Scan", description: "Sign in to permanently save scanned images with your lists.", duration: 5000});
           }
+          // else: Firebase not configured, images are not saved with list items anyway for anonymous.
 
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const newSubitemsToAdd: Subitem[] = result.extractedSubitems
@@ -340,7 +335,7 @@ export default function Home() {
             
             if (newSubitemsToAdd.length > 0) {
               const combinedSubitems = [...existingList.subitems, ...newSubitemsToAdd];
-              await manageSubitems(scanningForListId, combinedSubitems);
+              await manageSubitems(scanningForListId, combinedSubitems); // manageSubitems from useLists
               toast({
                 title: "Items Added",
                 description: `${newSubitemsToAdd.length} item(s) added to "${existingList.title}".`,
@@ -349,10 +344,12 @@ export default function Home() {
             }
           }
         }
-      } else { 
+      } else { // Creating a new list
         if (result && result.parentListTitle) {
           const parentTitle = result.parentListTitle.trim();
-          const newParentList = await addList({ title: parentTitle }, finalImageFileToProcess); 
+          // Pass finalImageFileToProcess to addList.
+          // addList in useLists will handle if/how to upload based on auth state.
+          const newParentList = await addList({ title: parentTitle }, currentUser ? finalImageFileToProcess : null); 
           
           if (newParentList && newParentList.id) {
             setListToFocusId(newParentList.id); 
@@ -366,8 +363,11 @@ export default function Home() {
                 }));
 
               if (subitemsToAdd.length > 0) {
-                await manageSubitems(newParentList.id, subitemsToAdd);
+                await manageSubitems(newParentList.id, subitemsToAdd); // manageSubitems from useLists
               }
+            }
+            if (!currentUser && isFirebaseConfigured() && finalImageFileToProcess) {
+                 toast({ title: "Sign In to Save Scan", description: "List created locally. Sign in to save this scan image with your list.", duration: 5000});
             }
           }
         }
@@ -446,10 +446,12 @@ export default function Home() {
 
   const handleSignIn = async () => {
     await signInWithGoogle();
+    // useLists hook will handle data migration and re-fetch
   };
 
   const handleSignOut = async () => {
     await signOutUser();
+    // useLists hook will handle state change
   };
 
   const handleViewScan = (imageUrls: string[]) => {
@@ -517,6 +519,7 @@ export default function Home() {
         onScanMoreItemsRequested={handleScanMoreItemsRequested}
         shareList={shareList}
         unshareList={unshareList}
+        isUserAuthenticated={!!currentUser} // Pass auth status to ListCard
       />
     ));
   };
@@ -533,7 +536,7 @@ export default function Home() {
         </div>
       ));
     }
-    if (activeLists.length === 0 && (!isLoading || (currentUser && !isLoading))) {
+    if (activeLists.length === 0 && !isLoading) {
       return (
         <div className="text-center py-10">
           <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -545,34 +548,38 @@ export default function Home() {
   };
 
   const renderCompletedListSection = () => {
-    if (!currentUser && firebaseReady) return null;
-
-    return (
-        <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
-            if (value === "completed-lists") {
-                fetchCompletedListsIfNeeded();
-            }
-        }}>
-            <AccordionItem value="completed-lists">
-                <AccordionTrigger className="text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors">
-                    Completed ({completedLists.length > 0 ? completedLists.length : (hasFetchedCompleted ? '0' : '...')})
-                </AccordionTrigger>
-                <AccordionContent>
-                    {isLoadingCompleted ? (
-                        <div className="flex justify-center items-center py-10">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    ) : completedLists.length === 0 && hasFetchedCompleted ? (
-                        <p className="text-muted-foreground text-center py-6">No completed lists yet.</p>
-                    ) : (
-                        <div className="space-y-4 pt-4">
-                            {renderListCards(completedLists)}
-                        </div>
-                    )}
-                </AccordionContent>
-            </AccordionItem>
-        </Accordion>
-    );
+    // Show completed section if Firebase is configured (user can sign in later)
+    // OR if Firebase is NOT configured (app is purely local)
+    // AND if there's a user (for Firebase mode) OR always if no Firebase
+    if (!isFirebaseConfigured() || (isFirebaseConfigured() && (currentUser || activeLists.length > 0 || completedLists.length > 0))) {
+        return (
+            <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
+                if (value === "completed-lists") {
+                    fetchCompletedListsIfNeeded();
+                }
+            }}>
+                <AccordionItem value="completed-lists">
+                    <AccordionTrigger className="text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                        Completed ({completedLists.length > 0 ? completedLists.length : (hasFetchedCompleted ? '0' : '...')})
+                    </AccordionTrigger>
+                    <AccordionContent>
+                        {isLoadingCompleted ? (
+                            <div className="flex justify-center items-center py-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        ) : completedLists.length === 0 && hasFetchedCompleted ? (
+                            <p className="text-muted-foreground text-center py-6">No completed lists yet.</p>
+                        ) : (
+                            <div className="space-y-4 pt-4">
+                                {renderListCards(completedLists)}
+                            </div>
+                        )}
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
+        );
+    }
+    return null;
   }
 
   const handleZoomIn = () => setScanZoomLevel(prev => Math.min(prev + 0.2, 3));
@@ -594,7 +601,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
-      {!currentUser && !isLoading && firebaseReady && (
+      {!currentUser && firebaseReady && !isLoading && ( // Only show big sign-in prompt if Firebase is ready and user is not signed in AND not loading
          <div className="w-full max-w-2xl mt-10 flex flex-col items-center">
           <UserCircle className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
           <h1 className="text-2xl font-semibold mb-2">Welcome to Listify</h1>
@@ -604,32 +611,39 @@ export default function Home() {
             <ListChecks className="h-10 w-10" />
             <Sparkles className="h-10 w-10" />
           </div>
-          <p className="text-muted-foreground mb-6 text-center">Sign in to manage and sync your lists across devices.</p>
+          <p className="text-muted-foreground mb-2 text-center">
+            You can start creating lists now—they'll be saved locally.
+          </p>
+          <p className="text-muted-foreground mb-6 text-center">
+            Sign in with Google to sync your lists across devices and enable cloud features.
+          </p>
            <Button onClick={handleSignIn} className="mt-4 px-8 py-6 text-lg">
             <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
           </Button>
         </div>
       )}
 
-      {!firebaseReady && !isLoading && (
+      {/* Firebase Not Configured Banner - shows if firebaseConfig.ts is not properly set up */}
+      {!firebaseReady && !isLoading && ( 
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
           <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
           <div>
             <p className="font-bold">Firebase Not Configured</p>
             <p className="text-sm">
-              Your lists are currently saved locally. For cloud storage, sync, and user-specific lists, please configure Firebase in
+              Your lists are currently saved locally. For cloud storage, sync, and sharing, please configure Firebase in
               <code className="text-xs bg-yellow-200 p-0.5 rounded ml-1">src/lib/firebaseConfig.ts</code>.
             </p>
           </div>
         </div>
       )}
-
-      {(firebaseReady && currentUser || !firebaseReady) && (
+      
+      {/* Main content area: show if loading, or if firebase not ready (pure local mode), or if firebase ready and user is present */}
+      {(isLoading || !firebaseReady || (firebaseReady && currentUser)) && (
         <main className="w-full max-w-2xl">
           <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
             <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" onClick={handleAddNewList} disabled={firebaseReady && !currentUser && !isLoading}>
+              <Button variant="outline" onClick={handleAddNewList} > {/* Add button always enabled */}
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
               <Dialog open={isImportDialogOpen} onOpenChange={(isOpen) => {
@@ -645,7 +659,8 @@ export default function Home() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" onClick={handleOpenNewScanDialog} disabled={firebaseReady && !currentUser && !isLoading}>
+                   {/* Scan button always enabled */}
+                  <Button variant="outline" onClick={handleOpenNewScanDialog} >
                     <Camera className="mr-2 h-4 w-4" />
                     Scan
                   </Button>
@@ -661,6 +676,7 @@ export default function Home() {
                       {scanningForListId
                         ? "Take a picture to add more items to this list."
                         : "Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content."}
+                       {!currentUser && firebaseReady && " Images scanned while not signed in are not saved with the list."}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -739,7 +755,7 @@ export default function Home() {
                 </DialogContent>
               </Dialog>
 
-              {firebaseReady && currentUser && (
+              {firebaseReady && currentUser && ( // Menu only if Firebase is ready AND user is signed in
                 <DropdownMenu>
                   <DropdownMenuTriggerComponent asChild>
                     <Button variant="ghost" size="icon">
@@ -750,10 +766,10 @@ export default function Home() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                     <DropdownMenuItem onClick={handleAddNewList} disabled={!currentUser && firebaseReady}>
+                     <DropdownMenuItem onClick={handleAddNewList}>
                       <Plus className="mr-2 h-4 w-4" /> Add List
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenNewScanDialog} disabled={!currentUser && firebaseReady}>
+                    <DropdownMenuItem onClick={handleOpenNewScanDialog}>
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -769,6 +785,11 @@ export default function Home() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+               {firebaseReady && !currentUser && ( // Show Sign In button in top bar if FB ready and no user
+                  <Button variant="outline" onClick={handleSignIn}>
+                      <LogIn className="mr-2 h-4 w-4" /> Sign In
+                  </Button>
+               )}
             </div>
           </div>
 
@@ -778,13 +799,16 @@ export default function Home() {
             </div>
           </section>
 
-           {(firebaseReady && currentUser || !firebaseReady) && (
-             <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
-                {renderCompletedListSection()}
-            </section>
-           )}
+          <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
+              {renderCompletedListSection()}
+          </section>
         </main>
       )}
+
+      {/* This is the area that shows if Firebase is configured, but no user is signed in, AND we are not loading. */}
+      {/* This is effectively covered by the !currentUser && firebaseReady && !isLoading block at the top for the main prompt. */}
+      {/* The list rendering itself is handled by the main content block conditions. */}
+
 
       <Dialog open={isViewScanDialogOpen} onOpenChange={(isOpen) => {
         setIsViewScanDialogOpen(isOpen);
@@ -890,4 +914,3 @@ export default function Home() {
     </div>
   );
 }
-
