@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
-import DictateDialog from "@/components/DictateDialog";
-import ImportListDialog from "@/components/ImportListDialog"; // Added ImportListDialog
+import ImportListDialog from "@/components/ImportListDialog"; 
 
 import {
   AlertDialog,
@@ -44,7 +43,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic, FileText } from "lucide-react"; // Added FileText, re-added Mic
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, FileText } from "lucide-react"; 
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -94,8 +93,7 @@ export default function Home() {
     initialListTitle: string | null;
   }>({ open: false, initialListId: null, initialListTitle: null });
 
-  const [isDictateDialogOpen, setIsDictateDialogOpen] = useState(false);
-  const [isImportListDialogOpen, setIsImportListDialogOpen] = useState(false); // State for ImportListDialog
+  const [isImportListDialogOpen, setIsImportListDialogOpen] = useState(false); 
 
 
   useEffect(() => {
@@ -116,14 +114,6 @@ export default function Home() {
 
   const handleOpenScanDialogForExistingList = (listId: string, listTitle: string) => {
     setScanDialogProps({ open: true, initialListId: listId, initialListTitle: listTitle });
-  };
-
-  const handleOpenDictateDialog = () => {
-    if (!currentUser) {
-        toast({ title: "Sign In Required", description: "Please sign in to use the dictation feature.", variant: "destructive" });
-        return;
-    }
-    setIsDictateDialogOpen(true);
   };
 
   const handleOpenImportListDialog = () => {
@@ -324,9 +314,6 @@ export default function Home() {
                     <DropdownMenuItem onClick={handleOpenScanDialogForNewList} className="py-3">
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
-                     <DropdownMenuItem onClick={handleOpenDictateDialog} className="py-3" disabled={!currentUser}>
-                      <Mic className="mr-2 h-4 w-4" /> Dictate List
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3" disabled={!currentUser}>
                       <FileText className="mr-2 h-4 w-4" /> Import List
                     </DropdownMenuItem>
@@ -413,16 +400,6 @@ export default function Home() {
         setListToFocusId={setListToFocusId}
         initialListId={scanDialogProps.initialListId}
         initialListTitle={scanDialogProps.initialListTitle}
-      />
-
-      <DictateDialog
-        isOpen={isDictateDialogOpen}
-        onOpenChange={setIsDictateDialogOpen}
-        currentUser={currentUser}
-        addList={addList}
-        manageSubitems={manageSubitems}
-        toast={toast}
-        setListToFocusId={setListToFocusId}
       />
 
       <ImportListDialog
