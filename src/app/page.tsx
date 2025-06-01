@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
-import DictateDialog from "@/components/DictateDialog";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,7 +42,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Mic } from "lucide-react";
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -91,8 +91,6 @@ export default function Home() {
     initialListId: string | null;
     initialListTitle: string | null;
   }>({ open: false, initialListId: null, initialListTitle: null });
-
-  const [isDictateDialogOpen, setIsDictateDialogOpen] = useState(false);
 
 
   useEffect(() => {
@@ -304,9 +302,6 @@ export default function Home() {
                     <DropdownMenuItem onClick={handleOpenScanDialogForNewList} className="py-3">
                       <Camera className="mr-2 h-4 w-4" /> Scan List
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsDictateDialogOpen(true)} className="py-3">
-                      <Mic className="mr-2 h-4 w-4" /> Dictate List
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 
@@ -390,14 +385,6 @@ export default function Home() {
         setListToFocusId={setListToFocusId}
         initialListId={scanDialogProps.initialListId}
         initialListTitle={scanDialogProps.initialListTitle}
-      />
-
-      <DictateDialog
-        isOpen={isDictateDialogOpen}
-        onOpenChange={setIsDictateDialogOpen}
-        addList={addList}
-        manageSubitems={manageSubitems}
-        setListToFocusId={setListToFocusId}
       />
 
       <Dialog open={isViewScanDialogOpen} onOpenChange={(isOpen) => {
@@ -504,4 +491,3 @@ export default function Home() {
     </div>
   );
 }
-
