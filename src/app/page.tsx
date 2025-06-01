@@ -600,7 +600,7 @@ export default function Home() {
 
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative pb-32"> {/* Added pb-32 for space for fixed bottom panel */}
+    <div className="min-h-screen flex flex-col items-center p-4 sm:p-8 relative">
       {!firebaseReady && !isLoading && ( 
         <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
           <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
@@ -791,6 +791,21 @@ export default function Home() {
           <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
               {renderCompletedListSection()}
           </section>
+
+          {!currentUser && firebaseReady && !isLoading && ( 
+            <div className="w-full max-w-2xl flex flex-col items-center p-4 sm:p-6 mt-12 bg-card border rounded-lg shadow-md">
+              <h1 className="text-xl font-semibold mb-2">Welcome to Listify!</h1>
+              <p className="text-muted-foreground mb-1 text-center text-sm">
+                You&apos;re currently using Listify locally.
+              </p>
+              <p className="text-muted-foreground mb-4 text-center text-sm">
+                Sign in with Google to sync your lists and enable cloud features like sharing.
+              </p>
+              <Button onClick={handleSignIn} className="px-6 py-3 text-base">
+                <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
+              </Button>
+            </div>
+          )}
         </main>
       )}
 
@@ -895,22 +910,6 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {!currentUser && firebaseReady && !isLoading && ( 
-         <div className="fixed bottom-0 left-0 right-0 z-20 w-full flex justify-center">
-           <div className="w-full max-w-2xl flex flex-col items-center p-4 sm:p-6 bg-card border-t rounded-t-lg shadow-lg">
-             <h1 className="text-xl font-semibold mb-2">Welcome to Listify!</h1>
-             <p className="text-muted-foreground mb-1 text-center text-sm">
-               You&apos;re currently using Listify locally.
-             </p>
-             <p className="text-muted-foreground mb-4 text-center text-sm">
-               Sign in with Google to sync your lists and enable cloud features like sharing.
-             </p>
-             <Button onClick={handleSignIn} className="px-6 py-3 text-base">
-               <LogIn className="mr-2 h-5 w-5" /> Sign in with Google
-             </Button>
-           </div>
-         </div>
-      )}
     </div>
   );
 }
