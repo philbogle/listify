@@ -96,6 +96,7 @@ const ListCard: FC<ListCardProps> = ({
       requestAnimationFrame(() => {
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
+        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
       if (startInEditMode && onInitialEditDone) {
         onInitialEditDone(list.id);
