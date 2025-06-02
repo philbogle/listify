@@ -18,7 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ListPlus, PlusSquare, Camera, UploadCloud, Sparkles, Settings2, Edit3, CheckSquare, Trash2, Archive, UserCircle2, Smartphone, Code, Cog, Mail, Info, Share2, ZoomIn } from "lucide-react";
+import { ListPlus, PlusSquare, Camera, UploadCloud, Sparkles, Settings2, Edit3, CheckSquare, Trash2, Archive, UserCircle2, Smartphone, Code, Cog, Mail, Info, Share2, ZoomIn, Users } from "lucide-react";
 
 interface HelpDialogProps {
   isOpen: boolean;
@@ -33,8 +33,7 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
           <DialogHeader>
             <DialogTitle>Listify Help</DialogTitle>
             <DialogDescription className="text-left">
-              Listify helps you create, manage, and share lists by scanning images, dictating or pasting text, and autogenerating items with AI. 
-              {/* Removed: Sign in with Google to save, sync, and share your lists; core AI features are available without sign-in. */}
+              Listify helps you create, manage, and share lists by scanning images, dictating or pasting text, and autogenerating items with AI.
               <br />
               <Info size={14} className="inline-block mr-1 relative -top-px" />
               <span className="font-semibold">Important:</span> Listify is experimental and may be taken down at any time. Please don&apos;t use it for sensitive or important data.
@@ -90,9 +89,17 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
                   <li><Edit3 size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>Edit Titles:</strong> Click a list or item title to edit.</li>
                   <li><CheckSquare size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>Complete:</strong> Use checkboxes or the menu option to mark lists/items complete.</li>
                   <li><Trash2 size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>Delete:</strong> Use the three-dot menu for deletion. Options include deleting the entire list or just its completed items.</li>
-                  <li><Share2 size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>Share:</strong> If signed in, you can share lists publicly. Anyone with the link can view and edit.</li>
                   <li><ZoomIn size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>View & Zoom Scans:</strong> List owners can view and zoom into their scanned images from the list menu.</li>
                 </ul>
+              </div>
+            </div>
+
+            <div className="flex items-start">
+              <Share2 size={18} className="mr-2.5 mt-0.5 text-primary flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold mb-0.5">List Sharing & Collaboration</h4>
+                <p>If you&apos;re signed in, you can share your lists publicly using the &quot;Share List&quot; option in the list&apos;s menu. This generates a unique link.</p>
+                <p className="mt-1.5">Anyone with this link can view and collaboratively edit the list in real-time, even if they are not signed in. Changes made by one person will be visible to others viewing the same shared list almost instantly. You can stop sharing a list at any time through the same menu.</p>
               </div>
             </div>
 
@@ -154,3 +161,5 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
 };
 
 export default HelpDialog;
+
+      
