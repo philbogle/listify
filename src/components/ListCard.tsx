@@ -74,8 +74,6 @@ const ListCard: FC<ListCardProps> = ({
   const [isSharingLoading, setIsSharingLoading] = useState(false);
   const [shareLinkValue, setShareLinkValue] = useState("");
 
-  const [isInitialNewListEdit, setIsInitialNewListEdit] = useState(startInEditMode);
-
   const hasCompletedSubitems = list.subitems.some(si => si.completed);
 
   useEffect(() => {
@@ -86,20 +84,16 @@ const ListCard: FC<ListCardProps> = ({
     }
   }, [list.shareId]);
 
-
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
-      setIsInitialNewListEdit(true);
     }
   }, [startInEditMode]);
 
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      requestAnimationFrame(() => {
-        titleInputRef.current?.focus();
-        titleInputRef.current?.select();
-      });
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
     }
   }, [isEditing]);
 
@@ -149,38 +143,20 @@ const ListCard: FC<ListCardProps> = ({
   };
 
   const handleCancelEdit = () => {
-    if (list.title === "Untitled List" && editedTitle === "Untitled List" && isInitialNewListEdit) {
-        onDeleteListRequested(list.id);
-    } else {
-        setEditedTitle(list.title);
-    }
+    setEditedTitle(list.title);
     setIsEditing(false);
-    if (isInitialNewListEdit && onInitialEditDone) {
+    if (startInEditMode && onInitialEditDone) {
       onInitialEditDone(list.id);
-      setIsInitialNewListEdit(false);
     }
   };
 
   const handleSaveEdit = async () => {
-    let titleToSave = editedTitle.trim();
-    if (titleToSave === "") {
-        if (list.title === "Untitled List" && isInitialNewListEdit) {
-            onDeleteListRequested(list.id);
-            setIsEditing(false);
-            if (onInitialEditDone) onInitialEditDone(list.id);
-            setIsInitialNewListEdit(false);
-            return;
-        }
-        titleToSave = list.title || "Untitled List";
-        setEditedTitle(titleToSave);
-    }
-    await onUpdateList(list.id, {
-      title: titleToSave,
-    });
+    const titleToSave = editedTitle.trim() || list.title || "Untitled List";
+    await onUpdateList(list.id, { title: titleToSave });
+    setEditedTitle(titleToSave); 
     setIsEditing(false);
-    if (isInitialNewListEdit && onInitialEditDone) {
+    if (startInEditMode && onInitialEditDone) {
       onInitialEditDone(list.id);
-      setIsInitialNewListEdit(false);
     }
   };
 
@@ -344,7 +320,7 @@ const ListCard: FC<ListCardProps> = ({
           list.completed
             ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
             : "bg-card scale-100 opacity-100",
-          isInitialNewListEdit && !list.completed ? "" : "transition-all duration-300 ease-in-out"
+          "transition-all duration-300 ease-in-out" // Removed conditional based on isInitialNewListEdit
         )}
       >
         <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -462,7 +438,7 @@ const ListCard: FC<ListCardProps> = ({
                 <CSSTransition
                   key={subitem.id}
                   nodeRef={nodeRef}
-                  timeout={250}
+                  timeout={250} 
                   classNames="subitem"
                 >
                   <div ref={nodeRef}>

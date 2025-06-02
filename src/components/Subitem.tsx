@@ -31,24 +31,18 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [menuIsVisible, setMenuIsVisible] = useState(false);
-  const [isInitialNewSubitemEdit, setIsInitialNewSubitemEdit] = useState(startInEditMode);
-
 
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
-      setIsInitialNewSubitemEdit(true);
       setMenuIsVisible(false);
     }
   }, [startInEditMode]);
 
-
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
-      requestAnimationFrame(() => {
-        titleInputRef.current?.focus();
-        titleInputRef.current?.select();
-      });
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
     }
   }, [isEditing]);
 
@@ -60,30 +54,22 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 
   const handleUpdateTitle = () => {
     const trimmedTitle = editedTitle.trim();
-    if (trimmedTitle === "" && subitem.title === "Untitled Item" && isInitialNewSubitemEdit) {
-        onDelete(subitem.id);
-    } else if (trimmedTitle !== "" && trimmedTitle !== subitem.title) {
+    if (trimmedTitle && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
-    } else if (trimmedTitle === "" && subitem.title !== "Untitled Item") {
+    } else if (!trimmedTitle) { 
       setEditedTitle(subitem.title);
     }
     setIsEditing(false);
-    if (isInitialNewSubitemEdit && onInitialEditDone) {
+    if (startInEditMode && onInitialEditDone) {
       onInitialEditDone(subitem.id);
-      setIsInitialNewSubitemEdit(false);
     }
   };
 
   const handleCancelEdit = () => {
-    if (subitem.title === "Untitled Item" && editedTitle === "Untitled Item" && isInitialNewSubitemEdit) {
-        onDelete(subitem.id);
-    } else {
-        setEditedTitle(subitem.title);
-    }
+    setEditedTitle(subitem.title);
     setIsEditing(false);
-    if (isInitialNewSubitemEdit && onInitialEditDone) {
+    if (startInEditMode && onInitialEditDone) {
       onInitialEditDone(subitem.id);
-      setIsInitialNewSubitemEdit(false);
     }
   };
 
@@ -94,7 +80,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     }
     setMenuIsVisible(true);
   };
-
 
   return (
     <div
