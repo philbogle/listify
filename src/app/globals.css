@@ -97,7 +97,7 @@ body {
 .list-item-enter-active {
   opacity: 1;
   transform: scale(1) translateY(0);
-  transition: opacity 300ms ease-out, transform 300ms ease-out;
+  /* transition: opacity 300ms ease-out, transform 300ms ease-out; */ /* Removed for instant entry */
 }
 .list-item-exit {
   opacity: 1;
@@ -119,7 +119,7 @@ body {
   opacity: 1;
   transform: translateX(0) scaleY(1);
   max-height: 70px; /* Adjust to fit your subitem content */
-  transition: opacity 250ms ease-out, transform 250ms ease-out, max-height 250ms ease-out;
+  /* transition: opacity 250ms ease-out, transform 250ms ease-out, max-height 250ms ease-out; */ /* Removed for instant entry */
 }
 .subitem-exit {
   opacity: 1;

@@ -320,7 +320,7 @@ const ListCard: FC<ListCardProps> = ({
           list.completed
             ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
             : "bg-card scale-100 opacity-100",
-          "transition-all duration-300 ease-in-out" // Removed conditional based on isInitialNewListEdit
+          "transition-all duration-300 ease-in-out" 
         )}
       >
         <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -438,7 +438,7 @@ const ListCard: FC<ListCardProps> = ({
                 <CSSTransition
                   key={subitem.id}
                   nodeRef={nodeRef}
-                  timeout={250} 
+                  timeout={{ enter: 0, exit: 200 }} // Updated timeout for instant entry
                   classNames="subitem"
                 >
                   <div ref={nodeRef}>
