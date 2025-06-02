@@ -97,7 +97,7 @@ body {
 .list-item-enter-active {
   opacity: 1;
   transform: scale(1) translateY(0);
-  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  transition: opacity 100ms ease-out, transform 100ms ease-out;
 }
 .list-item-exit {
   opacity: 1;
@@ -106,7 +106,7 @@ body {
 .list-item-exit-active {
   opacity: 0;
   transform: scale(0.95) translateY(-10px);
-  transition: opacity 150ms ease-in, transform 150ms ease-in;
+  transition: opacity 100ms ease-in, transform 100ms ease-in;
 }
 
 /* Subitem Transitions */
@@ -119,7 +119,7 @@ body {
   opacity: 1;
   transform: translateX(0) scaleY(1);
   max-height: 70px; /* Adjust to fit your subitem content */
-  transition: opacity 150ms ease-out, transform 150ms ease-out, max-height 150ms ease-out;
+  transition: opacity 100ms ease-out, transform 100ms ease-out, max-height 100ms ease-out;
 }
 .subitem-exit {
   opacity: 1;
@@ -130,10 +130,11 @@ body {
   opacity: 0;
   transform: translateX(15px) scaleY(0.8);
   max-height: 0;
-  transition: opacity 100ms ease-in, transform 100ms ease-in, max-height 100ms ease-in;
+  transition: opacity 75ms ease-in, transform 75ms ease-in, max-height 75ms ease-in;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   overflow: hidden;
 }
+
