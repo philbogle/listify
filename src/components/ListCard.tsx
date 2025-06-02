@@ -8,11 +8,10 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-// Label import removed as autogenerate dialog is removed
 import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2, CheckCircle2, Circle, ClipboardCopy, ScanLine, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
-  Dialog, // Still used for Share dialog
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -45,6 +44,7 @@ interface ListCardProps {
   shareList: (listId: string) => Promise<string | null>;
   unshareList: (listId: string) => Promise<void>;
   isUserAuthenticated: boolean;
+  currentUserId: string | null;
 }
 
 const ListCard: FC<ListCardProps> = ({
@@ -61,6 +61,7 @@ const ListCard: FC<ListCardProps> = ({
   shareList,
   unshareList,
   isUserAuthenticated,
+  currentUserId,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(list.title);
@@ -185,7 +186,7 @@ const ListCard: FC<ListCardProps> = ({
     setIsGeneratingItems(true);
     try {
       const input: GenerateSubitemsInput = {
-        promptForGeneration: list.title || "Related items", // Use list title or a generic prompt if title is empty
+        promptForGeneration: list.title || "Related items",
         existingSubitemTitles: list.subitems.map(si => si.title),
       };
       const result = await generateSubitemsForList(input);
@@ -322,6 +323,8 @@ const ListCard: FC<ListCardProps> = ({
     }
   };
 
+  const isOwner = list.userId === currentUserId;
+
   return (
     <>
       <Card
@@ -390,7 +393,7 @@ const ListCard: FC<ListCardProps> = ({
                     <ClipboardCopy className="mr-2 h-4 w-4" />
                     Copy List
                   </DropdownMenuItem>
-                  {list.scanImageUrls && list.scanImageUrls.length > 0 && onViewScan && (
+                  {list.scanImageUrls && list.scanImageUrls.length > 0 && onViewScan && isOwner && (
                     <DropdownMenuItem onClick={() => onViewScan(list.scanImageUrls!)}>
                       <Eye className="mr-2 h-4 w-4" />
                       View Scan
