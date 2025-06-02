@@ -50,6 +50,7 @@ import type { List } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { TransitionGroup, CSSTransition } from "react-transition-group";
 
 
 export default function Home() {
@@ -183,26 +184,35 @@ export default function Home() {
     return list?.title || "this list";
   };
 
-  const renderListCards = (listsToRender: List[]) => {
-    return listsToRender.map((list) => (
-      <ListCard
-        key={list.id}
-        list={list}
-        onUpdateList={updateList}
-        onDeleteListRequested={handleDeleteListRequested}
-        onManageSubitems={manageSubitems}
-        startInEditMode={list.id === listToFocusId}
-        onInitialEditDone={handleInitialEditDone}
-        toast={toast}
-        onViewScan={handleViewScan}
-        onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
-        onScanMoreItemsRequested={handleOpenScanDialogForExistingList} 
-        shareList={shareList}
-        unshareList={unshareList}
-        isUserAuthenticated={!!currentUser}
-        currentUserId={currentUser?.uid || null}
-      />
-    ));
+  const renderListCards = (listsToRender: List[], listType: "active" | "completed") => {
+    return (
+      <TransitionGroup component="div" className="space-y-4">
+        {listsToRender.map((list) => (
+          <CSSTransition
+            key={list.id}
+            timeout={300}
+            classNames="list-item"
+          >
+            <ListCard
+              list={list}
+              onUpdateList={updateList}
+              onDeleteListRequested={handleDeleteListRequested}
+              onManageSubitems={manageSubitems}
+              startInEditMode={list.id === listToFocusId}
+              onInitialEditDone={handleInitialEditDone}
+              toast={toast}
+              onViewScan={handleViewScan}
+              onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
+              onScanMoreItemsRequested={handleOpenScanDialogForExistingList} 
+              shareList={shareList}
+              unshareList={unshareList}
+              isUserAuthenticated={!!currentUser}
+              currentUserId={currentUser?.uid || null}
+            />
+          </CSSTransition>
+        ))}
+      </TransitionGroup>
+    );
   };
 
   const renderActiveLists = () => {
@@ -225,7 +235,7 @@ export default function Home() {
         </div>
       );
     }
-    return renderListCards(activeLists);
+    return renderListCards(activeLists, "active");
   };
 
   const renderCompletedListSection = () => {
@@ -248,8 +258,8 @@ export default function Home() {
                         ) : completedLists.length === 0 && hasFetchedCompleted ? (
                             <p className="text-muted-foreground text-center py-6">No completed lists yet.</p>
                         ) : (
-                            <div className="space-y-4 pt-4">
-                                {renderListCards(completedLists)}
+                            <div className="pt-4">
+                                {renderListCards(completedLists, "completed")}
                             </div>
                         )}
                     </AccordionContent>

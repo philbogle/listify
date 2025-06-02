@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { generateSubitemsForList, type GenerateSubitemsInput } from "@/ai/flows/generateSubitemsFlow";
 import { cn } from "@/lib/utils";
+import { TransitionGroup, CSSTransition } from "react-transition-group";
 
 
 interface ListCardProps {
@@ -445,23 +446,24 @@ const ListCard: FC<ListCardProps> = ({
         </CardHeader>
 
         <CardContent className="pb-4 space-y-4">
-          {list.subitems.length > 0 && (
-            <div className="space-y-1">
-              <div className="pl-2 space-y-0.5">
-                {list.subitems.map((subitem) => (
-                  <SubitemComponent
-                    key={subitem.id}
-                    subitem={subitem}
-                    onToggleComplete={handleToggleSubitemComplete}
-                    onDelete={handleDeleteSubitem}
-                    onUpdateTitle={handleUpdateSubitemTitle}
-                    startInEditMode={subitem.id === subitemToFocusId}
-                    onInitialEditDone={handleSubitemInitialEditDone}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          <TransitionGroup component="div" className="space-y-1">
+            {list.subitems.map((subitem) => (
+              <CSSTransition
+                key={subitem.id}
+                timeout={250}
+                classNames="subitem"
+              >
+                <SubitemComponent
+                  subitem={subitem}
+                  onToggleComplete={handleToggleSubitemComplete}
+                  onDelete={handleDeleteSubitem}
+                  onUpdateTitle={handleUpdateSubitemTitle}
+                  startInEditMode={subitem.id === subitemToFocusId}
+                  onInitialEditDone={handleSubitemInitialEditDone}
+                />
+              </CSSTransition>
+            ))}
+          </TransitionGroup>
         </CardContent>
 
         {!list.completed && (
