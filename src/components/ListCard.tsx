@@ -64,7 +64,7 @@ const ListCard: FC<ListCardProps> = ({
   isUserAuthenticated,
   currentUserId,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(startInEditMode);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
@@ -73,6 +73,8 @@ const ListCard: FC<ListCardProps> = ({
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isSharingLoading, setIsSharingLoading] = useState(false);
   const [shareLinkValue, setShareLinkValue] = useState("");
+
+  const [isInitialNewListEdit, setIsInitialNewListEdit] = useState(startInEditMode);
 
   const hasCompletedSubitems = list.subitems.some(si => si.completed);
 
@@ -88,6 +90,7 @@ const ListCard: FC<ListCardProps> = ({
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
+      setIsInitialNewListEdit(true);
     }
   }, [startInEditMode]);
 
@@ -96,14 +99,11 @@ const ListCard: FC<ListCardProps> = ({
       requestAnimationFrame(() => {
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
-        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
-      if (startInEditMode && onInitialEditDone) {
-        onInitialEditDone(list.id);
-      }
+      // onInitialEditDone is now called from handleSaveEdit/handleCancelEdit for initial edits
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, startInEditMode]);
+  }, [isEditing]);
 
 
   const handleToggleListComplete = (completed: boolean) => {
@@ -151,20 +151,26 @@ const ListCard: FC<ListCardProps> = ({
   };
 
   const handleCancelEdit = () => {
-    if (list.title === "Untitled List" && editedTitle === "Untitled List" && startInEditMode) {
+    if (list.title === "Untitled List" && editedTitle === "Untitled List" && isInitialNewListEdit) {
         onDeleteListRequested(list.id);
     } else {
         setEditedTitle(list.title);
     }
     setIsEditing(false);
+    if (isInitialNewListEdit && onInitialEditDone) {
+      onInitialEditDone(list.id);
+      setIsInitialNewListEdit(false);
+    }
   };
 
   const handleSaveEdit = async () => {
     let titleToSave = editedTitle.trim();
     if (titleToSave === "") {
-        if (list.title === "Untitled List" && startInEditMode) {
+        if (list.title === "Untitled List" && isInitialNewListEdit) {
             onDeleteListRequested(list.id);
             setIsEditing(false);
+            if (onInitialEditDone) onInitialEditDone(list.id);
+            setIsInitialNewListEdit(false);
             return;
         }
         titleToSave = list.title || "Untitled List";
@@ -174,6 +180,10 @@ const ListCard: FC<ListCardProps> = ({
       title: titleToSave,
     });
     setIsEditing(false);
+    if (isInitialNewListEdit && onInitialEditDone) {
+      onInitialEditDone(list.id);
+      setIsInitialNewListEdit(false);
+    }
   };
 
   const handleAutogenerateItems = async () => {
@@ -336,7 +346,7 @@ const ListCard: FC<ListCardProps> = ({
           list.completed
             ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
             : "bg-card scale-100 opacity-100",
-          startInEditMode && !list.completed ? "" : (startInEditMode ? "" : "transition-all duration-300 ease-in-out")
+          isInitialNewListEdit && !list.completed ? "" : "transition-all duration-300 ease-in-out" // Use isInitialNewListEdit here for transition control
         )}
       >
         <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -355,7 +365,7 @@ const ListCard: FC<ListCardProps> = ({
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
                   className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
-                  autoFocus={startInEditMode}
+                  autoFocus={isInitialNewListEdit} // Use local state for autoFocus logic consistency
                   onBlur={handleSaveEdit}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
                 />
@@ -570,4 +580,3 @@ const ListCard: FC<ListCardProps> = ({
 };
 
 export default ListCard;
-

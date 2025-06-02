@@ -27,20 +27,20 @@ interface SubitemProps {
 }
 
 const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(startInEditMode);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [menuIsVisible, setMenuIsVisible] = useState(false);
+  const [isInitialNewSubitemEdit, setIsInitialNewSubitemEdit] = useState(startInEditMode);
+
 
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
-      setMenuIsVisible(false); 
-      if (onInitialEditDone) {
-        onInitialEditDone(subitem.id);
-      }
+      setIsInitialNewSubitemEdit(true);
+      setMenuIsVisible(false);
+      // onInitialEditDone is now called from handleUpdateTitle/handleCancelEdit
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startInEditMode]);
 
 
@@ -49,8 +49,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       requestAnimationFrame(() => {
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
-        // Scroll the focused input into the center of the view, which helps with mobile keyboards
-        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }
   }, [isEditing]);
@@ -63,23 +62,32 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 
   const handleUpdateTitle = () => {
     const trimmedTitle = editedTitle.trim();
-    if (trimmedTitle === "" && subitem.title === "Untitled Item" && startInEditMode) {
-        onDelete(subitem.id); 
+    if (trimmedTitle === "" && subitem.title === "Untitled Item" && isInitialNewSubitemEdit) {
+        onDelete(subitem.id);
     } else if (trimmedTitle !== "" && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
     } else if (trimmedTitle === "" && subitem.title !== "Untitled Item") {
+      // If user blanks out an existing item, revert to original title
       setEditedTitle(subitem.title);
     }
     setIsEditing(false);
+    if (isInitialNewSubitemEdit && onInitialEditDone) {
+      onInitialEditDone(subitem.id);
+      setIsInitialNewSubitemEdit(false);
+    }
   };
 
   const handleCancelEdit = () => {
-    if (subitem.title === "Untitled Item" && editedTitle === "Untitled Item" && startInEditMode) {
+    if (subitem.title === "Untitled Item" && editedTitle === "Untitled Item" && isInitialNewSubitemEdit) {
         onDelete(subitem.id);
     } else {
         setEditedTitle(subitem.title);
     }
     setIsEditing(false);
+    if (isInitialNewSubitemEdit && onInitialEditDone) {
+      onInitialEditDone(subitem.id);
+      setIsInitialNewSubitemEdit(false);
+    }
   };
 
   const handleRowClick = (e: React.MouseEvent) => {
@@ -104,7 +112,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         id={`subitem-${subitem.id}`}
         checked={subitem.completed}
         onCheckedChange={(checked) => onToggleComplete(subitem.id, !!checked)}
-        onClick={(e) => e.stopPropagation()} 
+        onClick={(e) => e.stopPropagation()}
         aria-label={subitem.completed ? "Mark item as incomplete" : "Mark item as complete"}
         className="flex-shrink-0 h-5 w-5"
       />
@@ -116,7 +124,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
             className="h-8 text-sm w-full"
-            autoFocus
+            autoFocus={isInitialNewSubitemEdit} // Use local state for autofocus logic consistency
             onBlur={handleUpdateTitle}
             onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); e.stopPropagation(); }}
             onClick={(e) => e.stopPropagation()}
