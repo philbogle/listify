@@ -13,12 +13,12 @@ import {z} from 'genkit';
 const ExtractListFromTextInputSchema = z.object({
   dictatedText: z
     .string()
-    .describe('The transcribed text from user dictation.'),
+    .describe('The transcribed text from user dictation or pasted text.'),
 });
 export type ExtractListFromTextInput = z.infer<typeof ExtractListFromTextInputSchema>;
 
 const ExtractedTextSubitemSchema = z.object({
-  title: z.string().describe("The title of an extracted subitem from the text."),
+  title: z.string().describe("The title of an extracted subitem from the text. This should be the item itself, e.g., 'apples', 'bananas', not 'buy apples'."),
 });
 
 const ExtractListFromTextOutputSchema = z.object({
@@ -29,7 +29,7 @@ const ExtractListFromTextOutputSchema = z.object({
     ),
   extractedSubitems: z
     .array(ExtractedTextSubitemSchema)
-    .describe("An array of subitems. If the text clearly enumerates items, these are those items. If the text is a single phrase or idea, this array might be empty or contain a single item representing the core idea, or the AI might suggest related subitems."),
+    .describe("An array of subitems. If the text clearly enumerates items, these are those items. The item titles should be extracted literally, without adding verbs like 'buy' or 'get'. For example, if the input is 'apples bananas pears', the items should be 'apples', 'bananas', 'pears'."),
 });
 export type ExtractListFromTextOutput = z.infer<typeof ExtractListFromTextOutputSchema>;
 
@@ -41,7 +41,7 @@ const prompt = ai.definePrompt({
   name: 'extractListFromTextPrompt',
   input: {schema: ExtractListFromTextInputSchema},
   output: {schema: ExtractListFromTextOutputSchema},
-  prompt: `You are an AI assistant helping to convert dictated text into a structured to-do list.
+  prompt: `You are an AI assistant helping to convert input text (from pasting or dictation) into a structured to-do list.
 
 Your task is to:
 1.  Analyze the provided 'dictatedText'.
@@ -49,16 +49,18 @@ Your task is to:
     *   If the text sounds like a list title itself (e.g., "Weekend Chores"), use that.
     *   If the text enumerates several items (e.g., "get milk, bread, and eggs"), create a title like "Grocery List" or "Shopping Items".
     *   If the text is a single item or phrase (e.g., "plan birthday party"), that can be the title.
-    *   If no clear title can be derived, use a generic one like "My Dictated List" or "Tasks from Dictation".
+    *   If no clear title can be derived, use a generic one like "My Imported List" or "Tasks from Input".
 3.  Extract individual actionable items from the text to populate 'extractedSubitems'.
-    *   If the text clearly lists items (e.g., "buy groceries, pay bills, call mom"), each of these should be a subitem.
+    *   If the text clearly lists items (e.g., "apples, pay bills, call mom"), each of these should be a subitem.
+    *   **Crucially, extract the item titles as literally as possible. Do NOT add verbs like "buy", "get", "do", etc., unless they are explicitly part of the input text for that item.**
+    *   For example, if the input is "apples bananas pears", the subitem titles should be "apples", "bananas", "pears".
+    *   If the input is "call mom, fix sink", the subitem titles should be "call mom", "fix sink".
     *   If the text is a single task (e.g., "finish the report"), that task itself can be the only subitem, or you can leave subitems empty if the title captures it.
-    *   If the text is very short and seems like just a title (e.g., "Vacation Ideas"), you can return an empty 'extractedSubitems' array, or suggest 1-2 very generic related subitems like "Research destinations" if appropriate for the context.
-    *   Focus on clear, actionable titles for these subitems.
+    *   If the text is very short and seems like just a title (e.g., "Vacation Ideas"), you can return an empty 'extractedSubitems' array.
 
 Return the result with "parentListTitle" and an array of "extractedSubitems". Handle short or ambiguous text gracefully.
 
-Dictated Text:
+Input Text:
 "{{{dictatedText}}}"
 `,
 });
