@@ -53,7 +53,7 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
           </div>
           <div>
             <h4 className="font-semibold mb-0.5">Autogenerating Items</h4>
-            <p>Use the &quot;Autogenerate&quot; button on a list card or the &quot;Autogenerate Items&quot; menu option. The AI suggests new items based on the list&apos;s title and existing content (up to 50 items).</p>
+            <p>Use the &quot;Autogenerate&quot; button on a list card or the &quot;Autogenerate Items&quot; menu option. The AI suggests new items based on the list&apos;s title and existing content (up to 50 items) without needing an additional dialog.</p>
           </div>
           <div>
             <h4 className="font-semibold mb-0.5">Managing Lists & Items</h4>
@@ -102,6 +102,3 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
 };
 
 export default HelpDialog;
-
-    
-    

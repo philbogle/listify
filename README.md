@@ -11,7 +11,7 @@ To get started, take a look at src/app/page.tsx.
 *   **AI Image Scanning:** Scan handwritten notes, printed text, or physical objects via camera using the 'Scan' feature to create/update lists.
 *   **Paste or Dictate:** Paste text (or use keyboard dictation on mobile devices) into a dialog using the 'Paste or Dictate' feature; AI then converts it to a structured list.
 *   **Image Cropping:** Option to crop images before AI processing for better accuracy.
-*   **AI Item Autogeneration:** Suggests new list items based on title and existing content (up to 50 items).
+*   **AI Item Autogeneration:** Suggests new list items based on the list's title and existing content (up to 50 items) directly, without an intermediate dialog.
 *   **User Authentication:** Google Sign-In for saving and syncing lists, and enabling list sharing. Core AI features (scanning, import, autogeneration) are available without sign-in.
 *   **List Organization:** Active lists displayed prominently; completed lists in a collapsible, lazy-loaded section.
 *   **Multiple Scan Viewing:** Save and view multiple scanned images per list with zoom functionality (requires sign-in to persist images).
@@ -35,6 +35,3 @@ Listify is a full-stack web application built with modern technologies:
 *   **Development Environment:** This application was primarily developed with AI assistance from Firebase Studio's App Prototyper.
 
 The application allows users to create lists manually, by scanning images, or by pasting/dictating text. When an image is scanned, it's sent to a Genkit AI flow that uses Gemini to interpret the image content. When text is pasted/dictated, it's processed by a similar Genkit flow. These flows attempt to identify a list title and individual items. These are then used to create a new list or append to an existing one. Similarly, the autogenerate feature uses a Genkit flow to call Gemini with the list's context to suggest new items. All list data is persisted in Firestore per user if signed in; otherwise, it's stored locally in the browser.
-
-    
-    
