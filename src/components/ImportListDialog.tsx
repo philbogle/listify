@@ -102,9 +102,9 @@ export default function ImportListDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Paste or Dictate List</DialogTitle>
+          <DialogTitle>Dictate or Paste List</DialogTitle>
           <DialogDescription>
-            Paste your list text below or use your mobile keyboard's microphone to dictate. The AI will try to structure it.
+            Use your mobile keyboard's microphone to dictate, or paste your list text below. The AI will try to structure it.
           </DialogDescription>
         </DialogHeader>
 
@@ -145,6 +145,3 @@ export default function ImportListDialog({
     </Dialog>
   );
 }
-
-    
-    

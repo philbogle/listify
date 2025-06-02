@@ -9,7 +9,7 @@ To get started, take a look at src/app/page.tsx.
 
 *   **List Creation & Management:** Create, edit, complete, and delete lists and items.
 *   **AI Image Scanning:** Scan handwritten notes, printed text, or physical objects via camera using the 'Scan' feature to create/update lists.
-*   **Paste or Dictate:** Paste text (or use keyboard dictation on mobile devices) into a dialog using the 'Paste or Dictate' feature; AI then converts it to a structured list.
+*   **Dictate or Paste:** Use your mobile device's keyboard dictation or paste text into a dialog using the 'Dictate or Paste' feature; AI then converts it to a structured list.
 *   **Image Cropping:** Option to crop images before AI processing for better accuracy.
 *   **AI Item Autogeneration:** Suggests new list items based on the list's title and existing content (up to 50 items) directly, without an intermediate dialog.
 *   **User Authentication:** Google Sign-In for saving and syncing lists, and enabling list sharing. Core AI features (scanning, import, autogeneration) are available without sign-in.
@@ -34,4 +34,4 @@ Listify is a full-stack web application built with modern technologies:
     *   [Firebase Storage](https://firebase.google.com/docs/storage) is used to store the scanned images.
 *   **Development Environment:** This application was primarily developed with AI assistance from Firebase Studio's App Prototyper.
 
-The application allows users to create lists manually, by scanning images, or by pasting/dictating text. When an image is scanned, it's sent to a Genkit AI flow that uses Gemini to interpret the image content. When text is pasted/dictated, it's processed by a similar Genkit flow. These flows attempt to identify a list title and individual items. These are then used to create a new list or append to an existing one. Similarly, the autogenerate feature uses a Genkit flow to call Gemini with the list's context to suggest new items. All list data is persisted in Firestore per user if signed in; otherwise, it's stored locally in the browser.
+The application allows users to create lists manually, by scanning images, or by dictating/pasting text. When an image is scanned, it's sent to a Genkit AI flow that uses Gemini to interpret the image content. When text is dictated/pasted, it's processed by a similar Genkit flow. These flows attempt to identify a list title and individual items. These are then used to create a new list or append to an existing one. Similarly, the autogenerate feature uses a Genkit flow to call Gemini with the list's context to suggest new items. All list data is persisted in Firestore per user if signed in; otherwise, it's stored locally in the browser.

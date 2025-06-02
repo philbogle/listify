@@ -311,7 +311,7 @@ export default function Home() {
                       <Camera className="mr-2 h-4 w-4" /> Scan
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3">
-                      <UploadCloud className="mr-2 h-4 w-4" /> Paste or Dictate
+                      <UploadCloud className="mr-2 h-4 w-4" /> Dictate or Paste
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -528,6 +528,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
-    
