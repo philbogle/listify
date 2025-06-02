@@ -17,8 +17,8 @@ import {
   type QuerySnapshot,
   limit,
   getDoc,
-  onSnapshot, // Added for real-time listener
-  type Unsubscribe, // Added for listener cleanup
+  onSnapshot, 
+  type Unsubscribe, 
 } from "firebase/firestore";
 import {
   getAuth,
@@ -147,7 +147,16 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
     shareId: null,
   };
   const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), docData);
-  return { ...listData, id: docRef.id, userId, createdAt: new Date().toISOString(), scanImageUrls: docData.scanImageUrls, shareId: null };
+  // For serverTimestamp, we can't know the exact value client-side immediately.
+  // We'll use the client's current time as an optimistic value. Firestore listener will provide the true server time.
+  return { 
+    ...listData, 
+    id: docRef.id, 
+    userId, 
+    createdAt: new Date().toISOString(), // Optimistic createdAt
+    scanImageUrls: docData.scanImageUrls, 
+    shareId: null 
+  };
 };
 
 const mapDocToList = (docSnap: DocumentData): List => {
@@ -160,10 +169,8 @@ const mapDocToList = (docSnap: DocumentData): List => {
   if (data.scanImageUrls && Array.isArray(data.scanImageUrls)) {
     scanUrls = data.scanImageUrls;
   } else if (data.scanImageUrl && typeof data.scanImageUrl === 'string') {
-    // Backward compatibility for old single image URL
     scanUrls = [data.scanImageUrl];
   }
-
 
   return {
     id: docSnap.id,
@@ -181,37 +188,44 @@ const mapDocToList = (docSnap: DocumentData): List => {
   } as List;
 };
 
-export const getListsFromFirebase = async (userId: string): Promise<List[]> => {
+export const listenToActiveLists = (
+  userId: string,
+  callback: (lists: List[]) => void,
+  onError: (error: Error) => void
+): Unsubscribe => {
   if (!isFirebaseConfigured()) {
-    console.warn("Firebase not configured, returning empty array for active lists.");
-    return [];
+    onError(new Error("Firebase not configured. Cannot listen to active lists."));
+    return () => {};
   }
   if (!userId) {
-    console.warn("No user ID provided for fetching active lists, returning empty array.");
-    return [];
+    onError(new Error("No user ID provided for listening to active lists."));
+    return () => {};
   }
   const currentDb = getDb();
-  try {
-    const q = query(
-        collection(currentDb, LISTS_COLLECTION),
-        where("userId", "==", userId),
-        where("completed", "==", false),
-        orderBy("createdAt", "desc")
-    );
-    const querySnapshot: QuerySnapshot<DocumentData> = await getDocs(q);
-    return querySnapshot.docs.map(mapDocToList);
-  } catch (error: any) {
-    console.error("Error fetching active lists from Firebase:", error);
+  const q = query(
+    collection(currentDb, LISTS_COLLECTION),
+    where("userId", "==", userId),
+    where("completed", "==", false),
+    orderBy("createdAt", "desc")
+  );
+
+  const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
+    const lists = querySnapshot.docs.map(mapDocToList);
+    callback(lists);
+  }, (error: any) => {
+    console.error("Error listening to active lists from Firebase:", error);
     if (error.code === 'permission-denied') {
-      console.error("FIREBASE PERMISSION DENIED (Active Lists): Please check your Firestore security rules.");
+      onError(new Error("Permission denied while listening to active lists. Check Firestore security rules."));
     } else if (error.code === 'failed-precondition') {
-      console.error("FIREBASE FAILED PRECONDITION (Active Lists): This often means a required Firestore index is missing. You likely need a composite index for the 'tasks' collection on 'userId' (ascending), 'completed' (ascending), AND 'createdAt' (descending). Check the Firebase console for a link to create it.");
+      onError(new Error("Missing Firestore index for listening to active lists. Check Firebase console for index creation link."));
     } else {
-      console.error("An unexpected error occurred while fetching active lists. This could be due to Firestore security rules or missing indexes. Please check your Firebase console.");
+      onError(new Error("Unexpected error listening to active lists."));
     }
-    throw error;
-  }
+  });
+
+  return unsubscribe;
 };
+
 
 export const getCompletedListsFromFirebase = async (userId: string): Promise<List[]> => {
   if (!isFirebaseConfigured()) {
@@ -256,15 +270,16 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
     delete firebaseUpdates.subitems;
   }
 
-  if (firebaseUpdates.createdAt !== undefined) delete firebaseUpdates.createdAt;
-  if (firebaseUpdates.userId !== undefined) delete firebaseUpdates.userId;
-  if (firebaseUpdates.id !== undefined) delete firebaseUpdates.id;
-
-
-  if (firebaseUpdates.scanImageUrls !== undefined) {
-    // scanImageUrls is already an array, so no need to map scanImageUrl to null
+  // Prevent client from trying to update server-managed fields directly if they are part of Partial<List>
+  if (firebaseUpdates.createdAt !== undefined && !(firebaseUpdates.createdAt instanceof Date) && typeof firebaseUpdates.createdAt !== 'object') {
+     // if createdAt is being set by serverTimestamp, it's an object, otherwise it might be an ISO string from client state.
+     // We generally don't want clients to overwrite createdAt unless it's a migration.
+     // For simplicity here, if it's not a serverTimestamp marker, don't send it.
+     // This could be refined if client-settable createdAt is needed.
+    delete firebaseUpdates.createdAt;
   }
-
+  if (firebaseUpdates.id !== undefined) delete firebaseUpdates.id;
+  // userId is typically not updated after creation, but if it were, it needs careful handling.
 
   await updateDoc(listRef, firebaseUpdates);
 };
@@ -345,39 +360,36 @@ export const listenToListByShareId = (
 ): Unsubscribe => {
   if (!isFirebaseConfigured()) {
     onError(new Error("Firebase not configured. Cannot listen to shared list."));
-    return () => {}; // Return a no-op unsubscribe function
+    return () => {}; 
   }
   const currentDb = getDb();
   let unsubscribeDocListener: Unsubscribe = () => {};
 
-  // First, find the document ID using the shareId
   const q = query(collection(currentDb, LISTS_COLLECTION), where("shareId", "==", shareId), limit(1));
   
   const unsubscribeQueryListener = onSnapshot(q, (querySnapshot) => {
-    if (unsubscribeDocListener) { // Unsubscribe from previous doc listener if shareId mapping changes (should be rare)
+    if (unsubscribeDocListener) { 
       unsubscribeDocListener();
     }
 
     if (querySnapshot.empty) {
-      onUpdate(null); // No list found with this shareId
+      onUpdate(null); 
       return;
     }
     
     const listDoc = querySnapshot.docs[0];
     const listDocumentId = listDoc.id;
 
-    // Now listen to changes on that specific document ID
     unsubscribeDocListener = onSnapshot(doc(currentDb, LISTS_COLLECTION, listDocumentId), (docSnapshot) => {
       if (docSnapshot.exists()) {
         const listData = mapDocToList(docSnapshot);
-        // Ensure it's still the correct shared list (shareId might have been removed)
         if (listData.shareId === shareId) {
           onUpdate(listData);
         } else {
-          onUpdate(null); // ShareId was removed or changed, no longer accessible this way
+          onUpdate(null); 
         }
       } else {
-        onUpdate(null); // Document was deleted
+        onUpdate(null); 
       }
     }, (error) => {
       console.error(`Error listening to shared list document (ID: ${listDocumentId}):`, error);
@@ -389,7 +401,6 @@ export const listenToListByShareId = (
     onError(error);
   });
 
-  // Return a function that unsubscribes from both listeners
   return () => {
     unsubscribeQueryListener();
     if (unsubscribeDocListener) {
