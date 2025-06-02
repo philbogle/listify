@@ -43,7 +43,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, UploadCloud } from "lucide-react"; 
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, UploadCloud, LogIn } from "lucide-react"; 
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -316,7 +316,7 @@ export default function Home() {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 
-                {firebaseReady && currentUser && (
+                {firebaseReady && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
@@ -325,17 +325,33 @@ export default function Home() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
-                        <HelpCircle className="mr-2 h-4 w-4" />
-                        <span>Help</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleSignOut}>
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>Sign out</span>
-                      </DropdownMenuItem>
+                      {currentUser ? (
+                        <>
+                          <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
+                            <HelpCircle className="mr-2 h-4 w-4" />
+                            <span>Help</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={handleSignOut}>
+                            <LogOut className="mr-2 h-4 w-4" />
+                            <span>Sign out</span>
+                          </DropdownMenuItem>
+                        </>
+                      ) : (
+                        <>
+                          <DropdownMenuItem onClick={handleSignIn}>
+                            <LogIn className="mr-2 h-4 w-4" />
+                            <span>Sign in with Google</span>
+                          </DropdownMenuItem>
+                           <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
+                            <HelpCircle className="mr-2 h-4 w-4" />
+                            <span>Help</span>
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
