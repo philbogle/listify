@@ -24,7 +24,6 @@ interface SubitemProps {
   onUpdateTitle: (subitemId: string, newTitle: string) => void;
   startInEditMode?: boolean;
   onInitialEditDone?: (subitemId: string) => void;
-  // isHighlighted prop removed
 }
 
 const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
@@ -50,6 +49,8 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       requestAnimationFrame(() => {
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
+        // Scroll the focused input into the center of the view, which helps with mobile keyboards
+        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     }
   }, [isEditing]);
@@ -83,7 +84,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 
   const handleRowClick = (e: React.MouseEvent) => {
     if (isEditing) return;
-    // Don't show menu if clicking on checkbox or its direct label (though we don't have a label for checkbox here)
     if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
         return;
     }
@@ -95,13 +95,9 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     <div
       className={cn(
         "flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group"
-        // Removed animation class based on isHighlighted
       )}
       onClick={handleRowClick}
       onMouseLeave={() => {
-        // Optional: Hide menu when mouse leaves if not triggered by a click that opens Dropdown
-        // This might be too aggressive, as the dropdown itself should handle its own closure
-        // if (!dropdownIsOpen) setMenuIsVisible(false); 
       }}
     >
       <Checkbox
@@ -146,7 +142,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             </Button>
           </>
         ) : (
-            <DropdownMenu onOpenChange={(open) => { if (!open) setTimeout(() => setMenuIsVisible(false), 150); /* Hide inline controls shortly after dropdown closes */ }}>
+            <DropdownMenu onOpenChange={(open) => { if (!open) setTimeout(() => setMenuIsVisible(false), 150); }}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="More options for subitem" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="h-4 w-4" />
