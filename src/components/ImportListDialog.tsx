@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +21,6 @@ import { extractListFromText, type ExtractListFromTextInput } from "@/ai/flows/e
 interface ImportListDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  currentUser: User | null;
   addList: (listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls" | "shareId">) => Promise<List | undefined>;
   manageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
   toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
@@ -32,7 +30,6 @@ interface ImportListDialogProps {
 export default function ImportListDialog({
   isOpen,
   onOpenChange,
-  currentUser,
   addList,
   manageSubitems,
   toast,
@@ -56,11 +53,7 @@ export default function ImportListDialog({
       setError("Please enter some text to import.");
       return;
     }
-    if (!currentUser) {
-      toast({ title: "Sign In Required", description: "Please sign in to import/dictate lists.", variant: "destructive" });
-      onOpenChange(false);
-      return;
-    }
+    // Removed currentUser check for this feature
     setError(null);
     setIsProcessingList(true);
 
@@ -113,7 +106,6 @@ export default function ImportListDialog({
           <DialogTitle>Import/Dictate List</DialogTitle>
           <DialogDescription>
             Paste your list text below or use your mobile keyboard's microphone to dictate. The AI will try to structure it.
-            {!currentUser && " Sign in to enable list creation."}
           </DialogDescription>
         </DialogHeader>
 
@@ -144,7 +136,7 @@ export default function ImportListDialog({
             </DialogClose>
             <Button
                 onClick={handleCreateListFromText}
-                disabled={!inputText.trim() || isProcessingList || !currentUser}
+                disabled={!inputText.trim() || isProcessingList}
             >
                 {isProcessingList ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Create List from Text
@@ -154,3 +146,5 @@ export default function ImportListDialog({
     </Dialog>
   );
 }
+
+    

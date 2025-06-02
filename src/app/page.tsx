@@ -43,7 +43,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, FileText, UploadCloud } from "lucide-react"; 
+import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, UploadCloud } from "lucide-react"; 
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
@@ -117,10 +117,7 @@ export default function Home() {
   };
 
   const handleOpenImportListDialog = () => {
-    if (!currentUser) {
-        toast({ title: "Sign In Required", description: "Please sign in to import lists.", variant: "destructive" });
-        return;
-    }
+    // Removed currentUser check for enabling this feature
     setIsImportListDialogOpen(true);
   };
 
@@ -309,13 +306,13 @@ export default function Home() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={handleAddNewList} className="py-3">
-                      <Plus className="mr-2 h-4 w-4" /> Enter Manually
+                      <Plus className="mr-2 h-4 w-4" /> Enter manually
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenScanDialogForNewList} className="py-3">
                       <Camera className="mr-2 h-4 w-4" /> Scan
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3" disabled={!currentUser}>
-                      <UploadCloud className="mr-2 h-4 w-4" /> Import/Dictate
+                    <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3">
+                      <UploadCloud className="mr-2 h-4 w-4" /> Import/dictate
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -338,7 +335,7 @@ export default function Home() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut}>
                         <LogOut className="mr-2 h-4 w-4" />
-                        <span>Sign Out</span>
+                        <span>Sign out</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -376,7 +373,7 @@ export default function Home() {
                 You&apos;re currently using Listify locally.
               </p>
               <p className="text-muted-foreground mb-4 text-center text-sm">
-                Sign in with Google to sync your lists and enable cloud features like sharing and AI item generation.
+                Sign in with Google to sync your lists and enable cloud features like sharing. AI features like scanning and item generation are available without sign-in.
               </p>
               <Button onClick={handleSignIn} className="px-6 py-3 text-base">
                 Sign in with Google
@@ -405,7 +402,6 @@ export default function Home() {
       <ImportListDialog
         isOpen={isImportListDialogOpen}
         onOpenChange={setIsImportListDialogOpen}
-        currentUser={currentUser}
         addList={addList}
         manageSubitems={manageSubitems}
         toast={toast}
@@ -517,3 +513,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
