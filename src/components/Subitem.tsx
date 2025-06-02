@@ -39,7 +39,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       setIsEditing(true);
       setIsInitialNewSubitemEdit(true);
       setMenuIsVisible(false);
-      // onInitialEditDone is now called from handleUpdateTitle/handleCancelEdit
     }
   }, [startInEditMode]);
 
@@ -49,7 +48,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       requestAnimationFrame(() => {
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
-        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }
   }, [isEditing]);
@@ -67,7 +65,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     } else if (trimmedTitle !== "" && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
     } else if (trimmedTitle === "" && subitem.title !== "Untitled Item") {
-      // If user blanks out an existing item, revert to original title
       setEditedTitle(subitem.title);
     }
     setIsEditing(false);
@@ -124,7 +121,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
             className="h-8 text-sm w-full"
-            autoFocus={isInitialNewSubitemEdit} // Use local state for autofocus logic consistency
             onBlur={handleUpdateTitle}
             onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); e.stopPropagation(); }}
             onClick={(e) => e.stopPropagation()}

@@ -99,9 +99,7 @@ const ListCard: FC<ListCardProps> = ({
       requestAnimationFrame(() => {
         titleInputRef.current?.focus();
         titleInputRef.current?.select();
-        titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
-      // onInitialEditDone is now called from handleSaveEdit/handleCancelEdit for initial edits
     }
   }, [isEditing]);
 
@@ -346,7 +344,7 @@ const ListCard: FC<ListCardProps> = ({
           list.completed
             ? "opacity-60 bg-secondary/30 scale-[0.97] hover:opacity-75"
             : "bg-card scale-100 opacity-100",
-          isInitialNewListEdit && !list.completed ? "" : "transition-all duration-300 ease-in-out" // Use isInitialNewListEdit here for transition control
+          isInitialNewListEdit && !list.completed ? "" : "transition-all duration-300 ease-in-out"
         )}
       >
         <CardHeader className="flex flex-row items-start justify-between space-x-4 pb-1">
@@ -365,7 +363,6 @@ const ListCard: FC<ListCardProps> = ({
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
                   className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
-                  autoFocus={isInitialNewListEdit} // Use local state for autoFocus logic consistency
                   onBlur={handleSaveEdit}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
                 />
