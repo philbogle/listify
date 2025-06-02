@@ -117,7 +117,6 @@ export default function Home() {
   };
 
   const handleOpenImportListDialog = () => {
-    // Removed currentUser check for enabling this feature
     setIsImportListDialogOpen(true);
   };
 
@@ -312,7 +311,7 @@ export default function Home() {
                       <Camera className="mr-2 h-4 w-4" /> Scan
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3">
-                      <UploadCloud className="mr-2 h-4 w-4" /> Import/dictate
+                      <UploadCloud className="mr-2 h-4 w-4" /> Paste or Dictate
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -514,4 +513,5 @@ export default function Home() {
   );
 }
 
+    
     

@@ -48,8 +48,8 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
             <p>Click &quot;Scan&quot; (or select from the menu). Use your camera to take a picture of handwriting, printed text, or physical items. You can crop the image before conversion. The AI will create a list. Scanned images can be viewed via the list&apos;s menu (&quot;View Scan&quot; option).</p>
           </div>
           <div>
-            <h4 className="font-semibold mb-0.5">Importing/Dictating</h4>
-            <p>Choose &quot;Import/dictate&quot; from the &quot;Add&quot; menu. Paste text or use your mobile device&apos;s keyboard dictation feature into the dialog. The AI will then attempt to convert this text into a structured list.</p>
+            <h4 className="font-semibold mb-0.5">Pasting or Dictating</h4>
+            <p>Choose &quot;Paste or Dictate&quot; from the &quot;Add&quot; menu. Paste text or use your mobile device&apos;s keyboard dictation feature into the dialog. The AI will then attempt to convert this text into a structured list.</p>
           </div>
           <div>
             <h4 className="font-semibold mb-0.5">Autogenerating Items</h4>
@@ -69,7 +69,7 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
           </div>
           <div>
             <h4 className="font-semibold mb-0.5">User Accounts & App Access</h4>
-            <p>Sign in with Google to save and sync your lists across devices, and to enable list sharing. Scanning, importing/dictating, and autogenerating items are available without signing in.</p>
+            <p>Sign in with Google to save and sync your lists across devices, and to enable list sharing. Scanning, pasting/dictating, and autogenerating items are available without signing in.</p>
             <p className="mt-1">On supported browsers (like Chrome on Android or Safari on iOS), you can often use the browser&apos;s menu to &quot;Add to Home Screen&quot; or &quot;Install app&quot;. This will add a Listify icon to your device for quick launching, similar to a native app.</p>
           </div>
 
@@ -103,4 +103,5 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
 
 export default HelpDialog;
 
+    
     
