@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from "react";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { List, Subitem } from "@/types/list";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -324,7 +324,8 @@ const ListCard: FC<ListCardProps> = ({
     }
   };
 
-  const isOwner = list.userId === currentUserId;
+  const isOwner = list.userId === currentUserId && currentUserId !== null;
+
 
   return (
     <>
@@ -447,22 +448,28 @@ const ListCard: FC<ListCardProps> = ({
 
         <CardContent className="pb-4 space-y-4">
           <TransitionGroup component="div" className="space-y-1">
-            {list.subitems.map((subitem) => (
-              <CSSTransition
-                key={subitem.id}
-                timeout={250}
-                classNames="subitem"
-              >
-                <SubitemComponent
-                  subitem={subitem}
-                  onToggleComplete={handleToggleSubitemComplete}
-                  onDelete={handleDeleteSubitem}
-                  onUpdateTitle={handleUpdateSubitemTitle}
-                  startInEditMode={subitem.id === subitemToFocusId}
-                  onInitialEditDone={handleSubitemInitialEditDone}
-                />
-              </CSSTransition>
-            ))}
+            {list.subitems.map((subitem) => {
+              const nodeRef = React.createRef<HTMLDivElement>();
+              return (
+                <CSSTransition
+                  key={subitem.id}
+                  nodeRef={nodeRef}
+                  timeout={250}
+                  classNames="subitem"
+                >
+                  <div ref={nodeRef}>
+                    <SubitemComponent
+                      subitem={subitem}
+                      onToggleComplete={handleToggleSubitemComplete}
+                      onDelete={handleDeleteSubitem}
+                      onUpdateTitle={handleUpdateSubitemTitle}
+                      startInEditMode={subitem.id === subitemToFocusId}
+                      onInitialEditDone={handleSubitemInitialEditDone}
+                    />
+                  </div>
+                </CSSTransition>
+              );
+            })}
           </TransitionGroup>
         </CardContent>
 
@@ -562,3 +569,4 @@ const ListCard: FC<ListCardProps> = ({
 };
 
 export default ListCard;
+

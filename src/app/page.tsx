@@ -45,7 +45,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, UploadCloud, LogIn, Mic } from "lucide-react"; 
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
@@ -187,30 +187,36 @@ export default function Home() {
   const renderListCards = (listsToRender: List[], listType: "active" | "completed") => {
     return (
       <TransitionGroup component="div" className="space-y-4">
-        {listsToRender.map((list) => (
-          <CSSTransition
-            key={list.id}
-            timeout={300}
-            classNames="list-item"
-          >
-            <ListCard
-              list={list}
-              onUpdateList={updateList}
-              onDeleteListRequested={handleDeleteListRequested}
-              onManageSubitems={manageSubitems}
-              startInEditMode={list.id === listToFocusId}
-              onInitialEditDone={handleInitialEditDone}
-              toast={toast}
-              onViewScan={handleViewScan}
-              onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
-              onScanMoreItemsRequested={handleOpenScanDialogForExistingList} 
-              shareList={shareList}
-              unshareList={unshareList}
-              isUserAuthenticated={!!currentUser}
-              currentUserId={currentUser?.uid || null}
-            />
-          </CSSTransition>
-        ))}
+        {listsToRender.map((list) => {
+          const nodeRef = React.createRef<HTMLDivElement>();
+          return (
+            <CSSTransition
+              key={list.id}
+              nodeRef={nodeRef}
+              timeout={300}
+              classNames="list-item"
+            >
+              <div ref={nodeRef}>
+                <ListCard
+                  list={list}
+                  onUpdateList={updateList}
+                  onDeleteListRequested={handleDeleteListRequested}
+                  onManageSubitems={manageSubitems}
+                  startInEditMode={list.id === listToFocusId}
+                  onInitialEditDone={handleInitialEditDone}
+                  toast={toast}
+                  onViewScan={handleViewScan}
+                  onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
+                  onScanMoreItemsRequested={handleOpenScanDialogForExistingList} 
+                  shareList={shareList}
+                  unshareList={unshareList}
+                  isUserAuthenticated={!!currentUser}
+                  currentUserId={currentUser?.uid || null}
+                />
+              </div>
+            </CSSTransition>
+          );
+        })}
       </TransitionGroup>
     );
   };
@@ -322,7 +328,7 @@ export default function Home() {
                       <Camera className="mr-2 h-4 w-4" /> Scan
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3">
-                      <UploadCloud className="mr-2 h-4 w-4" /> Dictate or Paste
+                      <Mic className="mr-2 h-4 w-4" /> Dictate or Paste
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -539,3 +545,4 @@ export default function Home() {
     </div>
   );
 }
+
