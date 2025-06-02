@@ -50,7 +50,7 @@ import type { List } from "@/types/list";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { TransitionGroup, CSSTransition } from "react-transition-group";
+// TransitionGroup and CSSTransition removed as list transitions are being removed
 
 
 export default function Home() {
@@ -186,38 +186,27 @@ export default function Home() {
 
   const renderListCards = (listsToRender: List[], listType: "active" | "completed") => {
     return (
-      <TransitionGroup component="div" className="space-y-4">
-        {listsToRender.map((list) => {
-          const nodeRef = React.createRef<HTMLDivElement>();
-          return (
-            <CSSTransition
-              key={list.id}
-              nodeRef={nodeRef}
-              timeout={300}
-              classNames="list-item"
-            >
-              <div ref={nodeRef}>
-                <ListCard
-                  list={list}
-                  onUpdateList={updateList}
-                  onDeleteListRequested={handleDeleteListRequested}
-                  onManageSubitems={manageSubitems}
-                  startInEditMode={list.id === listToFocusId}
-                  onInitialEditDone={handleInitialEditDone}
-                  toast={toast}
-                  onViewScan={handleViewScan}
-                  onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
-                  onScanMoreItemsRequested={handleOpenScanDialogForExistingList} 
-                  shareList={shareList}
-                  unshareList={unshareList}
-                  isUserAuthenticated={!!currentUser}
-                  currentUserId={currentUser?.uid || null}
-                />
-              </div>
-            </CSSTransition>
-          );
-        })}
-      </TransitionGroup>
+      <div className="space-y-4">
+        {listsToRender.map((list) => (
+          <ListCard
+            key={list.id}
+            list={list}
+            onUpdateList={updateList}
+            onDeleteListRequested={handleDeleteListRequested}
+            onManageSubitems={manageSubitems}
+            startInEditMode={list.id === listToFocusId}
+            onInitialEditDone={handleInitialEditDone}
+            toast={toast}
+            onViewScan={handleViewScan}
+            onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
+            onScanMoreItemsRequested={handleOpenScanDialogForExistingList} 
+            shareList={shareList}
+            unshareList={unshareList}
+            isUserAuthenticated={!!currentUser}
+            currentUserId={currentUser?.uid || null}
+          />
+        ))}
+      </div>
     );
   };
 
