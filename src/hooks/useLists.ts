@@ -140,7 +140,7 @@ export const useLists = () => {
         activeListenerUnsubscribeRef.current = null;
       }
     };
-  }, [loadListsFromLocalStorage, toast, isLoading]); 
+  }, [loadListsFromLocalStorage, toast]); // Removed isLoading from dependency array
 
    useEffect(() => {
     if (!isLoading && (!isFirebaseConfigured() || !currentUser)) {
@@ -409,7 +409,7 @@ export const useLists = () => {
 
     setActiveLists([]);
     setCompletedLists([]);
-    setHasFetchedCompleted(true); // Mark as fetched even if we just cleared them
+    setHasFetchedCompleted(true); 
 
     if (currentUser && isFirebaseConfigured()) {
       toast({ title: "Deleting All Lists...", description: "This may take a moment." });
@@ -420,11 +420,8 @@ export const useLists = () => {
       } catch (error) {
         console.error("Error deleting all lists from Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not delete all lists from cloud. Some may remain. Please refresh.", variant: "destructive" });
-        // Data might be inconsistent, suggest refresh or try to re-fetch, though re-fetch might bring back what failed to delete.
-        // For simplicity, we've already cleared local state. User will see an empty state.
       }
     } else {
-      // Anonymous user or Firebase not configured
       try {
         const activeKey = getActiveLocalKey();
         const completedKey = getCompletedLocalKey();
@@ -457,3 +454,6 @@ export const useLists = () => {
     getListByShareId,
   };
 };
+
+
+    
