@@ -49,6 +49,7 @@ export default function Home() {
     manageSubitems,
     shareList,
     unshareList,
+    deleteAllLists,
   } = useLists();
 
 
@@ -66,6 +67,8 @@ export default function Home() {
 
   const [isConfirmDeleteListOpen, setIsConfirmDeleteListOpen] = useState(false);
   const [listToDeleteId, setListToDeleteId] = useState<string | null>(null);
+  
+  const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
 
   const [scanDialogProps, setScanDialogProps] = useState<{
     open: boolean;
@@ -161,6 +164,16 @@ export default function Home() {
     setIsConfirmDeleteListOpen(false);
     setListToDeleteId(null);
   };
+
+  const handleOpenDeleteAllDialog = () => {
+    setIsConfirmDeleteAllOpen(true);
+  };
+
+  const handleConfirmDeleteAllLists = async () => {
+    await deleteAllLists();
+    setIsConfirmDeleteAllOpen(false);
+  };
+
 
   const getListTitleForDialog = (listId: string | null): string => {
     if (!listId) return "this list";
@@ -276,6 +289,8 @@ export default function Home() {
             onSignIn={handleSignIn}
             onSignOut={handleSignOut}
             onOpenHelpDialog={() => setIsHelpDialogOpen(true)}
+            onOpenDeleteAllDialog={handleOpenDeleteAllDialog}
+            hasLists={activeLists.length > 0 || completedLists.length > 0}
           />
 
           <section aria-labelledby="list-heading" className="pt-6">
@@ -374,7 +389,23 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={isConfirmDeleteAllOpen} onOpenChange={setIsConfirmDeleteAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Your Lists?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete all of your lists? This action cannot be undone and will remove all active and completed lists.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteAllLists} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete All Lists
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
-

@@ -71,11 +71,10 @@ export const useLists = () => {
   }, [getActiveLocalKey, getCompletedLocalKey]);
 
   const saveListsToLocalStorage = useCallback(() => {
-    if (isLoading || (isFirebaseConfigured() && currentUser)) return; // Only save if anonymous or Firebase not configured
+    if (isLoading || (isFirebaseConfigured() && currentUser)) return; 
     try {
       const activeKey = getActiveLocalKey();
       const completedKey = getCompletedLocalKey();
-      // This console log was: "Saving to local storage for anonymous user." which is correct.
       console.log(`[useLists] Saving to local storage. Active key: ${activeKey}, Completed key: ${completedKey}`);
       localStorage.setItem(activeKey, JSON.stringify(activeLists));
       localStorage.setItem(completedKey, JSON.stringify(completedLists));
@@ -91,7 +90,6 @@ export const useLists = () => {
     unsubscribeAuth = onAuthUserChanged(async (user) => {
       console.log("[useLists] Auth state changed. New user:", user?.uid || "null");
 
-      // Always unsubscribe from any existing active lists listener
       if (activeListenerUnsubscribeRef.current) {
         console.log("[useLists] Unsubscribing from previous active lists listener (ref).");
         activeListenerUnsubscribeRef.current();
@@ -102,7 +100,6 @@ export const useLists = () => {
       setActiveLists([]); 
       setCompletedLists([]); 
       setHasFetchedCompleted(false);
-
 
       if (user) {
         setCurrentUser(user); 
@@ -143,8 +140,7 @@ export const useLists = () => {
         activeListenerUnsubscribeRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadListsFromLocalStorage, toast]); 
+  }, [loadListsFromLocalStorage, toast, isLoading]); 
 
    useEffect(() => {
     if (!isLoading && (!isFirebaseConfigured() || !currentUser)) {
@@ -156,7 +152,7 @@ export const useLists = () => {
   const fetchCompletedListsIfNeeded = useCallback(async () => {
     if (isLoadingCompleted) return;
     if (currentUser && isFirebaseConfigured()) {
-      if (hasFetchedCompleted && completedLists.length > 0 && !isLoading) return; // ensure active lists are loaded first
+      if (hasFetchedCompleted && completedLists.length > 0 && !isLoading) return; 
       setIsLoadingCompleted(true);
       try {
         const firebaseCompletedLists = await getCompletedListsFromFirebase(currentUser.uid);
@@ -169,7 +165,6 @@ export const useLists = () => {
         setIsLoadingCompleted(false);
       }
     } else {
-      // For anonymous users, completed lists are already loaded from local storage by loadListsFromLocalStorage
       setHasFetchedCompleted(true); 
       setIsLoadingCompleted(false);
     }
@@ -212,7 +207,6 @@ export const useLists = () => {
         };
 
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
-        // The listener will handle updating the UI with the server-confirmed list.
         return addedListFromFirebase;
       } catch (error) {
         console.error("Error adding list to Firebase:", error);
@@ -222,7 +216,6 @@ export const useLists = () => {
       }
     } else {
       console.log("[useLists] Adding list locally for anonymous user:", optimisticList.title);
-      // For anonymous user, saveListsToLocalStorage will be triggered by useEffect due to activeLists change
       return optimisticList;
     }
   };
@@ -303,7 +296,6 @@ export const useLists = () => {
         }
     } else {
         console.log("[useLists] Updated list locally for anonymous user:", listId);
-        // For anonymous user, saveListsToLocalStorage will be triggered by useEffect
     }
   };
 
@@ -325,7 +317,6 @@ export const useLists = () => {
       }
     } else {
        console.log("[useLists] Deleted list locally for anonymous user:", listId);
-       // For anonymous user, saveListsToLocalStorage will be triggered by useEffect
     }
   };
 
@@ -371,7 +362,6 @@ export const useLists = () => {
       }
     } else {
         console.log("[useLists] Managed subitems locally for anonymous user on list:", listId);
-        // For anonymous user, saveListsToLocalStorage will be triggered by useEffect
     }
   };
 
@@ -383,7 +373,6 @@ export const useLists = () => {
     try {
       const newShareId = await generateShareIdForList(listId, currentUser.uid);
       if (newShareId) {
-        // Optimistically update local state. Firebase listener will confirm.
         setActiveLists(prev => prev.map(l => l.id === listId ? {...l, shareId: newShareId} : l).sort(sortLists));
         setCompletedLists(prev => prev.map(l => l.id === listId ? {...l, shareId: newShareId} : l).sort(sortLists));
         toast({ title: "List Shared!", description: "A public share link has been created." });
@@ -406,13 +395,46 @@ export const useLists = () => {
     }
     try {
       await removeShareIdFromList(listId, currentUser.uid);
-      // Optimistically update local state. Firebase listener will confirm.
       setActiveLists(prev => prev.map(l => l.id === listId ? {...l, shareId: null} : l).sort(sortLists));
       setCompletedLists(prev => prev.map(l => l.id === listId ? {...l, shareId: null} : l).sort(sortLists));
       toast({ title: "Sharing Stopped", description: "The list is no longer publicly shared." });
     } catch (error) {
       console.error("Error unsharing list:", error);
       toast({ title: "Unsharing Error", description: "An error occurred.", variant: "destructive" });
+    }
+  };
+
+  const deleteAllLists = async (): Promise<void> => {
+    const allListIdsToDelete = [...activeLists, ...completedLists].map(l => l.id);
+
+    setActiveLists([]);
+    setCompletedLists([]);
+    setHasFetchedCompleted(true); // Mark as fetched even if we just cleared them
+
+    if (currentUser && isFirebaseConfigured()) {
+      toast({ title: "Deleting All Lists...", description: "This may take a moment." });
+      try {
+        const deletePromises = allListIdsToDelete.map(id => deleteListFromFirebase(id));
+        await Promise.all(deletePromises);
+        toast({ title: "All Lists Deleted", description: "Your lists have been removed from the cloud." });
+      } catch (error) {
+        console.error("Error deleting all lists from Firebase:", error);
+        toast({ title: "Firebase Error", description: "Could not delete all lists from cloud. Some may remain. Please refresh.", variant: "destructive" });
+        // Data might be inconsistent, suggest refresh or try to re-fetch, though re-fetch might bring back what failed to delete.
+        // For simplicity, we've already cleared local state. User will see an empty state.
+      }
+    } else {
+      // Anonymous user or Firebase not configured
+      try {
+        const activeKey = getActiveLocalKey();
+        const completedKey = getCompletedLocalKey();
+        localStorage.removeItem(activeKey);
+        localStorage.removeItem(completedKey);
+        toast({ title: "All Lists Deleted", description: "Your local lists have been removed." });
+      } catch (error) {
+        console.error("Error deleting all lists from local storage:", error);
+        toast({ title: "Local Storage Error", description: "Could not remove all local lists.", variant: "destructive" });
+      }
     }
   };
 
@@ -431,9 +453,7 @@ export const useLists = () => {
     manageSubitems,
     shareList,
     unshareList,
+    deleteAllLists,
     getListByShareId,
   };
 };
-
-
-    

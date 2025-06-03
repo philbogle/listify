@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Plus, Camera, Mic, Menu as MenuIcon, HelpCircle, LogOut, LogIn } from "lucide-react";
+import { Plus, Camera, Mic, Menu as MenuIcon, HelpCircle, LogOut, LogIn, Trash2 } from "lucide-react";
 import React from "react";
 
 interface AppHeaderProps {
@@ -24,6 +24,8 @@ interface AppHeaderProps {
   onSignIn: () => void;
   onSignOut: () => void;
   onOpenHelpDialog: () => void;
+  onOpenDeleteAllDialog: () => void; // New prop
+  hasLists: boolean; // New prop to enable/disable delete all
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -35,6 +37,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onSignIn,
   onSignOut,
   onOpenHelpDialog,
+  onOpenDeleteAllDialog,
+  hasLists,
 }) => {
   return (
     <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
@@ -78,6 +82,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       <span>Help</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
+                     <DropdownMenuItem onClick={onOpenDeleteAllDialog} disabled={!hasLists} className={!hasLists ? "text-muted-foreground" : "text-destructive focus:text-destructive focus:bg-destructive/10"}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Delete All My Lists</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={onSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Sign out</span>
@@ -93,6 +102,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     <DropdownMenuItem onClick={onOpenHelpDialog}>
                       <HelpCircle className="mr-2 h-4 w-4" />
                       <span>Help</span>
+                    </DropdownMenuItem>
+                     <DropdownMenuSeparator />
+                     <DropdownMenuItem onClick={onOpenDeleteAllDialog} disabled={!hasLists} className={!hasLists ? "text-muted-foreground" : ""}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                       <span>Delete All My Lists</span>
                     </DropdownMenuItem>
                   </>
                 )}
