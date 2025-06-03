@@ -40,29 +40,33 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenDeleteAllDialog,
   hasLists,
 }) => {
+  const canAddLists = currentUser || !firebaseReady;
+
   return (
     <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
       <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
       <TooltipProvider delayDuration={100}>
         <div className="flex items-center space-x-1 sm:space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" disabled={!currentUser && firebaseReady}>
-                <Plus className="mr-2 h-4 w-4" /> Add
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onAddNewList} className="py-3">
-                <Plus className="mr-2 h-4 w-4" /> Enter manually
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenScanDialogForNewList} className="py-3">
-                <Camera className="mr-2 h-4 w-4" /> Scan
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenImportListDialog} className="py-3">
-                <Mic className="mr-2 h-4 w-4" /> Dictate or Paste
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canAddLists && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="default">
+                  <Plus className="mr-2 h-4 w-4" /> Add
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onAddNewList} className="py-3">
+                  <Plus className="mr-2 h-4 w-4" /> Enter manually
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenScanDialogForNewList} className="py-3">
+                  <Camera className="mr-2 h-4 w-4" /> Scan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenImportListDialog} className="py-3">
+                  <Mic className="mr-2 h-4 w-4" /> Dictate or Paste
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {firebaseReady && (
             <DropdownMenu>
@@ -105,7 +109,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     </DropdownMenuItem>
                      <DropdownMenuSeparator />
                      {/* Delete All My Lists is available for anonymous non-Firebase users */}
-                     <DropdownMenuItem onClick={onOpenDeleteAllDialog} disabled={!hasLists && firebaseReady} className={!hasLists && firebaseReady ? "text-muted-foreground" : ""}>
+                     <DropdownMenuItem 
+                        onClick={onOpenDeleteAllDialog} 
+                        disabled={!hasLists && firebaseReady} 
+                        className={!hasLists && firebaseReady ? "text-muted-foreground" : ""}
+                      >
                       <Trash2 className="mr-2 h-4 w-4" />
                        <span>Delete All My Lists</span>
                     </DropdownMenuItem>
@@ -121,4 +129,3 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 };
 
 export default AppHeader;
-
