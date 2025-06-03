@@ -5,18 +5,11 @@ import ListCard from "@/components/ListCard";
 import { useLists } from "@/hooks/useLists";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
 import ImportListDialog from "@/components/ImportListDialog"; 
+import AppHeader from "@/components/AppHeader"; 
+import ViewScanDialog from "@/components/ViewScanDialog";
 
 import {
   AlertDialog,
@@ -29,28 +22,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger, 
-} from "@/components/ui/dropdown-menu";
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Plus, Camera, Loader2, LogOut, Menu as MenuIcon, HelpCircle, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, UploadCloud, LogIn, Mic } from "lucide-react"; 
+import { ListChecks, AlertTriangle, Loader2, Trash2 } from "lucide-react"; 
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
 import React, { useEffect, useState, useCallback } from "react";
 import type { List } from "@/types/list";
-import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
-import { TooltipProvider } from "@/components/ui/tooltip";
-// TransitionGroup and CSSTransition removed as list transitions are being removed
 
 
 export default function Home() {
@@ -78,8 +60,6 @@ export default function Home() {
 
   const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
   const [viewingScanUrls, setViewingScanUrls] = useState<string[] | null>(null);
-  const [currentScanIndex, setCurrentScanIndex] = useState(0);
-  const [scanZoomLevel, setScanZoomLevel] = useState(1);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
 
   const [isConfirmDeleteCompletedOpen, setIsConfirmDeleteCompletedOpen] = useState(false);
@@ -139,9 +119,14 @@ export default function Home() {
   const handleViewScan = (imageUrls: string[]) => {
     if (imageUrls && imageUrls.length > 0) {
       setViewingScanUrls(imageUrls);
-      setCurrentScanIndex(0);
-      setScanZoomLevel(1);
       setIsViewScanDialogOpen(true);
+    }
+  };
+  
+  const handleViewScanDialogChange = (isOpen: boolean) => {
+    setIsViewScanDialogOpen(isOpen);
+    if (!isOpen) {
+      setViewingScanUrls(null); 
     }
   };
 
@@ -265,22 +250,6 @@ export default function Home() {
     return null;
   }
 
-  const handleZoomIn = () => setScanZoomLevel(prev => Math.min(prev + 0.2, 3));
-  const handleZoomOut = () => setScanZoomLevel(prev => Math.max(prev - 0.2, 0.5));
-
-  const handleNextScan = () => {
-    if (viewingScanUrls && currentScanIndex < viewingScanUrls.length - 1) {
-      setCurrentScanIndex(prev => prev + 1);
-      setScanZoomLevel(1);
-    }
-  };
-  const handlePrevScan = () => {
-    if (currentScanIndex > 0) {
-      setCurrentScanIndex(prev => prev - 1);
-      setScanZoomLevel(1);
-    }
-  };
-
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-8">
@@ -299,71 +268,16 @@ export default function Home() {
 
       {(isLoading || !firebaseReady || (firebaseReady && currentUser) || (firebaseReady && !currentUser)) && (
         <main className="w-full max-w-2xl">
-          <div className="sticky top-0 z-10 bg-background py-4 flex justify-between items-center border-b">
-            <h2 id="list-heading" className="text-2xl font-semibold text-center sm:text-left">Lists</h2>
-            <TooltipProvider delayDuration={100}>
-              <div className="flex items-center space-x-1 sm:space-x-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="default">
-                      <Plus className="mr-2 h-4 w-4" /> Add
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleAddNewList} className="py-3">
-                      <Plus className="mr-2 h-4 w-4" /> Enter manually
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenScanDialogForNewList} className="py-3">
-                      <Camera className="mr-2 h-4 w-4" /> Scan
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleOpenImportListDialog} className="py-3">
-                      <Mic className="mr-2 h-4 w-4" /> Dictate or Paste
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                
-                {firebaseReady && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MenuIcon className="h-5 w-5" />
-                        <span className="sr-only">Open user menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {currentUser ? (
-                        <>
-                          <DropdownMenuLabel>{currentUser.displayName || currentUser.email}</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
-                            <HelpCircle className="mr-2 h-4 w-4" />
-                            <span>Help</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={handleSignOut}>
-                            <LogOut className="mr-2 h-4 w-4" />
-                            <span>Sign out</span>
-                          </DropdownMenuItem>
-                        </>
-                      ) : (
-                        <>
-                          <DropdownMenuItem onClick={handleSignIn}>
-                            <LogIn className="mr-2 h-4 w-4" />
-                            <span>Sign in with Google</span>
-                          </DropdownMenuItem>
-                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setIsHelpDialogOpen(true)}>
-                            <HelpCircle className="mr-2 h-4 w-4" />
-                            <span>Help</span>
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            </TooltipProvider>
-          </div>
+          <AppHeader
+            currentUser={currentUser}
+            firebaseReady={firebaseReady}
+            onAddNewList={handleAddNewList}
+            onOpenScanDialogForNewList={handleOpenScanDialogForNewList}
+            onOpenImportListDialog={handleOpenImportListDialog}
+            onSignIn={handleSignIn}
+            onSignOut={handleSignOut}
+            onOpenHelpDialog={() => setIsHelpDialogOpen(true)}
+          />
 
           <section aria-labelledby="list-heading" className="pt-6">
             {isLoading ? (
@@ -429,73 +343,11 @@ export default function Home() {
         setListToFocusId={setListToFocusId}
       />
 
-
-      <Dialog open={isViewScanDialogOpen} onOpenChange={(isOpen) => {
-        setIsViewScanDialogOpen(isOpen);
-        if (!isOpen) {
-          setViewingScanUrls(null);
-          setCurrentScanIndex(0);
-        }
-      }}>
-        <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>
-              Scanned Image
-              {viewingScanUrls && viewingScanUrls.length > 1 && (
-                <span className="text-sm text-muted-foreground ml-2">
-                  ({currentScanIndex + 1} of {viewingScanUrls.length})
-                </span>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          {viewingScanUrls && viewingScanUrls[currentScanIndex] && (
-            <div className="mt-4 flex justify-center items-center max-h-[70vh] overflow-auto bg-muted/10 p-2 rounded-md">
-              <Image
-                key={viewingScanUrls[currentScanIndex]}
-                src={viewingScanUrls[currentScanIndex]}
-                alt={`Scanned list image ${currentScanIndex + 1}`}
-                width={600}
-                height={800}
-                style={{
-                  objectFit: 'contain',
-                  maxHeight: 'calc(70vh - 120px)',
-                  width: 'auto',
-                  transform: `scale(${scanZoomLevel})`,
-                  transformOrigin: 'center center',
-                  transition: 'transform 0.2s ease-out'
-                }}
-                data-ai-hint="document scan"
-              />
-            </div>
-          )}
-          <DialogFooter className="mt-4 sm:justify-between items-center">
-            <div className="flex items-center space-x-2">
-               <Button onClick={handleZoomOut} variant="outline" size="icon" disabled={scanZoomLevel <= 0.5} aria-label="Zoom out">
-                <ZoomOut />
-              </Button>
-              <Button onClick={handleZoomIn} variant="outline" size="icon" disabled={scanZoomLevel >= 3} aria-label="Zoom in">
-                <ZoomIn />
-              </Button>
-               {scanZoomLevel > 1 && (
-                <p className="text-xs text-muted-foreground">(Use two fingers to scroll)</p>
-              )}
-            </div>
-            {viewingScanUrls && viewingScanUrls.length > 1 && (
-              <div className="flex items-center space-x-2">
-                <Button onClick={handlePrevScan} variant="outline" size="icon" disabled={currentScanIndex === 0} aria-label="Previous scan">
-                  <ChevronLeft />
-                </Button>
-                <Button onClick={handleNextScan} variant="outline" size="icon" disabled={currentScanIndex === viewingScanUrls.length - 1} aria-label="Next scan">
-                  <ChevronRight />
-                </Button>
-              </div>
-            )}
-            <DialogClose asChild>
-              <Button type="button" variant="outline">Close</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ViewScanDialog
+        isOpen={isViewScanDialogOpen}
+        onOpenChange={handleViewScanDialogChange}
+        imageUrls={viewingScanUrls}
+      />
 
       <HelpDialog isOpen={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen} />
 
