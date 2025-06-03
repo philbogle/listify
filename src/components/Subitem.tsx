@@ -26,7 +26,7 @@ interface SubitemProps {
   onInitialEditDone?: (subitemId: string) => void;
 }
 
-const SubitemComponent: FC<SubitemProps> = React.memo(({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
+const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isInitialNewSubitemEdit, setIsInitialNewSubitemEdit] = useState(startInEditMode);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
@@ -45,25 +45,24 @@ const SubitemComponent: FC<SubitemProps> = React.memo(({ subitem, onToggleComple
     if (isEditing && titleInputRef.current) {
       titleInputRef.current.focus();
       titleInputRef.current.select();
-      // No scrollIntoView here as requested for newly added items
     }
   }, [isEditing]);
 
-  const handleStartEdit = useCallback(() => {
+  const handleStartEdit = () => {
     setEditedTitle(subitem.title);
     setIsEditing(true);
     setMenuIsVisible(false);
-  }, [subitem.title]);
+  };
 
-  const handleUpdateTitle = useCallback(() => {
+  const handleUpdateTitle = () => {
     const trimmedTitle = editedTitle.trim();
     if (trimmedTitle && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
     } else if (!trimmedTitle) { 
-      if (isInitialNewSubitemEdit) { // If it's a new item and title is cleared, delete it
+      if (isInitialNewSubitemEdit) { 
         onDelete(subitem.id);
       } else {
-        setEditedTitle(subitem.title); // Revert to original if not new or not empty
+        setEditedTitle(subitem.title); 
       }
     }
     setIsEditing(false);
@@ -73,11 +72,11 @@ const SubitemComponent: FC<SubitemProps> = React.memo(({ subitem, onToggleComple
         onInitialEditDone(subitem.id);
       }
     }
-  }, [editedTitle, subitem.title, subitem.id, isInitialNewSubitemEdit, onUpdateTitle, onDelete, onInitialEditDone]);
+  };
 
-  const handleCancelEdit = useCallback(() => {
+  const handleCancelEdit = () => {
     if (isInitialNewSubitemEdit && (editedTitle.trim() === "" || editedTitle === "Untitled Item")) {
-      onDelete(subitem.id); // Delete if new, untitled, and cancelled
+      onDelete(subitem.id); 
     } else {
       setEditedTitle(subitem.title);
     }
@@ -88,7 +87,7 @@ const SubitemComponent: FC<SubitemProps> = React.memo(({ subitem, onToggleComple
         onInitialEditDone(subitem.id);
       }
     }
-  }, [subitem.title, subitem.id, editedTitle, isInitialNewSubitemEdit, onDelete, onInitialEditDone]);
+  };
 
 
   const handleRowClick = (e: React.MouseEvent) => {
@@ -192,7 +191,9 @@ const SubitemComponent: FC<SubitemProps> = React.memo(({ subitem, onToggleComple
       </div>
     </div>
   );
-});
+};
 
 SubitemComponent.displayName = "SubitemComponent";
 export default SubitemComponent;
+
+    

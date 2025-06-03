@@ -28,7 +28,7 @@ const SharedListSubitem: React.FC<{
   onDelete: (subitemId: string) => void;
   onUpdateTitle: (subitemId: string, newTitle: string) => void;
   isListCompleted: boolean;
-}> = React.memo(({ subitem, onToggleComplete, onDelete, onUpdateTitle, isListCompleted }) => {
+}> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, isListCompleted }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +44,7 @@ const SharedListSubitem: React.FC<{
     }
   }, [isEditing]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     const trimmedTitle = editedTitle.trim();
     if (trimmedTitle && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
@@ -52,12 +52,12 @@ const SharedListSubitem: React.FC<{
       setEditedTitle(subitem.title); // Revert if empty
     }
     setIsEditing(false);
-  }, [editedTitle, subitem.id, subitem.title, onUpdateTitle]);
+  };
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = () => {
     setEditedTitle(subitem.title);
     setIsEditing(false);
-  }, [subitem.title]);
+  };
 
   if (isListCompleted) { 
     return (
@@ -125,7 +125,7 @@ const SharedListSubitem: React.FC<{
       </div>
     </div>
   );
-});
+};
 SharedListSubitem.displayName = "SharedListSubitem";
 
 
@@ -197,7 +197,7 @@ export default function SharedListPage() {
     }
   }, [isEditingTitle]);
 
-  const handleSaveListTitle = useCallback(async () => {
+  const handleSaveListTitle = async () => {
     if (!list) return;
     const trimmedTitle = editedListTitle.trim();
     if (trimmedTitle && trimmedTitle !== list.title) {
@@ -211,9 +211,9 @@ export default function SharedListPage() {
       setEditedListTitle(list.title); 
     }
     setIsEditingTitle(false);
-  }, [list, editedListTitle, toast]);
+  };
 
-  const handleAddSubitem = useCallback(async () => {
+  const handleAddSubitem = async () => {
     if (!list || !newSubitemTitle.trim() || list.completed) return;
     const newSub: Subitem = {
       id: crypto.randomUUID(),
@@ -226,9 +226,9 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not add item.", variant: "destructive" });
     }
-  }, [list, newSubitemTitle, toast]);
+  };
 
-  const handleToggleSubitemComplete = useCallback(async (subitemId: string, completed: boolean) => {
+  const handleToggleSubitemComplete = async (subitemId: string, completed: boolean) => {
     if (!list || list.completed) return;
     const updatedSubitems = list.subitems.map(si =>
       si.id === subitemId ? { ...si, completed } : si
@@ -238,9 +238,9 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not update item status.", variant: "destructive" });
     }
-  }, [list, toast]);
+  };
 
-  const handleUpdateSubitemTitle = useCallback(async (subitemId: string, newTitle: string) => {
+  const handleUpdateSubitemTitle = async (subitemId: string, newTitle: string) => {
     if (!list || list.completed) return;
     const updatedSubitems = list.subitems.map(si =>
       si.id === subitemId ? { ...si, title: newTitle } : si
@@ -250,9 +250,9 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not update item title.", variant: "destructive" });
     }
-  }, [list, toast]);
+  };
 
-  const handleDeleteSubitem = useCallback(async (subitemId: string) => {
+  const handleDeleteSubitem = async (subitemId: string) => {
     if (!list || list.completed) return;
     const updatedSubitems = list.subitems.filter(si => si.id !== subitemId);
     try {
@@ -260,16 +260,16 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not delete item.", variant: "destructive" });
     }
-  }, [list, toast]);
+  };
 
-  const handleToggleListComplete = useCallback(async () => {
+  const handleToggleListComplete = async () => {
     if (!list) return;
     try {
       await updateListInFirebase(list.id, { completed: !list.completed });
     } catch (e) {
       toast({ title: "Error", description: "Could not update list completion status.", variant: "destructive" });
     }
-  }, [list, toast]);
+  };
 
 
   if (isLoading) {
@@ -426,3 +426,5 @@ export default function SharedListPage() {
     </div>
   );
 }
+
+    
