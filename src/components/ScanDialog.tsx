@@ -121,7 +121,19 @@ export default function ScanDialog({
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null);
-  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined); // Can be used to set aspect ratio for cropping
+  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined);
+
+  const resetCropperState = () => {
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  };
+
+  const resetScanDataStates = useCallback(() => {
+    setIsProcessingImage(false);
+    setCapturedImageFile(null);
+    setImagePreviewUrl(null);
+    resetCropperState();
+  }, []);
 
   const stopCameraStream = useCallback(() => {
     if (stream) {
@@ -133,53 +145,63 @@ export default function ScanDialog({
     }
   }, [stream]);
 
-  const resetCropperState = () => {
-    setCrop(undefined);
-    setCompletedCrop(undefined);
-  };
-
-  const resetDialogFullState = useCallback(() => {
-    setIsProcessingImage(false);
-    setCapturedImageFile(null);
-    setImagePreviewUrl(null);
-    setHasCameraPermission(null);
-    resetCropperState();
-    stopCameraStream();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopCameraStream]); // initialListId/Title are props, not reset here
 
   useEffect(() => {
-    if (isOpen && hasCameraPermission === null && !imagePreviewUrl) {
-      const getCameraPermission = async () => {
-        try {
-          const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-          setStream(mediaStream);
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
+    if (isOpen) {
+      resetScanDataStates(); // Clear previous scan image, file, crop, and processing state
+
+      if (hasCameraPermission === null) { // If permission status is unknown (initial or after retake)
+        const getCameraPermission = async () => {
+          try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            setStream(mediaStream);
+            setHasCameraPermission(true);
+            if (videoRef.current) {
+              videoRef.current.srcObject = mediaStream;
+            }
+          } catch (error) {
+            console.error('Error accessing camera:', error);
+            setHasCameraPermission(false);
+            toast({
+              variant: 'destructive',
+              title: 'Camera Access Denied',
+              description: 'Please enable camera permissions in your browser settings.',
+            });
           }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings.',
-          });
-        }
-      };
-      getCameraPermission();
-    } else if (!isOpen && stream) {
-      resetDialogFullState(); // Reset everything when dialog closes
+        };
+        getCameraPermission();
+      } else if (hasCameraPermission === true && !stream) { // Permission granted, but stream is not active (e.g. dialog reopened)
+        const getCameraPermission = async () => {
+          try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            setStream(mediaStream);
+            // setHasCameraPermission(true); // Already true
+            if (videoRef.current) {
+              videoRef.current.srcObject = mediaStream;
+            }
+          } catch (error) { // Should ideally not happen if permission was already true, but handle defensively
+            console.error('Error re-accessing camera:', error);
+            setHasCameraPermission(false); // Re-set to false if access fails now
+            toast({
+              variant: 'destructive',
+              title: 'Camera Error',
+              description: 'Could not re-access the camera.',
+            });
+          }
+        };
+        getCameraPermission();
+      }
+    } else { // Dialog is closing
+      stopCameraStream();
     }
-    // Cleanup stream if dialog is closed while stream is active
+
+    // Cleanup on unmount
     return () => {
-      if (stream && !isOpen) {
-         stopCameraStream();
+      if (stream) {
+        stopCameraStream();
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, hasCameraPermission, imagePreviewUrl, stopCameraStream, resetDialogFullState]);
+  }, [isOpen, hasCameraPermission, stream, resetScanDataStates, stopCameraStream, toast]);
 
 
   const handleExtractList = async () => {
@@ -295,7 +317,7 @@ export default function ScanDialog({
       }
       toast({ title: "Import Error", description: errorMsg, variant: "destructive" });
     } finally {
-      //   resetDialogFullState(); // Reset state
+      setIsProcessingImage(false); // Ensure spinner stops
       onOpenChange(false); // Close dialog
     }
   };
@@ -315,7 +337,7 @@ export default function ScanDialog({
       return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    stopCameraStream();
+    stopCameraStream(); // Stop the live feed after capturing
 
     canvas.toBlob(async (blob) => {
       if (blob) {
@@ -323,7 +345,7 @@ export default function ScanDialog({
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        setHasCameraPermission(true); // Should be true if we got a blob
+        // setHasCameraPermission(true); // Already true if we got here
         resetCropperState();
       }
       setIsCapturing(false);
@@ -331,10 +353,18 @@ export default function ScanDialog({
   };
 
   const handleRetakePhoto = () => {
+    // Clear existing image and crop states first
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
     resetCropperState();
-    setHasCameraPermission(null); // This will trigger re-requesting camera permission
+
+    // Explicitly stop any current stream before trying to re-initialize
+    if (stream) {
+      stopCameraStream();
+    }
+    // Setting hasCameraPermission to null will trigger the useEffect
+    // to re-request camera access and start a new stream.
+    setHasCameraPermission(null);
   };
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -361,9 +391,8 @@ export default function ScanDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         onOpenChange(open);
-        if (!open) {
-            resetDialogFullState(); // Ensure full reset when dialog is closed from outside or by X button
-        }
+        // if (!open) { // Reset logic moved to useEffect based on isOpen
+        // }
     }}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
@@ -389,7 +418,7 @@ export default function ScanDialog({
                   className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                   autoPlay
                   playsInline
-                  muted
+                  muted // Ensure video is muted
                 />
                 {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
                 {hasCameraPermission === false && (
