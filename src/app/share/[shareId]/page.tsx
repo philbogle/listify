@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { List, Subitem } from "@/types/list";
 import {
@@ -28,7 +28,7 @@ const SharedListSubitem: React.FC<{
   onDelete: (subitemId: string) => void;
   onUpdateTitle: (subitemId: string, newTitle: string) => void;
   isListCompleted: boolean;
-}> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, isListCompleted }) => {
+}> = React.memo(({ subitem, onToggleComplete, onDelete, onUpdateTitle, isListCompleted }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +44,7 @@ const SharedListSubitem: React.FC<{
     }
   }, [isEditing]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     const trimmedTitle = editedTitle.trim();
     if (trimmedTitle && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
@@ -52,14 +52,14 @@ const SharedListSubitem: React.FC<{
       setEditedTitle(subitem.title); // Revert if empty
     }
     setIsEditing(false);
-  };
+  }, [editedTitle, subitem.id, subitem.title, onUpdateTitle]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setEditedTitle(subitem.title);
     setIsEditing(false);
-  };
+  }, [subitem.title]);
 
-  if (isListCompleted) { // If list is completed, subitems are not interactive
+  if (isListCompleted) { 
     return (
       <div className="flex items-center space-x-3 py-2 px-1 rounded-md group">
         <Checkbox
@@ -125,7 +125,8 @@ const SharedListSubitem: React.FC<{
       </div>
     </div>
   );
-};
+});
+SharedListSubitem.displayName = "SharedListSubitem";
 
 
 export default function SharedListPage() {
@@ -134,7 +135,7 @@ export default function SharedListPage() {
   const shareId = params.shareId as string;
   const { toast } = useToast();
 
-  const [list, setList] = useState<List | null | undefined>(undefined); // undefined: initial, null: not found/error
+  const [list, setList] = useState<List | null | undefined>(undefined); 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -170,11 +171,10 @@ export default function SharedListPage() {
         setIsLoading(false);
         setError(null);
       },
-      (err: any) => { // Changed 'Error' to 'any' to access err.message without type conflict
+      (err: any) => { 
         console.error("Error listening to shared list:", err);
         let displayError = "Could not load the shared list. It might have been deleted or the link is incorrect.";
         if (err.message) {
-          // Attempt to provide a more user-friendly message for common permission errors
           if (err.message.toLowerCase().includes("permission-denied") || err.message.toLowerCase().includes("insufficient permissions")) {
             displayError = "Access denied. This list may not be shared publicly or there's a configuration issue. Please check Firebase security rules.";
           } else {
@@ -197,24 +197,23 @@ export default function SharedListPage() {
     }
   }, [isEditingTitle]);
 
-  const handleSaveListTitle = async () => {
+  const handleSaveListTitle = useCallback(async () => {
     if (!list) return;
     const trimmedTitle = editedListTitle.trim();
     if (trimmedTitle && trimmedTitle !== list.title) {
       try {
         await updateListInFirebase(list.id, { title: trimmedTitle });
-        // Real-time listener will update the UI
       } catch (e) {
         toast({ title: "Error", description: "Could not update list title.", variant: "destructive" });
-        setEditedListTitle(list.title); // Revert
+        setEditedListTitle(list.title); 
       }
     } else if (!trimmedTitle) {
-      setEditedListTitle(list.title); // Revert if empty
+      setEditedListTitle(list.title); 
     }
     setIsEditingTitle(false);
-  };
+  }, [list, editedListTitle, toast]);
 
-  const handleAddSubitem = async () => {
+  const handleAddSubitem = useCallback(async () => {
     if (!list || !newSubitemTitle.trim() || list.completed) return;
     const newSub: Subitem = {
       id: crypto.randomUUID(),
@@ -227,9 +226,9 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not add item.", variant: "destructive" });
     }
-  };
+  }, [list, newSubitemTitle, toast]);
 
-  const handleToggleSubitemComplete = async (subitemId: string, completed: boolean) => {
+  const handleToggleSubitemComplete = useCallback(async (subitemId: string, completed: boolean) => {
     if (!list || list.completed) return;
     const updatedSubitems = list.subitems.map(si =>
       si.id === subitemId ? { ...si, completed } : si
@@ -239,9 +238,9 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not update item status.", variant: "destructive" });
     }
-  };
+  }, [list, toast]);
 
-  const handleUpdateSubitemTitle = async (subitemId: string, newTitle: string) => {
+  const handleUpdateSubitemTitle = useCallback(async (subitemId: string, newTitle: string) => {
     if (!list || list.completed) return;
     const updatedSubitems = list.subitems.map(si =>
       si.id === subitemId ? { ...si, title: newTitle } : si
@@ -251,9 +250,9 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not update item title.", variant: "destructive" });
     }
-  };
+  }, [list, toast]);
 
-  const handleDeleteSubitem = async (subitemId: string) => {
+  const handleDeleteSubitem = useCallback(async (subitemId: string) => {
     if (!list || list.completed) return;
     const updatedSubitems = list.subitems.filter(si => si.id !== subitemId);
     try {
@@ -261,17 +260,16 @@ export default function SharedListPage() {
     } catch (e) {
       toast({ title: "Error", description: "Could not delete item.", variant: "destructive" });
     }
-  };
+  }, [list, toast]);
 
-  const handleToggleListComplete = async () => {
+  const handleToggleListComplete = useCallback(async () => {
     if (!list) return;
     try {
       await updateListInFirebase(list.id, { completed: !list.completed });
-      // Real-time listener will update the UI, including disabling inputs if completed
     } catch (e) {
       toast({ title: "Error", description: "Could not update list completion status.", variant: "destructive" });
     }
-  };
+  }, [list, toast]);
 
 
   if (isLoading) {
@@ -312,7 +310,7 @@ export default function SharedListPage() {
                 <CardTitle className="text-center">List Not Found</CardTitle>
             </CardHeader>
             <CardContent>
-                <Alert variant="default" className="text-center"> {/* Changed to default variant for "Not Found" */}
+                <Alert variant="default" className="text-center"> 
                      <AlertTriangle className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
                     <AlertDescription>The shared list could not be found. It may have been unshared or deleted, or the link is incorrect.</AlertDescription>
                 </Alert>
@@ -428,5 +426,3 @@ export default function SharedListPage() {
     </div>
   );
 }
-
-    

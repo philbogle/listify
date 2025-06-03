@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from "react";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { List, Subitem } from "@/types/list";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,7 @@ interface ListCardProps {
   currentUserId: string | null;
 }
 
-const ListCard: FC<ListCardProps> = ({
+const ListCard: FC<ListCardProps> = React.memo(({
   list,
   onUpdateList,
   onDeleteListRequested,
@@ -64,7 +64,8 @@ const ListCard: FC<ListCardProps> = ({
   isUserAuthenticated,
   currentUserId,
 }) => {
-  const [isEditing, setIsEditing] = useState(startInEditMode);
+  const [isEditing, setIsEditing] = useState(false); // Initial edit mode is handled by a separate state
+  const [isInitialNewListEdit, setIsInitialNewListEdit] = useState(startInEditMode);
   const [editedTitle, setEditedTitle] = useState(list.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
@@ -87,6 +88,7 @@ const ListCard: FC<ListCardProps> = ({
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
+      setIsInitialNewListEdit(true);
     }
   }, [startInEditMode]);
 
@@ -94,15 +96,16 @@ const ListCard: FC<ListCardProps> = ({
     if (isEditing && titleInputRef.current) {
       titleInputRef.current.focus();
       titleInputRef.current.select();
+      // No scrollIntoView for list title to avoid conflict with fixed header
     }
   }, [isEditing]);
 
 
-  const handleToggleListComplete = (completed: boolean) => {
+  const handleToggleListComplete = useCallback((completed: boolean) => {
     onUpdateList(list.id, { completed });
-  };
+  }, [onUpdateList, list.id]);
 
-  const handleAddNewSubitemInEditMode = () => {
+  const handleAddNewSubitemInEditMode = useCallback(() => {
     const newSubitem: Subitem = {
       id: crypto.randomUUID(),
       title: "Untitled Item",
@@ -110,58 +113,46 @@ const ListCard: FC<ListCardProps> = ({
     };
     onManageSubitems(list.id, [...list.subitems, newSubitem]);
     setSubitemToFocusId(newSubitem.id);
-  };
+  }, [onManageSubitems, list.id, list.subitems]);
 
-  const handleSubitemInitialEditDone = (subitemId: string) => {
+  const handleSubitemInitialEditDone = useCallback((subitemId: string) => {
     if (subitemId === subitemToFocusId) {
       setSubitemToFocusId(null);
     }
-  };
+  }, [subitemToFocusId]);
 
-  const handleToggleSubitemComplete = (subitemId: string, completed: boolean) => {
+  const handleToggleSubitemComplete = useCallback((subitemId: string, completed: boolean) => {
     const updatedSubitems = list.subitems.map((si) =>
       si.id === subitemId ? { ...si, completed } : si
     );
     onManageSubitems(list.id, updatedSubitems);
-  };
+  }, [list.id, list.subitems, onManageSubitems]);
 
-  const handleDeleteSubitem = (subitemId: string) => {
+  const handleDeleteSubitem = useCallback((subitemId: string) => {
     const updatedSubitems = list.subitems.filter(si => si.id !== subitemId);
     onManageSubitems(list.id, updatedSubitems);
-  };
+  }, [list.id, list.subitems, onManageSubitems]);
 
-  const handleUpdateSubitemTitle = (subitemId: string, newTitle: string) => {
+  const handleUpdateSubitemTitle = useCallback((subitemId: string, newTitle: string) => {
     const updatedSubitems = list.subitems.map(si =>
       si.id === subitemId ? { ...si, title: newTitle } : si
     );
     onManageSubitems(list.id, updatedSubitems);
-  };
+  }, [list.id, list.subitems, onManageSubitems]);
+
 
   const handleEdit = () => {
     setEditedTitle(list.title);
     setIsEditing(true);
   };
-
-  const handleCancelEdit = () => {
-    if (startInEditMode && list.title === "Untitled List" && editedTitle === "Untitled List") {
-      // If it was a new "Untitled List" and the user cancels without changing the title, delete it.
-      // This handles the case where `onInitialEditDone` would have been called by `handleSaveEdit`.
-      onDeleteListRequested(list.id);
-    } else {
-      setEditedTitle(list.title); // Revert to original title
-    }
-    setIsEditing(false);
-    if (startInEditMode && onInitialEditDone) {
-      onInitialEditDone(list.id);
-    }
-  };
   
-  const handleSaveEdit = async () => {
-    const titleToSave = editedTitle.trim() || list.title || "Untitled List"; // Ensure there's always a title
-    if (startInEditMode && titleToSave === "Untitled List" && list.subitems.length === 0) {
-      // If it's a new list, still "Untitled List", and has no items, consider it an abandoned new list.
+  const handleSaveEdit = useCallback(async () => {
+    const titleToSave = editedTitle.trim() || list.title || "Untitled List";
+  
+    if (isInitialNewListEdit && titleToSave === "Untitled List" && list.subitems.length === 0) {
       onDeleteListRequested(list.id);
       setIsEditing(false);
+      setIsInitialNewListEdit(false);
       if (onInitialEditDone) {
         onInitialEditDone(list.id);
       }
@@ -169,14 +160,33 @@ const ListCard: FC<ListCardProps> = ({
     }
   
     await onUpdateList(list.id, { title: titleToSave });
-    setEditedTitle(titleToSave); // Ensure local state matches saved state
+    setEditedTitle(titleToSave);
     setIsEditing(false);
-    if (startInEditMode && onInitialEditDone) {
-      onInitialEditDone(list.id);
+    if (isInitialNewListEdit) {
+      setIsInitialNewListEdit(false);
+      if (onInitialEditDone) {
+        onInitialEditDone(list.id);
+      }
     }
-  };
+  }, [editedTitle, list.title, list.subitems, list.id, isInitialNewListEdit, onUpdateList, onDeleteListRequested, onInitialEditDone]);
 
-  const handleAutogenerateItems = async () => {
+  const handleCancelEdit = useCallback(() => {
+    if (isInitialNewListEdit && (list.title === "Untitled List" || editedTitle === "Untitled List") && list.subitems.length === 0) {
+      onDeleteListRequested(list.id);
+    } else {
+      setEditedTitle(list.title);
+    }
+    setIsEditing(false);
+    if (isInitialNewListEdit) {
+      setIsInitialNewListEdit(false);
+      if (onInitialEditDone) {
+        onInitialEditDone(list.id);
+      }
+    }
+  }, [list.title, list.id, editedTitle, list.subitems, isInitialNewListEdit, onDeleteListRequested, onInitialEditDone]);
+
+
+  const handleAutogenerateItems = useCallback(async () => {
     if (!list.title.trim() && list.subitems.length === 0) {
       toast({
         title: "Cannot Autogenerate",
@@ -234,9 +244,9 @@ const ListCard: FC<ListCardProps> = ({
     } finally {
       setIsGeneratingItems(false);
     }
-  };
+  }, [list.id, list.title, list.subitems, onManageSubitems, toast]);
 
-  const handleCopyListContent = async () => {
+  const handleCopyListContent = useCallback(async () => {
     let textToCopy = `${list.title}\n`;
     textToCopy += list.subitems.map(si => `${si.completed ? '+' : '-'} ${si.title}`).join('\n');
 
@@ -255,9 +265,9 @@ const ListCard: FC<ListCardProps> = ({
         variant: "destructive",
       });
     }
-  };
+  }, [list.title, list.subitems, toast]);
 
-  const handleOpenShareDialog = () => {
+  const handleOpenShareDialog = useCallback(() => {
     if (!isUserAuthenticated) {
       toast({ title: "Sign In Required", description: "Please sign in to share lists.", variant: "destructive" });
       return;
@@ -266,9 +276,9 @@ const ListCard: FC<ListCardProps> = ({
       setShareLinkValue(`${window.location.origin}/share/${list.shareId}`);
     }
     setIsShareDialogOpen(true);
-  };
+  }, [isUserAuthenticated, list.shareId, toast]);
 
-  const handleGenerateShareLink = async () => {
+  const handleGenerateShareLink = useCallback(async () => {
     if (!isUserAuthenticated) {
       toast({ title: "Sign In Required", variant: "destructive" });
       setIsShareDialogOpen(false);
@@ -287,9 +297,9 @@ const ListCard: FC<ListCardProps> = ({
     } finally {
       setIsSharingLoading(false);
     }
-  };
+  }, [isUserAuthenticated, list.id, shareList, toast]);
 
-  const handleCopyShareLink = async () => {
+  const handleCopyShareLink = useCallback(async () => {
     if (!shareLinkValue) return;
     try {
       await navigator.clipboard.writeText(shareLinkValue);
@@ -306,9 +316,9 @@ const ListCard: FC<ListCardProps> = ({
         variant: "destructive",
       });
     }
-  };
+  }, [shareLinkValue, toast]);
 
-  const handleStopSharing = async () => {
+  const handleStopSharing = useCallback(async () => {
      if (!isUserAuthenticated) {
       toast({ title: "Sign In Required", variant: "destructive" });
       setIsShareDialogOpen(false);
@@ -323,7 +333,7 @@ const ListCard: FC<ListCardProps> = ({
     } finally {
       setIsSharingLoading(false);
     }
-  };
+  }, [isUserAuthenticated, list.id, unshareList, toast]);
 
   const isOwner = list.userId === currentUserId && currentUserId !== null;
 
@@ -566,6 +576,6 @@ const ListCard: FC<ListCardProps> = ({
       </Dialog>
     </>
   );
-};
-
+});
+ListCard.displayName = "ListCard";
 export default ListCard;

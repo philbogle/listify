@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Save, X, MoreVertical, Edit3, CheckCircle2, Circle } from "lucide-react";
 import type { Subitem } from "@/types/list";
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,8 +26,9 @@ interface SubitemProps {
   onInitialEditDone?: (subitemId: string) => void;
 }
 
-const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
-  const [isEditing, setIsEditing] = useState(startInEditMode);
+const SubitemComponent: FC<SubitemProps> = React.memo(({ subitem, onToggleComplete, onDelete, onUpdateTitle, startInEditMode = false, onInitialEditDone }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isInitialNewSubitemEdit, setIsInitialNewSubitemEdit] = useState(startInEditMode);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [menuIsVisible, setMenuIsVisible] = useState(false);
@@ -35,6 +36,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   useEffect(() => {
     if (startInEditMode) {
       setIsEditing(true);
+      setIsInitialNewSubitemEdit(true);
       setMenuIsVisible(false);
     }
   }, [startInEditMode]);
@@ -43,35 +45,51 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     if (isEditing && titleInputRef.current) {
       titleInputRef.current.focus();
       titleInputRef.current.select();
+      // No scrollIntoView here as requested for newly added items
     }
   }, [isEditing]);
 
-  const handleStartEdit = () => {
+  const handleStartEdit = useCallback(() => {
     setEditedTitle(subitem.title);
     setIsEditing(true);
     setMenuIsVisible(false);
-  };
+  }, [subitem.title]);
 
-  const handleUpdateTitle = () => {
+  const handleUpdateTitle = useCallback(() => {
     const trimmedTitle = editedTitle.trim();
     if (trimmedTitle && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
     } else if (!trimmedTitle) { 
+      if (isInitialNewSubitemEdit) { // If it's a new item and title is cleared, delete it
+        onDelete(subitem.id);
+      } else {
+        setEditedTitle(subitem.title); // Revert to original if not new or not empty
+      }
+    }
+    setIsEditing(false);
+    if (isInitialNewSubitemEdit) {
+      setIsInitialNewSubitemEdit(false);
+      if (onInitialEditDone) {
+        onInitialEditDone(subitem.id);
+      }
+    }
+  }, [editedTitle, subitem.title, subitem.id, isInitialNewSubitemEdit, onUpdateTitle, onDelete, onInitialEditDone]);
+
+  const handleCancelEdit = useCallback(() => {
+    if (isInitialNewSubitemEdit && (editedTitle.trim() === "" || editedTitle === "Untitled Item")) {
+      onDelete(subitem.id); // Delete if new, untitled, and cancelled
+    } else {
       setEditedTitle(subitem.title);
     }
     setIsEditing(false);
-    if (startInEditMode && onInitialEditDone) {
-      onInitialEditDone(subitem.id);
+    if (isInitialNewSubitemEdit) {
+      setIsInitialNewSubitemEdit(false);
+      if (onInitialEditDone) {
+        onInitialEditDone(subitem.id);
+      }
     }
-  };
+  }, [subitem.title, subitem.id, editedTitle, isInitialNewSubitemEdit, onDelete, onInitialEditDone]);
 
-  const handleCancelEdit = () => {
-    setEditedTitle(subitem.title);
-    setIsEditing(false);
-    if (startInEditMode && onInitialEditDone) {
-      onInitialEditDone(subitem.id);
-    }
-  };
 
   const handleRowClick = (e: React.MouseEvent) => {
     if (isEditing) return;
@@ -174,6 +192,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       </div>
     </div>
   );
-};
+});
 
+SubitemComponent.displayName = "SubitemComponent";
 export default SubitemComponent;
