@@ -4,12 +4,12 @@
 import ListCard from "@/components/ListCard";
 import { useLists } from "@/hooks/useLists";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
 import ImportListDialog from "@/components/ImportListDialog"; 
 import AppHeader from "@/components/AppHeader"; 
 import ViewScanDialog from "@/components/ViewScanDialog";
+import UserSignInPrompt from "@/components/UserSignInPrompt";
 
 import {
   AlertDialog,
@@ -27,10 +27,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks, AlertTriangle, Loader2, Trash2 } from "lucide-react"; 
+import { AlertTriangle, ListChecks, Loader2 } from "lucide-react"; 
 import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/firebase"; 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import type { List } from "@/types/list";
 import { useToast } from "@/hooks/use-toast";
 
@@ -301,20 +300,12 @@ export default function Home() {
               {renderCompletedListSection()}
           </section>
 
-          {!currentUser && firebaseReady && !isLoading && (
-            <div className="w-full max-w-2xl mt-12 bg-card border rounded-lg shadow-md p-4 sm:p-6 flex flex-col items-center">
-              <h1 className="text-xl font-semibold mb-2">Welcome to Listify!</h1>
-              <p className="text-muted-foreground mb-1 text-center text-sm">
-                You&apos;re currently using Listify locally.
-              </p>
-              <p className="text-muted-foreground mb-4 text-center text-sm">
-                Sign in with Google to sync your lists and enable cloud features like sharing. AI features like scanning and item generation are available without sign-in.
-              </p>
-              <Button onClick={handleSignIn} className="px-6 py-3 text-base">
-                Sign in with Google
-              </Button>
-            </div>
-          )}
+          <UserSignInPrompt
+            currentUser={currentUser}
+            firebaseReady={firebaseReady}
+            isLoading={isLoading}
+            onSignIn={handleSignIn}
+          />
         </main>
       )}
 
