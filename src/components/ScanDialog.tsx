@@ -123,6 +123,8 @@ export default function ScanDialog({
   const imgRef = useRef<HTMLImageElement>(null);
   const [cropAspect, setCropAspect] = useState<number | undefined>(undefined);
 
+  const prevIsOpenRef = useRef(isOpen);
+
   const resetCropperState = () => {
     setCrop(undefined);
     setCompletedCrop(undefined);
@@ -145,63 +147,61 @@ export default function ScanDialog({
     }
   }, [stream]);
 
+  const getCameraPermission = useCallback(async () => {
+    if (imagePreviewUrl) {
+      if (stream) stopCameraStream();
+      return;
+    }
+    if (hasCameraPermission === false) return;
+
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      setStream(mediaStream);
+      setHasCameraPermission(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setHasCameraPermission(false);
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Denied',
+        description: 'Please enable camera permissions in your browser settings.',
+      });
+    }
+  }, [imagePreviewUrl, hasCameraPermission, stream, stopCameraStream, toast]);
 
   useEffect(() => {
-    if (isOpen) {
-      resetScanDataStates(); // Clear previous scan image, file, crop, and processing state
+    const wasOpen = prevIsOpenRef.current;
 
-      if (hasCameraPermission === null) { // If permission status is unknown (initial or after retake)
-        const getCameraPermission = async () => {
-          try {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            setStream(mediaStream);
-            setHasCameraPermission(true);
-            if (videoRef.current) {
-              videoRef.current.srcObject = mediaStream;
-            }
-          } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            toast({
-              variant: 'destructive',
-              title: 'Camera Access Denied',
-              description: 'Please enable camera permissions in your browser settings.',
-            });
-          }
-        };
-        getCameraPermission();
-      } else if (hasCameraPermission === true && !stream) { // Permission granted, but stream is not active (e.g. dialog reopened)
-        const getCameraPermission = async () => {
-          try {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            setStream(mediaStream);
-            // setHasCameraPermission(true); // Already true
-            if (videoRef.current) {
-              videoRef.current.srcObject = mediaStream;
-            }
-          } catch (error) { // Should ideally not happen if permission was already true, but handle defensively
-            console.error('Error re-accessing camera:', error);
-            setHasCameraPermission(false); // Re-set to false if access fails now
-            toast({
-              variant: 'destructive',
-              title: 'Camera Error',
-              description: 'Could not re-access the camera.',
-            });
-          }
-        };
-        getCameraPermission();
-      }
-    } else { // Dialog is closing
-      stopCameraStream();
+    if (isOpen && !wasOpen) { // Dialog just transitioned from closed to open
+      resetScanDataStates();
+      setHasCameraPermission(null); // Force re-evaluation of camera state/permission
     }
 
-    // Cleanup on unmount
-    return () => {
+    if (isOpen) {
+      if (hasCameraPermission === null) {
+        getCameraPermission();
+      } else if (hasCameraPermission === true && !stream && !imagePreviewUrl) {
+        getCameraPermission();
+      }
+    } else { // isOpen is false (dialog is closing or closed)
       if (stream) {
         stopCameraStream();
       }
-    };
-  }, [isOpen, hasCameraPermission, stream, resetScanDataStates, stopCameraStream, toast]);
+    }
+
+    prevIsOpenRef.current = isOpen; // Update for the next render cycle
+  }, [
+    isOpen,
+    hasCameraPermission,
+    stream,
+    imagePreviewUrl,
+    resetScanDataStates,
+    getCameraPermission,
+    stopCameraStream,
+  ]);
 
 
   const handleExtractList = async () => {
@@ -317,8 +317,8 @@ export default function ScanDialog({
       }
       toast({ title: "Import Error", description: errorMsg, variant: "destructive" });
     } finally {
-      setIsProcessingImage(false); // Ensure spinner stops
-      onOpenChange(false); // Close dialog
+      setIsProcessingImage(false); 
+      onOpenChange(false); 
     }
   };
 
@@ -345,7 +345,6 @@ export default function ScanDialog({
         setCapturedImageFile(capturedFile);
         const previewUrl = URL.createObjectURL(capturedFile);
         setImagePreviewUrl(previewUrl);
-        // setHasCameraPermission(true); // Already true if we got here
         resetCropperState();
       }
       setIsCapturing(false);
@@ -353,17 +352,13 @@ export default function ScanDialog({
   };
 
   const handleRetakePhoto = () => {
-    // Clear existing image and crop states first
     setImagePreviewUrl(null);
     setCapturedImageFile(null);
     resetCropperState();
 
-    // Explicitly stop any current stream before trying to re-initialize
     if (stream) {
       stopCameraStream();
     }
-    // Setting hasCameraPermission to null will trigger the useEffect
-    // to re-request camera access and start a new stream.
     setHasCameraPermission(null);
   };
 
@@ -391,8 +386,6 @@ export default function ScanDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         onOpenChange(open);
-        // if (!open) { // Reset logic moved to useEffect based on isOpen
-        // }
     }}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
@@ -418,7 +411,7 @@ export default function ScanDialog({
                   className={`w-full h-full object-cover ${!stream || !hasCameraPermission ? 'hidden' : ''}`}
                   autoPlay
                   playsInline
-                  muted // Ensure video is muted
+                  muted 
                 />
                 {!stream && hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
                 {hasCameraPermission === false && (
