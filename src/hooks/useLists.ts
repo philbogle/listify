@@ -25,7 +25,6 @@ const LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX = "listify_active_lists_";
 const LOCAL_STORAGE_COMPLETED_LISTS_KEY_PREFIX = "listify_completed_lists_";
 
 const NO_FIREBASE_SUFFIX = "anonymous_no_fb";
-const FIREBASE_PENDING_MIGRATION_SUFFIX = "anonymous_fb_pending";
 
 
 export const useLists = () => {
@@ -43,7 +42,10 @@ export const useLists = () => {
     if (currentUser) {
       return currentUser.uid;
     }
-    return isFirebaseConfigured() ? FIREBASE_PENDING_MIGRATION_SUFFIX : NO_FIREBASE_SUFFIX;
+    // Only use NO_FIREBASE_SUFFIX if Firebase is NOT configured.
+    // If Firebase IS configured but user is signed out, they can't create lists,
+    // so local storage for their "own" lists isn't used in that context.
+    return isFirebaseConfigured() ? "ANONYMOUS_WITH_FIREBASE_NO_LOCAL_LISTS" : NO_FIREBASE_SUFFIX;
   }, [currentUser]);
 
   const getActiveLocalKey = useCallback(() => LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX + getStorageKeySuffix(), [getStorageKeySuffix]);
@@ -52,6 +54,14 @@ export const useLists = () => {
   const sortLists = (a: List, b: List) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
 
   const loadListsFromLocalStorage = useCallback(() => {
+    // If Firebase is configured and user is signed out, they don't have local lists.
+    if (!currentUser && isFirebaseConfigured()) {
+      setActiveLists([]);
+      setCompletedLists([]);
+      console.log("[useLists] Anonymous user with Firebase configured: setting in-memory lists to empty.");
+      return;
+    }
+
     try {
       const activeKey = getActiveLocalKey();
       const completedKey = getCompletedLocalKey();
@@ -68,10 +78,23 @@ export const useLists = () => {
       setActiveLists([]);
       setCompletedLists([]);
     }
-  }, [getActiveLocalKey, getCompletedLocalKey]);
+  }, [getActiveLocalKey, getCompletedLocalKey, currentUser]);
 
   const saveListsToLocalStorage = useCallback(() => {
-    if (isLoading || (isFirebaseConfigured() && currentUser)) return; 
+    // If Firebase is configured and user is signed out, do not save lists locally.
+    // Also, don't save if signed in (Firebase is source of truth) or if still loading.
+    if (isLoading || (isFirebaseConfigured() && (currentUser || !currentUser))) {
+        if (!currentUser && isFirebaseConfigured()) {
+            // This case means signed out with Firebase - no local lists for them
+            return;
+        }
+        if(currentUser && isFirebaseConfigured()){
+            // Signed in with Firebase - no local lists for them either
+            return;
+        }
+    }
+
+
     try {
       const activeKey = getActiveLocalKey();
       const completedKey = getCompletedLocalKey();
@@ -98,13 +121,18 @@ export const useLists = () => {
 
       setIsLoading(true);
 
-      if (user) {
-        setCurrentUser(user); 
-        const pendingActiveKey = LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX + FIREBASE_PENDING_MIGRATION_SUFFIX;
-        const pendingCompletedKey = LOCAL_STORAGE_COMPLETED_LISTS_KEY_PREFIX + FIREBASE_PENDING_MIGRATION_SUFFIX;
-        console.log("[useLists] User signed in. Clearing local pending migration data.");
-        localStorage.removeItem(pendingActiveKey);
-        localStorage.removeItem(pendingCompletedKey);
+      if (user) { // User signed IN
+        setCurrentUser(user);
+        
+        // If Firebase is configured, clear any old lists stored under "NO_FIREBASE_SUFFIX"
+        // This handles the case where a user used the app locally, then configured Firebase and signed in.
+        if (isFirebaseConfigured()) {
+            const oldLocalActiveKey = LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX + NO_FIREBASE_SUFFIX;
+            const oldLocalCompletedKey = LOCAL_STORAGE_COMPLETED_LISTS_KEY_PREFIX + NO_FIREBASE_SUFFIX;
+            console.log("[useLists] User signed in with Firebase. Clearing old non-Firebase local storage:", oldLocalActiveKey, oldLocalCompletedKey);
+            localStorage.removeItem(oldLocalActiveKey);
+            localStorage.removeItem(oldLocalCompletedKey);
+        }
         
         setActiveLists([]);
         setCompletedLists([]);
@@ -124,24 +152,30 @@ export const useLists = () => {
             if (isLoading) setIsLoading(false);
           }
         );
-      } else { 
+      } else { // User signed OUT or anonymous
         setCurrentUser(null);
-        console.log("[useLists] User signed out or anonymous. Clearing in-memory lists and explicitly saving this cleared state to local for new context.");
         setActiveLists([]); 
         setCompletedLists([]); 
         setHasFetchedCompleted(false); 
 
-        const activeKey = getActiveLocalKey(); 
-        const completedKey = getCompletedLocalKey();
-        try {
-            localStorage.setItem(activeKey, JSON.stringify([]));
-            localStorage.setItem(completedKey, JSON.stringify([]));
-            console.log(`[useLists] Explicitly saved empty lists to local keys: ${activeKey}, ${completedKey} on sign-out.`);
-        } catch (error) {
-            console.error("Error explicitly saving empty lists to local storage on sign-out:", error);
+        if (!isFirebaseConfigured()) {
+            // Firebase NOT configured, so load from local (NO_FIREBASE_SUFFIX)
+            console.log("[useLists] User signed out, Firebase NOT configured. Loading from local storage for anonymous_no_fb.");
+            loadListsFromLocalStorage(); 
+        } else {
+            // Firebase IS configured, user signed out. They cannot create lists.
+            // Explicitly clear local storage for the "ANONYMOUS_WITH_FIREBASE_NO_LOCAL_LISTS" context to be safe,
+            // although save/load functions should also prevent operations for this context.
+            const activeKey = getActiveLocalKey(); 
+            const completedKey = getCompletedLocalKey();
+            try {
+                localStorage.setItem(activeKey, JSON.stringify([]));
+                localStorage.setItem(completedKey, JSON.stringify([]));
+                console.log(`[useLists] User signed out, Firebase IS configured. Explicitly saved empty lists to local keys: ${activeKey}, ${completedKey}.`);
+            } catch (error) {
+                console.error("Error explicitly saving empty lists to local storage on sign-out (Firebase configured):", error);
+            }
         }
-
-        loadListsFromLocalStorage(); 
         setIsLoading(false);
       }
     });
@@ -157,10 +191,12 @@ export const useLists = () => {
   }, [loadListsFromLocalStorage, toast, getActiveLocalKey, getCompletedLocalKey]); 
 
    useEffect(() => {
-    if (!isLoading && (!isFirebaseConfigured() || !currentUser)) {
+    // This effect saves to local storage when lists change,
+    // respecting the conditions in saveListsToLocalStorage (e.g., not for signed-in users or anonymous with Firebase)
+    if (!isLoading) {
         saveListsToLocalStorage();
     }
-  }, [activeLists, completedLists, isLoading, saveListsToLocalStorage, currentUser]);
+  }, [activeLists, completedLists, isLoading, saveListsToLocalStorage]);
 
 
   const fetchCompletedListsIfNeeded = useCallback(async () => {
@@ -179,6 +215,9 @@ export const useLists = () => {
         setIsLoadingCompleted(false);
       }
     } else {
+      // If not signed in or Firebase not configured, completed lists are handled by general local storage load.
+      // If Firebase IS configured and user is not signed in, completedLists should be empty.
+      setCompletedLists(prev => isFirebaseConfigured() && !currentUser ? [] : prev);
       setHasFetchedCompleted(true); 
       setIsLoadingCompleted(false);
     }
@@ -189,6 +228,11 @@ export const useLists = () => {
     listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls" | "shareId">,
     capturedImageFile?: File | null
   ): Promise<List | undefined> => {
+    if (!currentUser && isFirebaseConfigured()) {
+      toast({ title: "Sign In Required", description: "Please sign in to create lists.", variant: "destructive" });
+      return undefined;
+    }
+
     const optimisticId = crypto.randomUUID();
     const optimisticList: List = {
       ...listData,
@@ -221,7 +265,8 @@ export const useLists = () => {
         };
 
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
-        return addedListFromFirebase;
+        // Firebase listener will update the list state, so no need to return optimistic here for Firebase path.
+        return addedListFromFirebase; // Return the actual list from Firebase
       } catch (error) {
         console.error("Error adding list to Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not add list.", variant: "destructive" });
@@ -229,7 +274,8 @@ export const useLists = () => {
         return undefined;
       }
     } else {
-      console.log("[useLists] Adding list locally for anonymous user:", optimisticList.title);
+      // This case is for !isFirebaseConfigured() (local-only mode)
+      console.log("[useLists] Adding list locally (no Firebase):", optimisticList.title);
       return optimisticList;
     }
   };
@@ -309,7 +355,8 @@ export const useLists = () => {
             }
         }
     } else {
-        console.log("[useLists] Updated list locally for anonymous user:", listId);
+        // This case is for !isFirebaseConfigured() (local-only mode)
+        console.log("[useLists] Updated list locally (no Firebase):", listId);
     }
   };
 
@@ -330,7 +377,8 @@ export const useLists = () => {
         setCompletedLists(originalCompletedLists.sort(sortLists));
       }
     } else {
-       console.log("[useLists] Deleted list locally for anonymous user:", listId);
+       // This case is for !isFirebaseConfigured() (local-only mode)
+       console.log("[useLists] Deleted list locally (no Firebase):", listId);
     }
   };
 
@@ -375,7 +423,8 @@ export const useLists = () => {
         }
       }
     } else {
-        console.log("[useLists] Managed subitems locally for anonymous user on list:", listId);
+        // This case is for !isFirebaseConfigured() (local-only mode)
+        console.log("[useLists] Managed subitems locally (no Firebase) on list:", listId);
     }
   };
 
@@ -387,8 +436,7 @@ export const useLists = () => {
     try {
       const newShareId = await generateShareIdForList(listId, currentUser.uid);
       if (newShareId) {
-        setActiveLists(prev => prev.map(l => l.id === listId ? {...l, shareId: newShareId} : l).sort(sortLists));
-        setCompletedLists(prev => prev.map(l => l.id === listId ? {...l, shareId: newShareId} : l).sort(sortLists));
+        // Firebase listener will update the list state
         toast({ title: "List Shared!", description: "A public share link has been created." });
         return newShareId;
       } else {
@@ -409,8 +457,7 @@ export const useLists = () => {
     }
     try {
       await removeShareIdFromList(listId, currentUser.uid);
-      setActiveLists(prev => prev.map(l => l.id === listId ? {...l, shareId: null} : l).sort(sortLists));
-      setCompletedLists(prev => prev.map(l => l.id === listId ? {...l, shareId: null} : l).sort(sortLists));
+      // Firebase listener will update the list state
       toast({ title: "Sharing Stopped", description: "The list is no longer publicly shared." });
     } catch (error) {
       console.error("Error unsharing list:", error);
@@ -419,6 +466,11 @@ export const useLists = () => {
   };
 
   const deleteAllLists = async (): Promise<void> => {
+    if (!currentUser && isFirebaseConfigured()) {
+      toast({ title: "Sign In Required", description: "Please sign in to manage your lists.", variant: "destructive" });
+      return;
+    }
+
     const allListIdsToDelete = [...activeLists, ...completedLists].map(l => l.id);
 
     setActiveLists([]);
@@ -434,11 +486,13 @@ export const useLists = () => {
       } catch (error) {
         console.error("Error deleting all lists from Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not delete all lists from cloud. Some may remain. Please refresh.", variant: "destructive" });
+        // Re-fetch might be an option here, or rely on listeners to eventually correct state if partial delete.
+        // For now, we assume listeners will reflect the new empty state if deletes were partially successful.
       }
-    } else { 
+    } else { // Case: !currentUser && !isFirebaseConfigured()
       try {
-        const activeKey = getActiveLocalKey();
-        const completedKey = getCompletedLocalKey();
+        const activeKey = getActiveLocalKey(); // Will be _no_fb key
+        const completedKey = getCompletedLocalKey(); // Will be _no_fb key
         console.log(`[useLists - deleteAll] Removing local keys: ${activeKey}, ${completedKey}`);
         localStorage.removeItem(activeKey);
         localStorage.removeItem(completedKey);

@@ -24,8 +24,8 @@ interface AppHeaderProps {
   onSignIn: () => void;
   onSignOut: () => void;
   onOpenHelpDialog: () => void;
-  onOpenDeleteAllDialog: () => void; // New prop
-  hasLists: boolean; // New prop to enable/disable delete all
+  onOpenDeleteAllDialog: () => void;
+  hasLists: boolean;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -47,7 +47,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         <div className="flex items-center space-x-1 sm:space-x-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default">
+              <Button variant="default" disabled={!currentUser && firebaseReady}>
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
             </DropdownMenuTrigger>
@@ -104,7 +104,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                       <span>Help</span>
                     </DropdownMenuItem>
                      <DropdownMenuSeparator />
-                     <DropdownMenuItem onClick={onOpenDeleteAllDialog} disabled={!hasLists} className={!hasLists ? "text-muted-foreground" : ""}>
+                     {/* Delete All My Lists is available for anonymous non-Firebase users */}
+                     <DropdownMenuItem onClick={onOpenDeleteAllDialog} disabled={!hasLists && firebaseReady} className={!hasLists && firebaseReady ? "text-muted-foreground" : ""}>
                       <Trash2 className="mr-2 h-4 w-4" />
                        <span>Delete All My Lists</span>
                     </DropdownMenuItem>
@@ -120,3 +121,4 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 };
 
 export default AppHeader;
+
