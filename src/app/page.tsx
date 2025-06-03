@@ -278,51 +278,49 @@ export default function Home() {
         </div>
       )}
 
-      {(isLoading || !firebaseReady || (firebaseReady && currentUser) || (firebaseReady && !currentUser && !isFirebaseConfigured())) && (
-        <main className="w-full max-w-2xl">
-          <AppHeader
-            currentUser={currentUser}
-            firebaseReady={firebaseReady}
-            onAddNewList={handleAddNewList}
-            onOpenScanDialogForNewList={handleOpenScanDialogForNewList}
-            onOpenImportListDialog={handleOpenImportListDialog}
-            onSignIn={handleSignIn}
-            onSignOut={handleSignOut}
-            onOpenHelpDialog={() => setIsHelpDialogOpen(true)}
-            onOpenDeleteAllDialog={handleOpenDeleteAllDialog}
-            hasLists={activeLists.length > 0 || completedLists.length > 0}
-          />
+      <main className="w-full max-w-2xl">
+        <AppHeader
+          currentUser={currentUser}
+          firebaseReady={firebaseReady}
+          onAddNewList={handleAddNewList}
+          onOpenScanDialogForNewList={handleOpenScanDialogForNewList}
+          onOpenImportListDialog={handleOpenImportListDialog}
+          onSignIn={handleSignIn}
+          onSignOut={handleSignOut}
+          onOpenHelpDialog={() => setIsHelpDialogOpen(true)}
+          onOpenDeleteAllDialog={handleOpenDeleteAllDialog}
+          hasLists={activeLists.length > 0 || completedLists.length > 0}
+        />
 
-          <section aria-labelledby="list-heading" className="pt-6">
-            {isLoading ? (
-                Array.from({ length: 2 }).map((_, index) => (
-                    <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
-                    <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
-                    <Skeleton className="h-6 w-4/5 inline-block" />
-                    <div className="mt-4 space-y-2">
-                        <Skeleton className="h-8 w-full" />
-                    </div>
-                    </div>
-                ))
-            ) : (
-                <div className="space-y-4">
-                    {renderActiveLists()}
-                </div>
-            )}
-          </section>
+        <section aria-labelledby="list-heading" className="pt-6">
+          {isLoading ? (
+              Array.from({ length: 2 }).map((_, index) => (
+                  <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
+                  <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
+                  <Skeleton className="h-6 w-4/5 inline-block" />
+                  <div className="mt-4 space-y-2">
+                      <Skeleton className="h-8 w-full" />
+                  </div>
+                  </div>
+              ))
+          ) : (
+              <div className="space-y-4">
+                  {renderActiveLists()}
+              </div>
+          )}
+        </section>
 
-          <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
-              {renderCompletedListSection()}
-          </section>
+        <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
+            {renderCompletedListSection()}
+        </section>
 
-          <UserSignInPrompt
-            currentUser={currentUser}
-            firebaseReady={firebaseReady}
-            isLoading={isLoading}
-            onSignIn={handleSignIn}
-          />
-        </main>
-      )}
+        <UserSignInPrompt
+          currentUser={currentUser}
+          firebaseReady={firebaseReady}
+          isLoading={isLoading}
+          onSignIn={handleSignIn}
+        />
+      </main>
 
       <ScanDialog
         isOpen={scanDialogProps.open}
