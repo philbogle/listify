@@ -219,7 +219,7 @@ export default function Home() {
         </div>
       ));
     }
-    if (activeLists.length === 0 && !isLoading) {
+    if (activeLists.length === 0 && !isLoading && (currentUser || !firebaseReady)) {
       return (
         <div className="text-center py-10">
           <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -278,7 +278,7 @@ export default function Home() {
         </div>
       )}
 
-      {(isLoading || !firebaseReady || (firebaseReady && currentUser) || (firebaseReady && !currentUser)) && (
+      {(isLoading || !firebaseReady || (firebaseReady && currentUser) || (firebaseReady && !currentUser && !isFirebaseConfigured())) && (
         <main className="w-full max-w-2xl">
           <AppHeader
             currentUser={currentUser}
