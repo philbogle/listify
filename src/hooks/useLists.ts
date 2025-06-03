@@ -1,12 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react"; // Added useRef
 import type { List, Subitem } from "@/types/list";
 import {
   addListToFirebase,
-  // getListsFromFirebase, // Replaced by listenToActiveLists
-  listenToActiveLists, // Added for real-time updates
+  listenToActiveLists, 
   getCompletedListsFromFirebase,
   updateListInFirebase,
   deleteListFromFirebase,
@@ -37,7 +36,7 @@ export const useLists = () => {
   const [hasFetchedCompleted, setHasFetchedCompleted] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
-  const [activeListsUnsubscribe, setActiveListsUnsubscribe] = useState<Unsubscribe | null>(null);
+  const activeListsUnsubscribeRef = useRef<Unsubscribe | null>(null); // Changed from useState to useRef
 
 
   const getStorageKeySuffix = useCallback(() => {
@@ -74,8 +73,6 @@ export const useLists = () => {
   }, [getActiveLocalKey, getCompletedLocalKey]);
 
   const saveListsToLocalStorage = useCallback(() => {
-    // This function should only be effective if isLoading is false AND user is anonymous or Firebase isn't configured.
-    // Avoids race conditions or overwriting Firebase data with stale local data for authenticated users.
     if (isLoading || (isFirebaseConfigured() && currentUser)) return; 
     try {
       const activeKey = getActiveLocalKey();
@@ -93,20 +90,21 @@ export const useLists = () => {
     const unsubscribeAuth = onAuthUserChanged(async (user) => {
       console.log("[useLists] Auth state changed. New user:", user?.uid || "null");
       
-      if (activeListsUnsubscribe) {
+      if (activeListsUnsubscribeRef.current) {
         console.log("[useLists] Unsubscribing from previous active lists listener.");
-        activeListsUnsubscribe();
-        setActiveListsUnsubscribe(null);
+        activeListsUnsubscribeRef.current();
+        activeListsUnsubscribeRef.current = null;
       }
 
-      setIsLoading(true);
+      setIsLoading(true); // Set loading true at the start of auth change
       setActiveLists([]); 
       setCompletedLists([]);
       setHasFetchedCompleted(false);
-      setCurrentUser(user);
+      // setCurrentUser is set within the if/else blocks now
 
       if (user) { 
-        // --- Migration Logic ---
+        setCurrentUser(user); // Set user for migration and subsequent calls
+
         const pendingActiveKey = LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX + FIREBASE_PENDING_MIGRATION_SUFFIX;
         const pendingCompletedKey = LOCAL_STORAGE_COMPLETED_LISTS_KEY_PREFIX + FIREBASE_PENDING_MIGRATION_SUFFIX;
         const localPendingActiveListsRaw = localStorage.getItem(pendingActiveKey);
@@ -132,43 +130,42 @@ export const useLists = () => {
           localStorage.removeItem(pendingActiveKey);
           localStorage.removeItem(pendingCompletedKey);
         }
-        // --- End Migration Logic ---
 
         console.log(`[useLists] Setting up real-time listener for active lists for user ${user.uid}`);
-        const unsubscribeActive = listenToActiveLists(
+        activeListsUnsubscribeRef.current = listenToActiveLists(
           user.uid,
           (firebaseLists) => {
             console.log("[useLists] Received update for active lists from Firebase:", firebaseLists.length, "lists");
             setActiveLists(firebaseLists.sort(sortLists));
-            if (isLoading) setIsLoading(false); 
+            if (isLoading) setIsLoading(false); // Set loading to false after first data from listener
           },
           (error) => {
             console.error("Error in active lists listener:", error);
             toast({ title: "Real-time Sync Error", description: "Could not sync active lists live.", variant: "destructive" });
-            if (isLoading) setIsLoading(false);
+            if (isLoading) setIsLoading(false); // Also set loading false on error
           }
         );
-        setActiveListsUnsubscribe(() => unsubscribeActive); 
-
-        setCompletedLists([]); 
-        setHasFetchedCompleted(false);
-
+        // Reset completed lists state for the new user, loading will be triggered by UI if needed
+        // setCompletedLists([]); // Already done above
+        // setHasFetchedCompleted(false); // Already done above
       } else { 
+        setCurrentUser(null); // Ensure currentUser is null for anonymous state
         console.log("[useLists] User signed out or anonymous. Loading from local storage.");
         loadListsFromLocalStorage(); 
-        setIsLoading(false);
+        setIsLoading(false); // Set loading false after local storage load
       }
     });
 
     return () => {
-      console.log("[useLists] Cleaning up auth listener and active lists listener (if active).");
+      console.log("[useLists] Cleaning up auth listener and active lists listener (if active) on component unmount.");
       unsubscribeAuth();
-      if (activeListsUnsubscribe) {
-        activeListsUnsubscribe();
+      if (activeListsUnsubscribeRef.current) {
+        activeListsUnsubscribeRef.current();
+        activeListsUnsubscribeRef.current = null;
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, [loadListsFromLocalStorage, toast]); // isLoading (setter) is stable, getActive/CompletedLocalKey are stable if currentUser is stable
 
    useEffect(() => {
     if (!isLoading && (!isFirebaseConfigured() || !currentUser)) {
@@ -215,14 +212,13 @@ export const useLists = () => {
       shareId: null,
     };
 
-    // Optimistic update for UI responsiveness, especially for anonymous users
     setActiveLists(prev => [optimisticList, ...prev].sort(sortLists));
 
     if (currentUser && isFirebaseConfigured()) {
       try {
         let initialScanUrl: string | undefined = undefined;
         if (capturedImageFile) {
-          initialScanUrl = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, optimisticId); // Use optimisticId for path consistency before real ID
+          initialScanUrl = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, optimisticId); 
           optimisticList.scanImageUrls = initialScanUrl ? [initialScanUrl] : [];
         }
 
@@ -235,37 +231,31 @@ export const useLists = () => {
             shareId: null,
         };
         
-        // addListToFirebase returns a list with optimistic serverTimestamp (client's current time)
-        // The real-time listener will soon update it with the actual server timestamp.
         const addedListFromFirebase = await addListToFirebase(newListBase, currentUser.uid);
-        
-        // Replace optimistic list with Firebase one if IDs differ (which they will initially)
-        // Or rely on the listener to update the state. For now, the listener handles it.
-        // setActiveLists(prev => prev.map(l => l.id === optimisticId ? addedListFromFirebase : l).sort(sortLists));
-        return addedListFromFirebase; // Return the list with the actual ID from Firebase
+        // The listener will handle updating the UI with the server-confirmed list.
+        // We can return the Firebase confirmed list if needed by the caller immediately.
+        return addedListFromFirebase; 
       } catch (error) {
         console.error("Error adding list to Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not add list.", variant: "destructive" });
-        setActiveLists(prev => prev.filter(l => l.id !== optimisticId).sort(sortLists)); // Rollback optimistic
+        setActiveLists(prev => prev.filter(l => l.id !== optimisticId).sort(sortLists)); 
         return undefined;
       }
     } else { 
       console.log("[useLists] Adding list locally for anonymous user:", optimisticList.title);
-      // For anonymous users, saveListsToLocalStorage will handle persisting this.
       return optimisticList;
     }
   };
 
   const updateList = async (listId: string, updates: Partial<List>) => {
-    // Optimistic UI update
     let originalListState: List | undefined;
     let originalSourceArray: 'active' | 'completed' | null = null;
 
     const applyUpdatesAndSetOriginals = (currentLists: List[], source: 'active' | 'completed') => {
         return currentLists.map(l => {
             if (l.id === listId) {
-                if (!originalListState) { // Capture only if not already captured
-                    originalListState = JSON.parse(JSON.stringify(l)); // Deep copy
+                if (!originalListState) { 
+                    originalListState = JSON.parse(JSON.stringify(l)); 
                     originalSourceArray = source;
                 }
                 return { ...l, ...updates };
@@ -278,7 +268,7 @@ export const useLists = () => {
     const currentActiveList = activeLists.find(l => l.id === listId);
     const currentCompletedList = completedLists.find(l => l.id === listId);
 
-    if (updates.completed === true && currentActiveList) { // Moving from active to completed
+    if (updates.completed === true && currentActiveList) { 
         if (!originalListState) {
             originalListState = JSON.parse(JSON.stringify(currentActiveList));
             originalSourceArray = 'active';
@@ -287,7 +277,7 @@ export const useLists = () => {
         setActiveLists(prev => prev.filter(l => l.id !== listId).sort(sortLists));
         setCompletedLists(prev => [listToMove, ...prev.filter(l => l.id !== listId)].sort(sortLists));
         listMoved = true;
-    } else if (updates.completed === false && currentCompletedList) { // Moving from completed to active
+    } else if (updates.completed === false && currentCompletedList) { 
          if (!originalListState) {
             originalListState = JSON.parse(JSON.stringify(currentCompletedList));
             originalSourceArray = 'completed';
@@ -298,7 +288,7 @@ export const useLists = () => {
         listMoved = true;
     }
     
-    if (!listMoved) { // Standard update within the same array
+    if (!listMoved) { 
         if (currentActiveList) {
             setActiveLists(prev => applyUpdatesAndSetOriginals(prev, 'active').sort(sortLists));
         } else if (currentCompletedList) {
@@ -310,24 +300,22 @@ export const useLists = () => {
     if (currentUser && isFirebaseConfigured()) {
         try {
             await updateListInFirebase(listId, updates);
-            // Listener will handle Firebase state reconciliation.
         } catch (error) {
             console.error("Error updating list in Firebase:", error);
             toast({ title: "Firebase Error", description: "Could not update list. Reverting.", variant: "destructive" });
-            // Rollback UI to original state before optimistic update
             if (originalListState && originalSourceArray) {
                 if (originalSourceArray === 'active') {
-                    if (listMoved && updates.completed === true) { // Was moved to completed, move back
+                    if (listMoved && updates.completed === true) { 
                         setCompletedLists(prev => prev.filter(l => l.id !== listId));
                         setActiveLists(prev => [originalListState!, ...prev.filter(l=> l.id !== listId)].sort(sortLists));
-                    } else { // Was updated in active
+                    } else { 
                          setActiveLists(prev => prev.map(l => l.id === listId ? originalListState! : l).sort(sortLists));
                     }
                 } else if (originalSourceArray === 'completed') {
-                     if (listMoved && updates.completed === false) { // Was moved to active, move back
+                     if (listMoved && updates.completed === false) { 
                         setActiveLists(prev => prev.filter(l => l.id !== listId));
                         setCompletedLists(prev => [originalListState!, ...prev.filter(l=> l.id !== listId)].sort(sortLists));
-                    } else { // Was updated in completed
+                    } else { 
                         setCompletedLists(prev => prev.map(l => l.id === listId ? originalListState! : l).sort(sortLists));
                     }
                 }
@@ -335,7 +323,6 @@ export const useLists = () => {
         }
     } else {
         console.log("[useLists] Updated list locally for anonymous user:", listId);
-        // saveListsToLocalStorage() will handle persistence.
     }
   };
 
@@ -349,16 +336,14 @@ export const useLists = () => {
     if (currentUser && isFirebaseConfigured()) {
       try {
         await deleteListFromFirebase(listId);
-        // Listener will handle UI update from Firebase.
       } catch (error) {
         console.error("Error deleting list from Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not delete list. Reverting.", variant: "destructive" });
-        setActiveLists(originalActiveLists.sort(sortLists)); // Restore both as we don't know where it was
+        setActiveLists(originalActiveLists.sort(sortLists)); 
         setCompletedLists(originalCompletedLists.sort(sortLists));
       }
     } else {
        console.log("[useLists] Deleted list locally for anonymous user:", listId);
-       // saveListsToLocalStorage() will handle persistence.
     }
   };
 
@@ -369,8 +354,8 @@ export const useLists = () => {
     const updateAndCaptureOriginal = (lists: List[], source: 'active' | 'completed'): List[] => {
         return lists.map(l => {
             if (l.id === listId) {
-                if (!originalSubitems) { // Capture only once
-                    originalSubitems = JSON.parse(JSON.stringify(l.subitems)); // Deep copy
+                if (!originalSubitems) { 
+                    originalSubitems = JSON.parse(JSON.stringify(l.subitems)); 
                     listSource = source;
                 }
                 return { ...l, subitems: newSubitems };
@@ -379,20 +364,18 @@ export const useLists = () => {
         });
     };
     
-    // Optimistically update UI
     setActiveLists(prev => updateAndCaptureOriginal(prev, 'active').sort(sortLists));
-    if (!originalSubitems) { // If not found in active, try completed
+    if (!originalSubitems) { 
         setCompletedLists(prev => updateAndCaptureOriginal(prev, 'completed').sort(sortLists));
     }
     
     if (currentUser && isFirebaseConfigured()) {
       try {
         await updateSubitemsInFirebase(listId, newSubitems);
-        // Listener will handle Firebase state reconciliation.
       } catch (error) {
         console.error("Error managing subitems in Firebase:", error);
         toast({ title: "Firebase Error", description: "Could not update subitems. Reverting.", variant: "destructive" });
-        if (originalSubitems && listSource) { // Rollback
+        if (originalSubitems && listSource) { 
             const revertSubitems = (lists: List[]) => lists.map(l => l.id === listId ? { ...l, subitems: originalSubitems! } : l).sort(sortLists);
             if (listSource === 'active') setActiveLists(prev => revertSubitems(prev));
             if (listSource === 'completed') setCompletedLists(prev => revertSubitems(prev));
@@ -400,7 +383,6 @@ export const useLists = () => {
       }
     } else {
         console.log("[useLists] Managed subitems locally for anonymous user on list:", listId);
-        // saveListsToLocalStorage() will handle persistence.
     }
   };
 
@@ -412,7 +394,6 @@ export const useLists = () => {
     try {
       const newShareId = await generateShareIdForList(listId, currentUser.uid);
       if (newShareId) {
-        // Optimistic update handled by updateList, listener will confirm.
         await updateList(listId, { shareId: newShareId }); 
         toast({ title: "List Shared!", description: "A public share link has been created." });
         return newShareId;
@@ -434,7 +415,6 @@ export const useLists = () => {
     }
     try {
       await removeShareIdFromList(listId, currentUser.uid);
-      // Optimistic update handled by updateList, listener will confirm.
       await updateList(listId, { shareId: null });
       toast({ title: "Sharing Stopped", description: "The list is no longer publicly shared." });
     } catch (error) {
@@ -458,7 +438,7 @@ export const useLists = () => {
     manageSubitems,
     shareList,
     unshareList,
-    getListByShareId, // This is a one-time fetch, separate from the listeners
+    getListByShareId, 
   };
 };
 
