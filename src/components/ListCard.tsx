@@ -143,17 +143,33 @@ const ListCard: FC<ListCardProps> = ({
   };
 
   const handleCancelEdit = () => {
-    setEditedTitle(list.title);
+    if (startInEditMode && list.title === "Untitled List" && editedTitle === "Untitled List") {
+      // If it was a new "Untitled List" and the user cancels without changing the title, delete it.
+      // This handles the case where `onInitialEditDone` would have been called by `handleSaveEdit`.
+      onDeleteListRequested(list.id);
+    } else {
+      setEditedTitle(list.title); // Revert to original title
+    }
     setIsEditing(false);
     if (startInEditMode && onInitialEditDone) {
       onInitialEditDone(list.id);
     }
   };
-
+  
   const handleSaveEdit = async () => {
-    const titleToSave = editedTitle.trim() || list.title || "Untitled List";
+    const titleToSave = editedTitle.trim() || list.title || "Untitled List"; // Ensure there's always a title
+    if (startInEditMode && titleToSave === "Untitled List" && list.subitems.length === 0) {
+      // If it's a new list, still "Untitled List", and has no items, consider it an abandoned new list.
+      onDeleteListRequested(list.id);
+      setIsEditing(false);
+      if (onInitialEditDone) {
+        onInitialEditDone(list.id);
+      }
+      return;
+    }
+  
     await onUpdateList(list.id, { title: titleToSave });
-    setEditedTitle(titleToSave); 
+    setEditedTitle(titleToSave); // Ensure local state matches saved state
     setIsEditing(false);
     if (startInEditMode && onInitialEditDone) {
       onInitialEditDone(list.id);
@@ -339,7 +355,7 @@ const ListCard: FC<ListCardProps> = ({
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
                   className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
-                  onBlur={handleSaveEdit}
+                  onBlur={handleSaveEdit} 
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
                 />
             ) : (
@@ -438,10 +454,10 @@ const ListCard: FC<ListCardProps> = ({
                 <CSSTransition
                   key={subitem.id}
                   nodeRef={nodeRef}
-                  timeout={{ enter: 0, exit: 200 }} // Updated timeout for instant entry
+                  timeout={{ enter: 0, exit: 200 }} 
                   classNames="subitem"
                 >
-                  <div ref={nodeRef}>
+                  <div ref={nodeRef} className="pl-4">
                     <SubitemComponent
                       subitem={subitem}
                       onToggleComplete={handleToggleSubitemComplete}
