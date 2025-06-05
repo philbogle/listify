@@ -149,7 +149,7 @@ const ListCard: FC<ListCardProps> = ({
   };
   
   const handleSaveEdit = async () => {
-    const titleToSave = editedTitle.trim() || list.title || "Untitled List";
+    const titleToSave = editedTitle.trim() || "Untitled List"; // Ensure it's not empty
   
     await onUpdateList(list.id, { title: titleToSave });
     setEditedTitle(titleToSave); 
@@ -367,6 +367,7 @@ const ListCard: FC<ListCardProps> = ({
               onClick={(e) => e.stopPropagation()}
               className="h-6 w-6 flex-shrink-0"
               aria-label={list.completed ? "Mark list as active" : "Mark list as complete"}
+              disabled={isAutosorting}
             />
             {isEditing ? (
               <Input
@@ -376,65 +377,73 @@ const ListCard: FC<ListCardProps> = ({
                   className="text-xl font-semibold leading-none tracking-tight h-9 flex-grow"
                   onBlur={handleSaveEdit} 
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
+                  disabled={isAutosorting}
                 />
             ) : (
-              <CardTitle
-                className={`text-xl font-semibold leading-none tracking-tight cursor-pointer truncate transition-colors duration-300 ${list.completed ? "line-through text-muted-foreground/80" : "text-card-foreground"}`}
-                onClick={handleEdit}
-                title={list.title}
-              >
-                {list.title}
-              </CardTitle>
+              <div className="flex items-center space-x-2 flex-grow min-w-0">
+                <CardTitle
+                  className={cn(
+                    "text-xl font-semibold leading-none tracking-tight cursor-pointer truncate transition-colors duration-300",
+                    list.completed ? "line-through text-muted-foreground/80" : "text-card-foreground",
+                    isAutosorting ? "text-muted-foreground" : ""
+                  )}
+                  onClick={!isAutosorting ? handleEdit : undefined}
+                  title={list.title}
+                >
+                  {list.title}
+                </CardTitle>
+                {isAutosorting && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              </div>
             )}
           </div>
           <div className="flex items-start space-x-1 flex-shrink-0 transform -translate-y-1">
             {isEditing ? (
               <>
-                <Button variant="ghost" size="icon" onClick={handleSaveEdit} className="h-8 w-8" aria-label="Save changes">
+                <Button variant="ghost" size="icon" onClick={handleSaveEdit} className="h-8 w-8" aria-label="Save changes" disabled={isAutosorting}>
                   <Save className="h-5 w-5 text-green-600" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={handleCancelEdit} className="h-8 w-8" aria-label="Cancel editing">
+                <Button variant="ghost" size="icon" onClick={handleCancelEdit} className="h-8 w-8" aria-label="Cancel editing" disabled={isAutosorting}>
                   <X className="h-5 w-5" />
                 </Button>
               </>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="More options">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="More options" disabled={isAutosorting}>
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleToggleListComplete(!list.completed)}>
+                  <DropdownMenuItem onClick={() => handleToggleListComplete(!list.completed)} disabled={isAutosorting}>
                     {list.completed ? <Circle className="mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                     {list.completed ? "Mark as Active" : "Mark as Complete"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleCopyListContent}>
+                  <DropdownMenuItem onClick={handleCopyListContent} disabled={isAutosorting}>
                     <ClipboardCopy className="mr-2 h-4 w-4" />
                     Copy List
                   </DropdownMenuItem>
                   {list.scanImageUrls && list.scanImageUrls.length > 0 && onViewScan && isOwner && (
-                    <DropdownMenuItem onClick={() => onViewScan(list.scanImageUrls!)}>
+                    <DropdownMenuItem onClick={() => onViewScan(list.scanImageUrls!)} disabled={isAutosorting}>
                       <Eye className="mr-2 h-4 w-4" />
                       View Scan
                     </DropdownMenuItem>
                   )}
                    <DropdownMenuItem
                     onClick={() => onScanMoreItemsRequested(list.id, list.title)}
-                    disabled={list.completed}
+                    disabled={list.completed || isAutosorting}
                   >
                     <ScanLine className="mr-2 h-4 w-4" />
                     Scan More Items
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleOpenShareDialog} disabled={list.completed || !isUserAuthenticated}>
+                  <DropdownMenuItem onClick={handleOpenShareDialog} disabled={list.completed || !isUserAuthenticated || isAutosorting}>
                     <Share2 className="mr-2 h-4 w-4" />
                     {list.shareId ? "Manage Sharing" : "Share List"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleAutogenerateItems}
-                    disabled={isGeneratingItems || list.completed}
+                    disabled={isGeneratingItems || list.completed || isAutosorting}
                   >
                     {isGeneratingItems ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -457,7 +466,7 @@ const ListCard: FC<ListCardProps> = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => onDeleteCompletedItemsRequested(list.id)}
-                    disabled={!hasCompletedSubitems || list.completed}
+                    disabled={!hasCompletedSubitems || list.completed || isAutosorting}
                     className={(!hasCompletedSubitems || list.completed) ? "text-muted-foreground" : ""}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
@@ -466,6 +475,7 @@ const ListCard: FC<ListCardProps> = ({
                   <DropdownMenuItem
                     onClick={() => onDeleteListRequested(list.id)}
                     className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                    disabled={isAutosorting}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete List
@@ -506,7 +516,7 @@ const ListCard: FC<ListCardProps> = ({
         {!list.completed && (
           <CardFooter className="pt-2 pb-4 border-t">
             <div className="flex w-full space-x-2">
-              <Button onClick={handleAddNewSubitemInEditMode} variant="outline" size="sm" className="flex-1" aria-label="Add new item">
+              <Button onClick={handleAddNewSubitemInEditMode} variant="outline" size="sm" className="flex-1" aria-label="Add new item" disabled={isAutosorting}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
               </Button>
@@ -516,7 +526,7 @@ const ListCard: FC<ListCardProps> = ({
                 size="sm"
                 className="flex-1"
                 aria-label="Autogenerate items"
-                disabled={isGeneratingItems || list.completed}
+                disabled={isGeneratingItems || list.completed || isAutosorting}
               >
                 {isGeneratingItems ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
