@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2, CheckCircle2, Circle, ClipboardCopy, ScanLine, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off } from "lucide-react";
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2, CheckCircle2, Circle, ClipboardCopy, ScanLine, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off, ListOrdered } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   Dialog,
@@ -36,6 +36,7 @@ interface ListCardProps {
   onUpdateList: (listId: string, updates: Partial<List>) => Promise<void>;
   onDeleteListRequested: (listId: string) => void;
   onManageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
+  onAutosortItemsRequested: (listId: string) => Promise<void>;
   startInEditMode?: boolean;
   onInitialEditDone?: (listId: string) => void;
   toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
@@ -53,6 +54,7 @@ const ListCard: FC<ListCardProps> = ({
   onUpdateList,
   onDeleteListRequested,
   onManageSubitems,
+  onAutosortItemsRequested,
   startInEditMode = false,
   onInitialEditDone,
   toast,
@@ -69,6 +71,7 @@ const ListCard: FC<ListCardProps> = ({
   const [editedTitle, setEditedTitle] = useState(list.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isGeneratingItems, setIsGeneratingItems] = useState(false);
+  const [isAutosorting, setIsAutosorting] = useState(false);
   const [subitemToFocusId, setSubitemToFocusId] = useState<string | null>(null);
 
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -242,6 +245,23 @@ const ListCard: FC<ListCardProps> = ({
       });
     } finally {
       setIsGeneratingItems(false);
+    }
+  };
+
+  const handleAutosortItems = async () => {
+    if (list.subitems.length < 2) {
+      toast({ title: "Not enough items", description: "Need at least two items to autosort.", variant: "default" });
+      return;
+    }
+    setIsAutosorting(true);
+    try {
+      await onAutosortItemsRequested(list.id);
+      // Toast for success/failure is handled in useLists hook
+    } catch (error) {
+      // Error toast is handled in useLists hook
+      console.error("Error in ListCard calling onAutosortItemsRequested:", error);
+    } finally {
+      setIsAutosorting(false);
     }
   };
 
@@ -432,6 +452,17 @@ const ListCard: FC<ListCardProps> = ({
                       <Sparkles className="mr-2 h-4 w-4" />
                     )}
                     Autogenerate Items
+                  </DropdownMenuItem>
+                   <DropdownMenuItem
+                    onClick={handleAutosortItems}
+                    disabled={isAutosorting || list.completed || list.subitems.length < 2}
+                  >
+                    {isAutosorting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ListOrdered className="mr-2 h-4 w-4" />
+                    )}
+                    Autosort Items
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

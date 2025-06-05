@@ -47,6 +47,7 @@ export default function Home() {
     updateList,
     deleteList,
     manageSubitems,
+    autosortListItems,
     shareList,
     unshareList,
     deleteAllLists,
@@ -191,6 +192,7 @@ export default function Home() {
             onUpdateList={updateList}
             onDeleteListRequested={handleDeleteListRequested}
             onManageSubitems={manageSubitems}
+            onAutosortItemsRequested={autosortListItems}
             startInEditMode={list.id === listToFocusId}
             onInitialEditDone={handleInitialEditDone}
             toast={toast}
@@ -219,6 +221,8 @@ export default function Home() {
         </div>
       ));
     }
+    // Show "No active lists" only if user is signed in (and has no lists)
+    // OR if Firebase is not configured (local-only mode, anonymous user can create lists)
     if (activeLists.length === 0 && !isLoading && (currentUser || !firebaseReady)) {
       return (
         <div className="text-center py-10">
@@ -407,3 +411,4 @@ export default function Home() {
     </div>
   );
 }
+
