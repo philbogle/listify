@@ -151,27 +151,21 @@ const ListCard: FC<ListCardProps> = ({
   const handleSaveEdit = async () => {
     const titleToSave = editedTitle.trim() || list.title || "Untitled List";
   
-    // Removed the auto-delete block for new lists on save/blur.
-    // Auto-deletion for new, untouched lists is now only handled by handleCancelEdit.
-  
     await onUpdateList(list.id, { title: titleToSave });
-    setEditedTitle(titleToSave); // Update local state to reflect saved title
+    setEditedTitle(titleToSave); 
     setIsEditing(false);
     if (isInitialNewListEdit) {
       setIsInitialNewListEdit(false);
       if (onInitialEditDone) {
-        onInitialEditDone(list.id); // Signal that initial edit phase is done.
+        onInitialEditDone(list.id); 
       }
     }
   };
 
   const handleCancelEdit = () => {
-    // If it's the initial edit of a new list, and the title is still "Untitled List" (or empty)
-    // and no subitems have been added, then delete the list.
     if (isInitialNewListEdit && (list.title === "Untitled List" || editedTitle.trim() === "Untitled List" || editedTitle.trim() === "") && list.subitems.length === 0) {
       onDeleteListRequested(list.id);
     } else {
-      // Otherwise, revert to the original title.
       setEditedTitle(list.title);
     }
     setIsEditing(false);
@@ -604,5 +598,4 @@ const ListCard: FC<ListCardProps> = ({
   );
 };
 export default ListCard;
-
     
