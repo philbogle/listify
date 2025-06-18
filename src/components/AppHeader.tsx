@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Plus, Camera, Mic, Menu as MenuIcon, HelpCircle, LogOut, LogIn, Trash2 } from "lucide-react";
+import { Plus, Camera, Mic, Menu as MenuIcon, HelpCircle, LogOut, LogIn, Trash2, Upload } from "lucide-react"; // Added Upload icon
 import React from "react";
 
 interface AppHeaderProps {
@@ -21,6 +21,7 @@ interface AppHeaderProps {
   onAddNewList: () => void;
   onOpenScanDialogForNewList: () => void;
   onOpenImportListDialog: () => void;
+  onOpenUploadImageDialog: () => void; // Added prop for upload dialog
   onSignIn: () => void;
   onSignOut: () => void;
   onOpenHelpDialog: () => void;
@@ -34,6 +35,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onAddNewList,
   onOpenScanDialogForNewList,
   onOpenImportListDialog,
+  onOpenUploadImageDialog, // Consumed prop
   onSignIn,
   onSignOut,
   onOpenHelpDialog,
@@ -59,7 +61,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   <Plus className="mr-2 h-4 w-4" /> Enter manually
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onOpenScanDialogForNewList} className="py-3">
-                  <Camera className="mr-2 h-4 w-4" /> Scan
+                  <Camera className="mr-2 h-4 w-4" /> Scan with Camera
+                </DropdownMenuItem>
+                 <DropdownMenuItem onClick={onOpenUploadImageDialog} className="py-3">
+                  <Upload className="mr-2 h-4 w-4" /> Upload Image
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onOpenImportListDialog} className="py-3">
                   <Mic className="mr-2 h-4 w-4" /> Dictate or Paste
@@ -111,8 +116,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                      {/* Delete All My Lists is available for anonymous non-Firebase users */}
                      <DropdownMenuItem 
                         onClick={onOpenDeleteAllDialog} 
-                        disabled={!hasLists && firebaseReady} 
-                        className={!hasLists && firebaseReady ? "text-muted-foreground" : ""}
+                        disabled={!hasLists && firebaseReady && !currentUser} 
+                        className={(!hasLists && firebaseReady && !currentUser) ? "text-muted-foreground" : ""}
                       >
                       <Trash2 className="mr-2 h-4 w-4" />
                        <span>Delete All My Lists</span>

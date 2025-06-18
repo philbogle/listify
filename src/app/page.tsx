@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
 import ImportListDialog from "@/components/ImportListDialog"; 
+import UploadImageDialog from "@/components/UploadImageDialog"; // Added import
 import AppHeader from "@/components/AppHeader"; 
 import ViewScanDialog from "@/components/ViewScanDialog";
 import UserSignInPrompt from "@/components/UserSignInPrompt";
@@ -78,6 +79,7 @@ export default function Home() {
   }>({ open: false, initialListId: null, initialListTitle: null });
 
   const [isImportListDialogOpen, setIsImportListDialogOpen] = useState(false); 
+  const [isUploadImageDialogOpen, setIsUploadImageDialogOpen] = useState(false); // Added state for upload dialog
 
 
   useEffect(() => {
@@ -102,6 +104,10 @@ export default function Home() {
 
   const handleOpenImportListDialog = () => {
     setIsImportListDialogOpen(true);
+  };
+
+  const handleOpenUploadImageDialog = () => { // Added handler for upload dialog
+    setIsUploadImageDialogOpen(true);
   };
 
 
@@ -221,8 +227,7 @@ export default function Home() {
         </div>
       ));
     }
-    // Show "No active lists" only if user is signed in (and has no lists)
-    // OR if Firebase is not configured (local-only mode, anonymous user can create lists)
+    // Show "No active lists" only if user can create lists (signed in OR local-only mode)
     if (activeLists.length === 0 && !isLoading && (currentUser || !firebaseReady)) {
       return (
         <div className="text-center py-10">
@@ -235,6 +240,8 @@ export default function Home() {
   };
 
   const renderCompletedListSection = () => {
+    // Show completed section if Firebase is not configured (local-only mode allows completed lists)
+    // OR if Firebase is configured AND user is signed in OR there are any lists (active or completed) indicating potential for completed lists.
     if (!isFirebaseConfigured() || (isFirebaseConfigured() && (currentUser || activeLists.length > 0 || completedLists.length > 0))) {
         return (
             <Accordion type="single" collapsible className="w-full" onValueChange={(value) => {
@@ -289,6 +296,7 @@ export default function Home() {
           onAddNewList={handleAddNewList}
           onOpenScanDialogForNewList={handleOpenScanDialogForNewList}
           onOpenImportListDialog={handleOpenImportListDialog}
+          onOpenUploadImageDialog={handleOpenUploadImageDialog} // Passed to AppHeader
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
           onOpenHelpDialog={() => setIsHelpDialogOpen(true)}
@@ -334,8 +342,8 @@ export default function Home() {
         addList={addList}
         updateList={updateList}
         manageSubitems={manageSubitems}
-        activeLists={activeLists}
-        completedLists={completedLists}
+        activeLists={activeLists} // Pass activeLists
+        completedLists={completedLists} // Pass completedLists
         toast={toast}
         setListToFocusId={setListToFocusId}
         initialListId={scanDialogProps.initialListId}
@@ -345,6 +353,17 @@ export default function Home() {
       <ImportListDialog
         isOpen={isImportListDialogOpen}
         onOpenChange={setIsImportListDialogOpen}
+        addList={addList}
+        manageSubitems={manageSubitems}
+        toast={toast}
+        setListToFocusId={setListToFocusId}
+      />
+
+      <UploadImageDialog
+        isOpen={isUploadImageDialogOpen}
+        onOpenChange={setIsUploadImageDialogOpen}
+        currentUser={currentUser}
+        firebaseReady={firebaseReady}
         addList={addList}
         manageSubitems={manageSubitems}
         toast={toast}
@@ -411,4 +430,3 @@ export default function Home() {
     </div>
   );
 }
-
