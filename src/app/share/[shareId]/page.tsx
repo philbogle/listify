@@ -10,12 +10,13 @@ import {
   updateListInFirebase,
   updateSubitemsInFirebase,
   isFirebaseConfigured,
-  getListByShareId, // Import for generateMetadata
+  getListByShareId, 
 } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea"; // Added Textarea
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -59,7 +60,7 @@ export async function generateMetadata(
       url: pageUrl, 
       images: [
         {
-          url: 'https://placehold.co/1200x630.png?text=Listify+Shared+List', // Generic placeholder
+          url: 'https://placehold.co/1200x630.png?text=Listify+Shared+List', 
           width: 1200,
           height: 630,
           alt: 'Listify - Shared List',
@@ -71,7 +72,7 @@ export async function generateMetadata(
       card: 'summary_large_image',
       title: title,
       description: description,
-      images: ['https://placehold.co/1200x630.png?text=Listify+Shared+List'], // Generic placeholder
+      images: ['https://placehold.co/1200x630.png?text=Listify+Shared+List'], 
     },
   };
 }
@@ -86,25 +87,48 @@ const SharedListSubitem: React.FC<{
 }> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, isListCompleted }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null); // Changed from inputRef
+
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const oneLineVisualHeight = 32;
+      const twoLinesVisualHeight = 50; 
+
+      if (scrollHeight > oneLineVisualHeight) {
+        textareaRef.current.style.height = `${Math.min(scrollHeight, twoLinesVisualHeight)}px`;
+      } else {
+        textareaRef.current.style.height = `${oneLineVisualHeight}px`;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     setEditedTitle(subitem.title);
   }, [subitem.title]);
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+      adjustTextareaHeight();
     }
-  }, [isEditing]);
+  }, [isEditing, adjustTextareaHeight]);
+
+  useEffect(() => {
+    if (isEditing) {
+      adjustTextareaHeight();
+    }
+  }, [editedTitle, isEditing, adjustTextareaHeight]);
+
 
   const handleSave = () => {
     const trimmedTitle = editedTitle.trim();
     if (trimmedTitle && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
     } else if (!trimmedTitle) {
-      setEditedTitle(subitem.title); // Revert if empty
+      setEditedTitle(subitem.title); 
     }
     setIsEditing(false);
   };
@@ -141,16 +165,21 @@ const SharedListSubitem: React.FC<{
       />
       <div className="flex-grow min-w-0">
         {isEditing ? (
-          <Input
-            ref={inputRef}
+          <Textarea
+            ref={textareaRef}
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
-            className="h-8 text-sm w-full"
+            rows={1}
+            className="w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-2.5 py-1.5 text-sm leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[32px]"
             onBlur={handleSave}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSave();
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSave();
+              }
               if (e.key === 'Escape') handleCancel();
             }}
+            onInput={adjustTextareaHeight}
           />
         ) : (
           <span
@@ -232,8 +261,6 @@ export default function SharedListPage() {
         if (err.message) {
           if (err.message.toLowerCase().includes("permission-denied") || err.message.toLowerCase().includes("insufficient permissions")) {
             displayError = "Access denied. This list may not be shared publicly or there's a configuration issue. Please check Firebase security rules.";
-          } else {
-            // displayError += ` (Details: ${err.message})`; // Avoid leaking too much detail
           }
         }
         setError(displayError);
@@ -411,7 +438,7 @@ export default function SharedListPage() {
             ) : (
               <CardTitle
                 className={cn(
-                  "text-xl font-semibold leading-none tracking-tight line-clamp-2", // Using line-clamp-2 for list title too
+                  "text-xl font-semibold leading-none tracking-tight line-clamp-2", 
                   list.completed ? "line-through" : "cursor-pointer hover:text-primary"
                 )}
                 onClick={() => !list.completed && setIsEditingTitle(true)}
@@ -481,5 +508,3 @@ export default function SharedListPage() {
     </div>
   );
 }
-
-    

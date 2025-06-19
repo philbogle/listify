@@ -4,7 +4,7 @@
 import type { FC } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea"; // Changed from Input
 import { Trash2, Save, X, MoreVertical, Edit3, CheckCircle2, Circle } from "lucide-react";
 import type { Subitem } from "@/types/list";
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -13,7 +13,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +29,25 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   const [isEditing, setIsEditing] = useState(false);
   const [isInitialNewSubitemEdit, setIsInitialNewSubitemEdit] = useState(startInEditMode);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
-  const titleInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null); // Changed from titleInputRef
   const [menuIsVisible, setMenuIsVisible] = useState(false);
+
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'; // Reset height to allow shrinking
+      const scrollHeight = textareaRef.current.scrollHeight;
+      // Estimate visual heights. Input h-8 is 32px. Two lines around 48-52px.
+      const oneLineVisualHeight = 32; 
+      const twoLinesVisualHeight = 50; // Adjusted for better visual fit of 2 lines with padding/border
+
+      if (scrollHeight > oneLineVisualHeight) {
+        textareaRef.current.style.height = `${Math.min(scrollHeight, twoLinesVisualHeight)}px`;
+      } else {
+        // Ensure it doesn't go below the initial single line visual height
+        textareaRef.current.style.height = `${oneLineVisualHeight}px`;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (startInEditMode) {
@@ -42,11 +58,22 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   }, [startInEditMode]);
 
   useEffect(() => {
-    if (isEditing && titleInputRef.current) {
-      titleInputRef.current.focus();
-      titleInputRef.current.select();
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      if (isInitialNewSubitemEdit || editedTitle === "Untitled Item") {
+        textareaRef.current.select();
+      }
+      adjustTextareaHeight(); // Adjust height when editing starts
     }
-  }, [isEditing]);
+  }, [isEditing, isInitialNewSubitemEdit, editedTitle, adjustTextareaHeight]);
+  
+  useEffect(() => {
+    // Adjust height when editedTitle changes during editing
+    if (isEditing) {
+      adjustTextareaHeight();
+    }
+  }, [editedTitle, isEditing, adjustTextareaHeight]);
+
 
   const handleStartEdit = () => {
     setEditedTitle(subitem.title);
@@ -104,8 +131,6 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
         "flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group"
       )}
       onClick={handleRowClick}
-      onMouseLeave={() => {
-      }}
     >
       <Checkbox
         id={`subitem-${subitem.id}`}
@@ -118,18 +143,29 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 
       <div className="flex-grow min-w-0">
         {isEditing ? (
-          <Input
-            ref={titleInputRef}
+          <Textarea
+            ref={textareaRef}
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
-            className="h-8 text-sm w-full"
+            rows={1} // Start with 1 row, JS will adjust height
+            className="w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-2.5 py-1.5 text-sm leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[32px]"
             onBlur={handleUpdateTitle}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateTitle(); if (e.key === 'Escape') handleCancelEdit(); e.stopPropagation(); }}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleUpdateTitle(); 
+              }
+              if (e.key === 'Escape') {
+                handleCancelEdit(); 
+              }
+              e.stopPropagation(); 
+            }}
             onClick={(e) => e.stopPropagation()}
+            onInput={adjustTextareaHeight} // Adjust height on every input
           />
         ) : (
           <span
-            className={`block text-sm line-clamp-2 ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
+            className={cn("block text-sm line-clamp-2", subitem.completed ? "line-through text-muted-foreground" : "")}
             title={subitem.title}
           >
             {subitem.title}
@@ -195,5 +231,3 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
 
 SubitemComponent.displayName = "SubitemComponent";
 export default SubitemComponent;
-
-    
