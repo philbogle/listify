@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea"; // Added Textarea
+import { Textarea } from "@/components/ui/textarea"; 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -87,17 +87,16 @@ const SharedListSubitem: React.FC<{
 }> = ({ subitem, onToggleComplete, onDelete, onUpdateTitle, isListCompleted }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
-  const textareaRef = useRef<HTMLTextAreaElement>(null); // Changed from inputRef
+  const textareaRef = useRef<HTMLTextAreaElement>(null); 
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
       const oneLineVisualHeight = 32;
-      const twoLinesVisualHeight = 50; 
 
       if (scrollHeight > oneLineVisualHeight) {
-        textareaRef.current.style.height = `${Math.min(scrollHeight, twoLinesVisualHeight)}px`;
+        textareaRef.current.style.height = `${scrollHeight}px`;
       } else {
         textareaRef.current.style.height = `${oneLineVisualHeight}px`;
       }

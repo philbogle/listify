@@ -13,7 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator, // Added import
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
@@ -30,21 +30,18 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   const [isEditing, setIsEditing] = useState(false);
   const [isInitialNewSubitemEdit, setIsInitialNewSubitemEdit] = useState(startInEditMode);
   const [editedTitle, setEditedTitle] = useState(subitem.title);
-  const textareaRef = useRef<HTMLTextAreaElement>(null); // Changed from titleInputRef
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [menuIsVisible, setMenuIsVisible] = useState(false);
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'; // Reset height to allow shrinking
       const scrollHeight = textareaRef.current.scrollHeight;
-      // Estimate visual heights. Input h-8 is 32px. Two lines around 48-52px.
       const oneLineVisualHeight = 32; 
-      const twoLinesVisualHeight = 50; // Adjusted for better visual fit of 2 lines with padding/border
 
       if (scrollHeight > oneLineVisualHeight) {
-        textareaRef.current.style.height = `${Math.min(scrollHeight, twoLinesVisualHeight)}px`;
+        textareaRef.current.style.height = `${scrollHeight}px`;
       } else {
-        // Ensure it doesn't go below the initial single line visual height
         textareaRef.current.style.height = `${oneLineVisualHeight}px`;
       }
     }
@@ -64,12 +61,11 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       if (isInitialNewSubitemEdit || editedTitle === "Untitled Item") {
         textareaRef.current.select();
       }
-      adjustTextareaHeight(); // Adjust height when editing starts
+      adjustTextareaHeight(); 
     }
   }, [isEditing, isInitialNewSubitemEdit, editedTitle, adjustTextareaHeight]);
   
   useEffect(() => {
-    // Adjust height when editedTitle changes during editing
     if (isEditing) {
       adjustTextareaHeight();
     }
@@ -148,7 +144,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             ref={textareaRef}
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
-            rows={1} // Start with 1 row, JS will adjust height
+            rows={1} 
             className="w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-2.5 py-1.5 text-sm leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[32px]"
             onBlur={handleUpdateTitle}
             onKeyDown={(e) => { 
@@ -162,7 +158,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
               e.stopPropagation(); 
             }}
             onClick={(e) => e.stopPropagation()}
-            onInput={adjustTextareaHeight} // Adjust height on every input
+            onInput={adjustTextareaHeight} 
           />
         ) : (
           <span
