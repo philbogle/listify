@@ -123,7 +123,7 @@ const SharedListSubitem: React.FC<{
           disabled={true}
           className="flex-shrink-0 h-5 w-5"
         />
-        <span className={cn("block text-sm truncate", subitem.completed ? "line-through text-muted-foreground" : "")} title={subitem.title}>
+        <span className={cn("block text-sm line-clamp-2", subitem.completed ? "line-through text-muted-foreground" : "")} title={subitem.title}>
           {subitem.title}
         </span>
       </div>
@@ -155,7 +155,7 @@ const SharedListSubitem: React.FC<{
         ) : (
           <span
             onClick={() => setIsEditing(true)}
-            className={cn("block text-sm cursor-pointer truncate", subitem.completed ? "line-through text-muted-foreground" : "")}
+            className={cn("block text-sm cursor-pointer line-clamp-2", subitem.completed ? "line-through text-muted-foreground" : "")}
             title={subitem.title}
           >
             {subitem.title}
@@ -411,7 +411,7 @@ export default function SharedListPage() {
             ) : (
               <CardTitle
                 className={cn(
-                  "text-xl font-semibold leading-none tracking-tight truncate",
+                  "text-xl font-semibold leading-none tracking-tight line-clamp-2", // Using line-clamp-2 for list title too
                   list.completed ? "line-through" : "cursor-pointer hover:text-primary"
                 )}
                 onClick={() => !list.completed && setIsEditingTitle(true)}

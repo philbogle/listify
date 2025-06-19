@@ -129,7 +129,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           />
         ) : (
           <span
-            className={`block text-sm truncate ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
+            className={`block text-sm line-clamp-2 ${subitem.completed ? "line-through text-muted-foreground" : ""}`}
             title={subitem.title}
           >
             {subitem.title}
