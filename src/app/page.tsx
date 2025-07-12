@@ -7,10 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import HelpDialog from "@/components/HelpDialog";
 import ScanDialog from "@/components/ScanDialog"; 
 import ImportListDialog from "@/components/ImportListDialog"; 
-import UploadImageDialog from "@/components/UploadImageDialog"; // Added import
+import UploadImageDialog from "@/components/UploadImageDialog";
 import AppHeader from "@/components/AppHeader"; 
 import ViewScanDialog from "@/components/ViewScanDialog";
 import UserSignInPrompt from "@/components/UserSignInPrompt";
+import { Toaster } from "@/components/ui/toaster";
 
 import {
   AlertDialog,
@@ -79,7 +80,7 @@ export default function Home() {
   }>({ open: false, initialListId: null, initialListTitle: null });
 
   const [isImportListDialogOpen, setIsImportListDialogOpen] = useState(false); 
-  const [isUploadImageDialogOpen, setIsUploadImageDialogOpen] = useState(false); // Added state for upload dialog
+  const [isUploadImageDialogOpen, setIsUploadImageDialogOpen] = useState(false);
 
 
   useEffect(() => {
@@ -106,7 +107,7 @@ export default function Home() {
     setIsImportListDialogOpen(true);
   };
 
-  const handleOpenUploadImageDialog = () => { // Added handler for upload dialog
+  const handleOpenUploadImageDialog = () => {
     setIsUploadImageDialogOpen(true);
   };
 
@@ -275,158 +276,161 @@ export default function Home() {
 
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 sm:p-8">
-      {!firebaseReady && !isLoading && (
-        <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
-          <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
-          <div>
-            <p className="font-bold">Firebase Not Configured</p>
-            <p className="text-sm">
-              Your lists are currently saved locally. For cloud storage, sync, and sharing, please configure Firebase in
-              <code className="text-xs bg-yellow-200 p-0.5 rounded ml-1">src/lib/firebaseConfig.ts</code>.
-            </p>
+    <>
+      <div className="min-h-screen flex flex-col items-center p-4 sm:p-8">
+        {!firebaseReady && !isLoading && (
+          <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
+            <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
+            <div>
+              <p className="font-bold">Firebase Not Configured</p>
+              <p className="text-sm">
+                Your lists are currently saved locally. For cloud storage, sync, and sharing, please configure Firebase in
+                <code className="text-xs bg-yellow-200 p-0.5 rounded ml-1">src/lib/firebaseConfig.ts</code>.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <main className="w-full max-w-2xl">
-        <AppHeader
+        <main className="w-full max-w-2xl">
+          <AppHeader
+            currentUser={currentUser}
+            firebaseReady={firebaseReady}
+            onAddNewList={handleAddNewList}
+            onOpenScanDialogForNewList={handleOpenScanDialogForNewList}
+            onOpenImportListDialog={handleOpenImportListDialog}
+            onOpenUploadImageDialog={handleOpenUploadImageDialog}
+            onSignIn={handleSignIn}
+            onSignOut={handleSignOut}
+            onOpenHelpDialog={() => setIsHelpDialogOpen(true)}
+            onOpenDeleteAllDialog={handleOpenDeleteAllDialog}
+            hasLists={activeLists.length > 0 || completedLists.length > 0}
+          />
+
+          <section aria-labelledby="list-heading" className="pt-6">
+            {isLoading ? (
+                Array.from({ length: 2 }).map((_, index) => (
+                    <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
+                    <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
+                    <Skeleton className="h-6 w-4/5 inline-block" />
+                    <div className="mt-4 space-y-2">
+                        <Skeleton className="h-8 w-full" />
+                    </div>
+                    </div>
+                ))
+            ) : (
+                <div className="space-y-4">
+                    {renderActiveLists()}
+                </div>
+            )}
+          </section>
+
+          <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
+              {renderCompletedListSection()}
+          </section>
+
+          <UserSignInPrompt
+            currentUser={currentUser}
+            firebaseReady={firebaseReady}
+            isLoading={isLoading}
+            onSignIn={handleSignIn}
+          />
+        </main>
+
+        <ScanDialog
+          isOpen={scanDialogProps.open}
+          onOpenChange={(open) => setScanDialogProps(prev => ({ ...prev, open }))}
           currentUser={currentUser}
           firebaseReady={firebaseReady}
-          onAddNewList={handleAddNewList}
-          onOpenScanDialogForNewList={handleOpenScanDialogForNewList}
-          onOpenImportListDialog={handleOpenImportListDialog}
-          onOpenUploadImageDialog={handleOpenUploadImageDialog} // Passed to AppHeader
-          onSignIn={handleSignIn}
-          onSignOut={handleSignOut}
-          onOpenHelpDialog={() => setIsHelpDialogOpen(true)}
-          onOpenDeleteAllDialog={handleOpenDeleteAllDialog}
-          hasLists={activeLists.length > 0 || completedLists.length > 0}
+          addList={addList}
+          updateList={updateList}
+          manageSubitems={manageSubitems}
+          activeLists={activeLists} // Pass activeLists
+          completedLists={completedLists} // Pass completedLists
+          toast={toast}
+          setListToFocusId={setListToFocusId}
+          initialListId={scanDialogProps.initialListId}
+          initialListTitle={scanDialogProps.initialListTitle}
         />
 
-        <section aria-labelledby="list-heading" className="pt-6">
-          {isLoading ? (
-              Array.from({ length: 2 }).map((_, index) => (
-                  <div key={index} className="mb-4 p-4 border rounded-lg shadow-md bg-card">
-                  <Skeleton className="h-6 w-6 rounded-full inline-block mr-2" />
-                  <Skeleton className="h-6 w-4/5 inline-block" />
-                  <div className="mt-4 space-y-2">
-                      <Skeleton className="h-8 w-full" />
-                  </div>
-                  </div>
-              ))
-          ) : (
-              <div className="space-y-4">
-                  {renderActiveLists()}
-              </div>
-          )}
-        </section>
+        <ImportListDialog
+          isOpen={isImportListDialogOpen}
+          onOpenChange={setIsImportListDialogOpen}
+          addList={addList}
+          manageSubitems={manageSubitems}
+          toast={toast}
+          setListToFocusId={setListToFocusId}
+        />
 
-        <section aria-labelledby="completed-list-heading" className="mt-12 w-full">
-            {renderCompletedListSection()}
-        </section>
-
-        <UserSignInPrompt
+        <UploadImageDialog
+          isOpen={isUploadImageDialogOpen}
+          onOpenChange={setIsUploadImageDialogOpen}
           currentUser={currentUser}
           firebaseReady={firebaseReady}
-          isLoading={isLoading}
-          onSignIn={handleSignIn}
+          addList={addList}
+          manageSubitems={manageSubitems}
+          toast={toast}
+          setListToFocusId={setListToFocusId}
         />
-      </main>
 
-      <ScanDialog
-        isOpen={scanDialogProps.open}
-        onOpenChange={(open) => setScanDialogProps(prev => ({ ...prev, open }))}
-        currentUser={currentUser}
-        firebaseReady={firebaseReady}
-        addList={addList}
-        updateList={updateList}
-        manageSubitems={manageSubitems}
-        activeLists={activeLists} // Pass activeLists
-        completedLists={completedLists} // Pass completedLists
-        toast={toast}
-        setListToFocusId={setListToFocusId}
-        initialListId={scanDialogProps.initialListId}
-        initialListTitle={scanDialogProps.initialListTitle}
-      />
+        <ViewScanDialog
+          isOpen={isViewScanDialogOpen}
+          onOpenChange={handleViewScanDialogChange}
+          imageUrls={viewingScanUrls}
+        />
 
-      <ImportListDialog
-        isOpen={isImportListDialogOpen}
-        onOpenChange={setIsImportListDialogOpen}
-        addList={addList}
-        manageSubitems={manageSubitems}
-        toast={toast}
-        setListToFocusId={setListToFocusId}
-      />
+        <HelpDialog isOpen={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen} />
 
-      <UploadImageDialog
-        isOpen={isUploadImageDialogOpen}
-        onOpenChange={setIsUploadImageDialogOpen}
-        currentUser={currentUser}
-        firebaseReady={firebaseReady}
-        addList={addList}
-        manageSubitems={manageSubitems}
-        toast={toast}
-        setListToFocusId={setListToFocusId}
-      />
+         <AlertDialog open={isConfirmDeleteCompletedOpen} onOpenChange={setIsConfirmDeleteCompletedOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Completed Items?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete all completed items from the list
+                &quot;{listToDeleteCompletedFrom?.title || "this list"}&quot;? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setListToDeleteCompletedFrom(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDeleteCompletedItems}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <ViewScanDialog
-        isOpen={isViewScanDialogOpen}
-        onOpenChange={handleViewScanDialogChange}
-        imageUrls={viewingScanUrls}
-      />
+        <AlertDialog open={isConfirmDeleteListOpen} onOpenChange={setIsConfirmDeleteListOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete List?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete the list &quot;{getListTitleForDialog(listToDeleteId)}&quot;?
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setListToDeleteId(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDeleteList}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <HelpDialog isOpen={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen} />
+        <AlertDialog open={isConfirmDeleteAllOpen} onOpenChange={setIsConfirmDeleteAllOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete All Your Lists?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete all of your lists? This action cannot be undone and will remove all active and completed lists.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDeleteAllLists} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete All Lists
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-       <AlertDialog open={isConfirmDeleteCompletedOpen} onOpenChange={setIsConfirmDeleteCompletedOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Completed Items?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete all completed items from the list
-              &quot;{listToDeleteCompletedFrom?.title || "this list"}&quot;? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setListToDeleteCompletedFrom(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteCompletedItems}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={isConfirmDeleteListOpen} onOpenChange={setIsConfirmDeleteListOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete List?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the list &quot;{getListTitleForDialog(listToDeleteId)}&quot;?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setListToDeleteId(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteList}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={isConfirmDeleteAllOpen} onOpenChange={setIsConfirmDeleteAllOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Your Lists?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete all of your lists? This action cannot be undone and will remove all active and completed lists.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteAllLists} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete All Lists
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-    </div>
+      </div>
+      <Toaster />
+    </>
   );
 }
