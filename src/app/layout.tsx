@@ -1,4 +1,3 @@
-
 // Removed "use client"; directive - this is now a Server Component
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
@@ -29,12 +28,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en">
       <head>
         {/* <meta name="theme-color" content="#4285F4" /> */}
         {/* <link rel="manifest" href="/manifest.json" /> */}
       </head>
-      <body>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppSetup>
           {children}
         </AppSetup>
