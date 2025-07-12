@@ -172,12 +172,6 @@ export default function SharePageClient() {
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   const [newSubitemTitle, setNewSubitemTitle] = useState("");
-  const [currentYear, setCurrentYear] = useState<number | null>(null);
-
-  useEffect(() => {
-    // This runs only on the client, after hydration
-    setCurrentYear(new Date().getFullYear());
-  }, []);
 
   useEffect(() => {
     if (!shareId) {
@@ -453,7 +447,6 @@ export default function SharePageClient() {
       </Card>
        <footer className="mt-12 text-center text-xs text-muted-foreground">
         <p>You are viewing a publicly shared list. Changes are saved automatically.</p>
-        <p>&copy; {currentYear || '...'} Listify. All rights reserved (except for this shared content).</p>
       </footer>
     </div>
   );
