@@ -3,7 +3,7 @@
 
 import type { User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 interface UserSignInPromptProps {
   currentUser: User | null;
@@ -18,7 +18,13 @@ const UserSignInPrompt: React.FC<UserSignInPromptProps> = ({
   isLoading,
   onSignIn,
 }) => {
-  if (currentUser || !firebaseReady || isLoading) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted || currentUser || !firebaseReady || isLoading) {
     return null;
   }
 
@@ -39,4 +45,3 @@ const UserSignInPrompt: React.FC<UserSignInPromptProps> = ({
 };
 
 export default UserSignInPrompt;
-
