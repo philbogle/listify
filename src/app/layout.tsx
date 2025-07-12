@@ -29,12 +29,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <head>
         {/* <meta name="theme-color" content="#4285F4" /> */}
         {/* <link rel="manifest" href="/manifest.json" /> */}
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body>
         <AppSetup>
           {children}
         </AppSetup>
