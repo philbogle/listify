@@ -1,10 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist_Sans } from 'next/font/google';
 import './globals.css';
-
-const geistSans = Geist_Sans({
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Listify - Scan anything to a list',
@@ -25,7 +20,7 @@ export default function RootLayout({
         {/* <meta name="theme-color" content="#4285F4" /> */}
         {/* <link rel="manifest" href="/manifest.json" /> */}
       </head>
-      <body className={geistSans.className}>
+      <body>
         {children}
       </body>
     </html>
