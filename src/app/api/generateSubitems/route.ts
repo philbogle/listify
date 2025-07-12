@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { generateSubitems } from '@/ai/flows/generateSubitemsFlow';
+import { generateSubitemsForList } from '@/ai/flows/generateSubitemsFlow';
 
 export async function OPTIONS(request: Request) {
   console.log('[API /api/generateSubitems] Received OPTIONS request');
@@ -18,7 +18,7 @@ export async function OPTIONS(request: Request) {
 export async function POST(request: Request) {
   try {
     const { listTitle, existingSubitems } = await request.json();
-    const result = await generateSubitems({ listTitle, existingSubitems });
+    const result = await generateSubitemsForList({ promptForGeneration: listTitle, existingSubitemTitles: existingSubitems });
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[API /api/generateSubitems] Error:', error);
