@@ -2,6 +2,18 @@
 import { NextResponse } from 'next/server';
 import { extractListFromImage } from '@/ai/flows/extractListFromImageFlow';
 
+export async function OPTIONS(request: Request) {
+  const response = new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*', 
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+  return response;
+}
+
 export async function POST(request: Request) {
   try {
     const { imageDataUri } = await request.json();
