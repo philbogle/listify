@@ -30,9 +30,6 @@ import {
 } from "firebase/auth";
 import {
   getStorage,
-  ref as storageRef,
-  uploadBytesResumable,
-  getDownloadURL,
   type FirebaseStorage,
 } from "firebase/storage";
 import type { List, Subitem } from "@/types/list";
@@ -84,18 +81,6 @@ const getFirebaseAuth = () => {
   return auth;
 }
 
-const getFirebaseStorage = () => {
-  if (!storage) {
-    try {
-      storage = getStorage(app);
-    } catch (e) {
-      console.error("Critical Firebase Storage initialization error:", e);
-      throw new Error("Firebase Storage could not be initialized.");
-    }
-  }
-  return storage;
-}
-
 export const signInWithGoogle = async (): Promise<User | null> => {
   if (!isFirebaseConfigured()) {
     console.warn("Firebase not configured. Google Sign-In unavailable.");
@@ -143,7 +128,6 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
     subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })),
     createdAt: serverTimestamp(),
     userId: userId,
-    scanImageUrls: listData.scanImageUrls || [],
     shareId: null,
   };
   const docRef = await addDoc(collection(currentDb, LISTS_COLLECTION), docData);
@@ -154,7 +138,6 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
     id: docRef.id, 
     userId, 
     createdAt: new Date().toISOString(), // Optimistic createdAt
-    scanImageUrls: docData.scanImageUrls, 
     shareId: null 
   };
 };
@@ -163,13 +146,6 @@ const mapDocToList = (docSnap: DocumentData): List => {
   const data = docSnap.data();
   if (!data) {
     throw new Error(`Document data is undefined for doc.id: ${docSnap.id}`);
-  }
-
-  let scanUrls: string[] = [];
-  if (data.scanImageUrls && Array.isArray(data.scanImageUrls)) {
-    scanUrls = data.scanImageUrls;
-  } else if (data.scanImageUrl && typeof data.scanImageUrl === 'string') {
-    scanUrls = [data.scanImageUrl];
   }
 
   return {
@@ -183,7 +159,6 @@ const mapDocToList = (docSnap: DocumentData): List => {
       completed: st.completed
     })),
     userId: data.userId,
-    scanImageUrls: scanUrls,
     shareId: data.shareId || null,
   } as List;
 };
@@ -294,38 +269,6 @@ export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem
   const listRef = doc(currentDb, LISTS_COLLECTION, listId);
   const subtasksForFirebase = subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
   await updateDoc(listRef, { subtasks: subtasksForFirebase });
-};
-
-export const uploadScanImageToFirebase = async (file: File, userId: string, listId: string): Promise<string> => {
-  if (!isFirebaseConfigured()) {
-    throw new Error("Firebase not configured. Image upload unavailable.");
-  }
-  const currentStorage = getFirebaseStorage();
-  const fileName = `${Date.now()}-${file.name}`;
-  const filePath = `scans/${userId}/${listId}/${fileName}`;
-  const imageRef = storageRef(currentStorage, filePath);
-
-  const uploadTask = uploadBytesResumable(imageRef, file);
-
-  return new Promise((resolve, reject) => {
-    uploadTask.on(
-      "state_changed",
-      (snapshot) => {},
-      (error) => {
-        console.error("Error uploading image to Firebase Storage:", error);
-        reject(error);
-      },
-      async () => {
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          resolve(downloadURL);
-        } catch (error) {
-          console.error("Error getting download URL:", error);
-          reject(error);
-        }
-      }
-    );
-  });
 };
 
 export const isFirebaseConfigured = (): boolean => {

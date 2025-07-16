@@ -2,13 +2,13 @@
 "use client";
 
 import type { FC } from "react";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { List, Subitem } from "@/types/list";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Eye, Trash2, CheckCircle2, Circle, ClipboardCopy, ScanLine, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off, ListOrdered } from "lucide-react";
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Trash2, CheckCircle2, Circle, ClipboardCopy, ScanLine, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off, ListOrdered } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   Dialog,
@@ -40,7 +40,6 @@ interface ListCardProps {
   startInEditMode?: boolean;
   onInitialEditDone?: (listId: string) => void;
   toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
-  onViewScan?: (imageUrls: string[]) => void;
   onDeleteCompletedItemsRequested: (listId: string) => void;
   onScanMoreItemsRequested: (listId: string, listTitle: string) => void;
   shareList: (listId: string) => Promise<string | null>;
@@ -58,13 +57,11 @@ const ListCard: FC<ListCardProps> = ({
   startInEditMode = false,
   onInitialEditDone,
   toast,
-  onViewScan,
   onDeleteCompletedItemsRequested,
   onScanMoreItemsRequested,
   shareList,
   unshareList,
   isUserAuthenticated,
-  currentUserId,
 }) => {
   const [isEditing, setIsEditing] = useState(false); 
   const [isInitialNewListEdit, setIsInitialNewListEdit] = useState(startInEditMode);
@@ -344,8 +341,6 @@ const ListCard: FC<ListCardProps> = ({
     }
   };
 
-  const isOwner = list.userId === currentUserId && currentUserId !== null;
-
 
   return (
     <>
@@ -423,12 +418,6 @@ const ListCard: FC<ListCardProps> = ({
                     <ClipboardCopy className="mr-2 h-4 w-4" />
                     Copy List
                   </DropdownMenuItem>
-                  {list.scanImageUrls && list.scanImageUrls.length > 0 && onViewScan && isOwner && (
-                    <DropdownMenuItem onClick={() => onViewScan(list.scanImageUrls!)} disabled={isAutosorting}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Scan
-                    </DropdownMenuItem>
-                  )}
                    <DropdownMenuItem
                     onClick={() => onScanMoreItemsRequested(list.id, list.title)}
                     disabled={list.completed || isAutosorting}
@@ -608,4 +597,3 @@ const ListCard: FC<ListCardProps> = ({
   );
 };
 export default ListCard;
-    

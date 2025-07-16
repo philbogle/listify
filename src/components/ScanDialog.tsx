@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { User } from "firebase/auth";
-import Image from "next/image";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
@@ -22,16 +21,13 @@ import { Loader2, Camera, RefreshCw, AlertTriangle } from "lucide-react";
 
 import type { List, Subitem } from "@/types/list";
 import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
-import { uploadScanImageToFirebase } from "@/lib/firebase";
 
 interface ScanDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   currentUser: User | null;
-  firebaseReady: boolean;
   addList: (
-    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls" | "shareId">,
-    capturedImageFile?: File | null
+    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "shareId">
   ) => Promise<List | undefined>;
   updateList: (listId: string, updates: Partial<List>) => Promise<void>;
   manageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
@@ -98,7 +94,6 @@ export default function ScanDialog({
   isOpen,
   onOpenChange,
   currentUser,
-  firebaseReady,
   addList,
   updateList,
   manageSubitems,
@@ -248,19 +243,6 @@ export default function ScanDialog({
         if (!existingList) {
           toast({ title: "List Not Found", description: `Could not find list "${initialListTitle}" to add items to.`, variant: "destructive" });
         } else {
-          if (currentUser && firebaseReady) {
-            try {
-              const newScanUrl = await uploadScanImageToFirebase(finalImageFileToProcess, currentUser.uid, initialListId);
-              const updatedScanImageUrls = [...(existingList.scanImageUrls || []), newScanUrl];
-              await updateList(initialListId, { scanImageUrls: updatedScanImageUrls });
-            } catch (uploadError) {
-              console.error("Error uploading additional scan image:", uploadError);
-              toast({ title: "Image Upload Failed", description: "Items might be added, but new scan image upload failed.", variant: "destructive" });
-            }
-          } else if (!currentUser && firebaseReady) {
-            toast({ title: "Sign In to Save Scan", description: "Sign in to permanently save scanned images with your lists.", duration: 5000 });
-          }
-
           if (result.extractedSubitems && result.extractedSubitems.length > 0) {
             const newSubitemsToAdd: Subitem[] = result.extractedSubitems
               .filter(si => si.title && si.title.trim() !== "")
@@ -284,7 +266,7 @@ export default function ScanDialog({
       } else {
         if (result && result.parentListTitle) {
           const parentTitle = result.parentListTitle.trim();
-          const newParentList = await addList({ title: parentTitle }, currentUser ? finalImageFileToProcess : null);
+          const newParentList = await addList({ title: parentTitle });
 
           if (newParentList && newParentList.id) {
             setListToFocusId(newParentList.id);
@@ -300,9 +282,6 @@ export default function ScanDialog({
               if (subitemsToAdd.length > 0) {
                 await manageSubitems(newParentList.id, subitemsToAdd);
               }
-            }
-            if (!currentUser && firebaseReady && finalImageFileToProcess) {
-              toast({ title: "Sign In to Save Scan", description: "List created locally. Sign in to save this scan image with your list.", duration: 5000 });
             }
           }
         }
@@ -398,7 +377,6 @@ export default function ScanDialog({
             {initialListId
               ? "Take a picture to add more items to this list."
               : "Take a picture of handwriting, printed text, or physical items. The AI will create a new list based on the image content."}
-            {!currentUser && firebaseReady && " Images scanned while not signed in are not saved with the list."}
           </DialogDescription>
         </DialogHeader>
 
@@ -476,4 +454,3 @@ export default function ScanDialog({
     </Dialog>
   );
 }
-

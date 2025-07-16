@@ -12,7 +12,6 @@ import {
   updateSubitemsInFirebase,
   isFirebaseConfigured,
   onAuthUserChanged,
-  uploadScanImageToFirebase,
   generateShareIdForList,
   removeShareIdFromList,
   getListByShareId,
@@ -213,8 +212,7 @@ export const useLists = () => {
 
 
   const addList = async (
-    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls" | "shareId">,
-    capturedImageFile?: File | null
+    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "shareId">
   ): Promise<List | undefined> => {
     if (!currentUser && isFirebaseConfigured()) {
       // This should ideally be prevented by UI disabling the add button
@@ -230,7 +228,6 @@ export const useLists = () => {
       userId: currentUser?.uid, // Will be undefined if !isFirebaseConfigured()
       id: optimisticId,
       createdAt: new Date().toISOString(),
-      scanImageUrls: [],
       shareId: null,
     };
 
@@ -238,18 +235,11 @@ export const useLists = () => {
 
     if (currentUser && isFirebaseConfigured()) {
       try {
-        let initialScanUrl: string | undefined = undefined;
-        if (capturedImageFile) {
-          initialScanUrl = await uploadScanImageToFirebase(capturedImageFile, currentUser.uid, optimisticId);
-          optimisticList.scanImageUrls = initialScanUrl ? [initialScanUrl] : [];
-        }
-
         const newListBase: Omit<List, "id" | "createdAt"> = {
             ...listData,
             completed: false,
             subitems: [],
             userId: currentUser.uid,
-            scanImageUrls: optimisticList.scanImageUrls,
             shareId: null,
         };
 
@@ -555,6 +545,3 @@ export const useLists = () => {
     getListByShareId, 
   };
 };
-
-    
-

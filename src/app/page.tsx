@@ -9,7 +9,6 @@ import ScanDialog from "@/components/ScanDialog";
 import ImportListDialog from "@/components/ImportListDialog"; 
 import UploadImageDialog from "@/components/UploadImageDialog";
 import AppHeader from "@/components/AppHeader"; 
-import ViewScanDialog from "@/components/ViewScanDialog";
 import UserSignInPrompt from "@/components/UserSignInPrompt";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -61,8 +60,6 @@ export default function Home() {
 
   const [listToFocusId, setListToFocusId] = useState<string | null>(null);
 
-  const [isViewScanDialogOpen, setIsViewScanDialogOpen] = useState(false);
-  const [viewingScanUrls, setViewingScanUrls] = useState<string[] | null>(null);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
 
   const [isConfirmDeleteCompletedOpen, setIsConfirmDeleteCompletedOpen] = useState(false);
@@ -124,20 +121,6 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await signOutUser();
-  };
-
-  const handleViewScan = (imageUrls: string[]) => {
-    if (imageUrls && imageUrls.length > 0) {
-      setViewingScanUrls(imageUrls);
-      setIsViewScanDialogOpen(true);
-    }
-  };
-  
-  const handleViewScanDialogChange = (isOpen: boolean) => {
-    setIsViewScanDialogOpen(isOpen);
-    if (!isOpen) {
-      setViewingScanUrls(null); 
-    }
   };
 
   const handleDeleteCompletedItemsRequested = (listId: string) => {
@@ -203,7 +186,6 @@ export default function Home() {
             startInEditMode={list.id === listToFocusId}
             onInitialEditDone={handleInitialEditDone}
             toast={toast}
-            onViewScan={handleViewScan}
             onDeleteCompletedItemsRequested={handleDeleteCompletedItemsRequested}
             onScanMoreItemsRequested={handleOpenScanDialogForExistingList} 
             shareList={shareList}
@@ -340,7 +322,6 @@ export default function Home() {
           isOpen={scanDialogProps.open}
           onOpenChange={(open) => setScanDialogProps(prev => ({ ...prev, open }))}
           currentUser={currentUser}
-          firebaseReady={firebaseReady}
           addList={addList}
           updateList={updateList}
           manageSubitems={manageSubitems}
@@ -365,17 +346,10 @@ export default function Home() {
           isOpen={isUploadImageDialogOpen}
           onOpenChange={setIsUploadImageDialogOpen}
           currentUser={currentUser}
-          firebaseReady={firebaseReady}
           addList={addList}
           manageSubitems={manageSubitems}
           toast={toast}
           setListToFocusId={setListToFocusId}
-        />
-
-        <ViewScanDialog
-          isOpen={isViewScanDialogOpen}
-          onOpenChange={handleViewScanDialogChange}
-          imageUrls={viewingScanUrls}
         />
 
         <HelpDialog isOpen={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen} />

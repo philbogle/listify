@@ -18,7 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ListPlus, PlusSquare, Camera, UploadCloud, Sparkles, Settings2, Edit3, CheckSquare, Trash2, Archive, UserCircle2, Smartphone, Code, Cog, Mail, Info, Share2, ZoomIn, Users } from "lucide-react";
+import { ListPlus, PlusSquare, Camera, UploadCloud, Sparkles, Settings2, Edit3, CheckSquare, Trash2, Archive, UserCircle2, Smartphone, Code, Cog, Mail, Info, Share2, Users } from "lucide-react";
 
 interface HelpDialogProps {
   isOpen: boolean;
@@ -89,7 +89,6 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
                   <li><Edit3 size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>Edit Titles:</strong> Click a list or item title to edit.</li>
                   <li><CheckSquare size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>Complete:</strong> Use checkboxes or the menu option to mark lists/items complete.</li>
                   <li><Trash2 size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>Delete:</strong> Use the three-dot menu for deletion. Options include deleting the entire list or just its completed items.</li>
-                  <li><ZoomIn size={14} className="inline-block mr-1.5 relative -top-px text-muted-foreground" /><strong>View & Zoom Scans:</strong> List owners can view and zoom into their scanned images from the list menu.</li>
                 </ul>
               </div>
             </div>
@@ -133,7 +132,7 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
                   <ul className="list-disc pl-5 space-y-1.5 mt-1">
                     <li><strong>Frontend:</strong> Next.js (React framework) with TypeScript, styled with Tailwind CSS and ShadCN UI components.</li>
                     <li><strong>Backend & AI:</strong> AI features (image recognition, text interpretation, item generation) are powered by Google&apos;s Gemini models via Genkit.</li>
-                    <li><strong>Data Storage:</strong> List data, user authentication (Firebase Authentication), and scanned images (Firebase Storage) are handled by Firebase Firestore.</li>
+                    <li><strong>Data Storage:</strong> List data and user authentication (Firebase Authentication) are handled by Firebase Firestore. Scanned images are not stored.</li>
                     <li><strong>Development:</strong> This application was primarily developed with AI assistance from Firebase Studio&apos;s App Prototyper.</li>
                   </ul>
                 </AccordionContent>
@@ -161,5 +160,3 @@ const HelpDialog: FC<HelpDialogProps> = ({ isOpen, onOpenChange }) => {
 };
 
 export default HelpDialog;
-
-      

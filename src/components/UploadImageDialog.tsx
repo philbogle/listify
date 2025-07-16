@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { User } from "firebase/auth";
-import Image from "next/image";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
@@ -17,22 +16,18 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import { Loader2, Upload, RefreshCw, AlertTriangle, ImageUp } from "lucide-react";
+import { Loader2, Upload, RefreshCw, ImageUp } from "lucide-react";
 
 import type { List, Subitem } from "@/types/list";
 import { extractListFromImage, type ExtractListFromImageInput } from "@/ai/flows/extractListFromImageFlow";
-import { uploadScanImageToFirebase } from "@/lib/firebase";
 
 interface UploadImageDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   currentUser: User | null;
-  firebaseReady: boolean;
   addList: (
-    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "scanImageUrls" | "shareId">,
-    uploadedImageFile?: File | null
+    listData: Omit<List, "id" | "completed" | "subitems" | "createdAt" | "userId" | "shareId">
   ) => Promise<List | undefined>;
   manageSubitems: (listId: string, newSubitems: Subitem[]) => Promise<void>;
   toast: (options: { title: string; description?: string; variant?: "default" | "destructive"; duration?: number }) => void;
@@ -94,7 +89,6 @@ export default function UploadImageDialog({
   isOpen,
   onOpenChange,
   currentUser,
-  firebaseReady,
   addList,
   manageSubitems,
   toast,
@@ -174,8 +168,7 @@ export default function UploadImageDialog({
 
       if (result && result.parentListTitle) {
         const parentTitle = result.parentListTitle.trim();
-        // Pass the final (potentially cropped) image file to addList
-        const newParentList = await addList({ title: parentTitle }, currentUser ? finalImageFileToProcess : null);
+        const newParentList = await addList({ title: parentTitle });
 
         if (newParentList && newParentList.id) {
           setListToFocusId(newParentList.id);
@@ -191,9 +184,6 @@ export default function UploadImageDialog({
             if (subitemsToAdd.length > 0) {
               await manageSubitems(newParentList.id, subitemsToAdd);
             }
-          }
-          if (!currentUser && firebaseReady && finalImageFileToProcess) {
-            toast({ title: "Sign In to Save Image", description: "List created locally. Sign in to save the uploaded image with your list.", duration: 5000 });
           }
           toast({ title: "List Created!", description: `"${newParentList.title}" created from your image.` });
         } else {
@@ -249,7 +239,6 @@ export default function UploadImageDialog({
           <DialogTitle>Upload Image for List</DialogTitle>
           <DialogDescription>
             Select an image file. The AI will try to create a list from its content.
-            {!currentUser && firebaseReady && " Images uploaded while not signed in are not saved with the list."}
           </DialogDescription>
         </DialogHeader>
 
@@ -311,4 +300,3 @@ export default function UploadImageDialog({
     </Dialog>
   );
 }
-
