@@ -33,6 +33,7 @@ import { isFirebaseConfigured, signInWithGoogle, signOutUser } from "@/lib/fireb
 import React, { useEffect, useState } from "react";
 import type { List } from "@/types/list";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 
 export default function Home() {
@@ -317,6 +318,10 @@ export default function Home() {
             onSignIn={handleSignIn}
           />
         </main>
+        
+        <footer className="w-full max-w-2xl mt-16 text-center text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:text-primary underline">Privacy Policy</Link>
+        </footer>
 
         <ScanDialog
           isOpen={scanDialogProps.open}
@@ -345,7 +350,6 @@ export default function Home() {
         <UploadImageDialog
           isOpen={isUploadImageDialogOpen}
           onOpenChange={setIsUploadImageDialogOpen}
-          currentUser={currentUser}
           addList={addList}
           manageSubitems={manageSubitems}
           toast={toast}
