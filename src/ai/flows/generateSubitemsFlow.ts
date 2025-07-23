@@ -34,8 +34,8 @@ const prompt = ai.definePrompt({
 Your task is to generate new, unique, and actionable sub-item titles that fit the theme of this prompt.
 
 Guidelines for the number of items:
-- For most common lists (e.g., "Weekend Chores", "Grocery Shopping", "Meeting Ideas"), aim for a smaller, more manageable number of suggestions (e.g., 3-10 items).
-- If the prompt clearly indicates a context that implies a longer, more comprehensive, or well-defined set (e.g., "Recipe for Chocolate Cake", "All Stages of Project Phoenix", "Countries in South America", "Complete Packing List for Camping"), you may generate up to 50 items if appropriate for that specific context.
+- For most common lists (e.g., "Weekend Chores", "Grocery Shopping", "Meeting Ideas"), aim for a smaller, more manageable number of suggestions (e.g., 3-7 items).
+- If the prompt clearly indicates a context that implies a longer, more comprehensive, or well-defined set (e.g., "Recipe for Chocolate Cake", "All Stages of Project Phoenix", "Countries in South America", "Complete Packing List for Camping"), you may generate up to 15 items if appropriate for that specific context.
 - Use your judgment based on the prompt to determine a helpful number of items.
 
 The list currently contains the following items (if any):
