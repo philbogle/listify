@@ -300,10 +300,17 @@ export default function Home() {
                     </div>
                     </div>
                 ))
-            ) : (
+            ) : currentUser ? (
                 <div className="space-y-4">
                     {renderActiveLists()}
                 </div>
+            ) : (
+              <UserSignInPrompt
+                currentUser={currentUser}
+                firebaseReady={firebaseReady}
+                isLoading={isLoading}
+                onSignIn={handleSignIn}
+              />
             )}
           </section>
 

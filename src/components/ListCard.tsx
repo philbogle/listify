@@ -486,7 +486,7 @@ const ListCard: FC<ListCardProps> = ({
                   timeout={{ enter: 0, exit: 200 }} 
                   classNames="subitem"
                 >
-                  <div ref={nodeRef} className="pl-4">
+                  <div ref={nodeRef} className="pl-8">
                     <SubitemComponent
                       subitem={subitem}
                       onToggleComplete={handleToggleSubitemComplete}
