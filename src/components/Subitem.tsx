@@ -87,6 +87,8 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
       } else {
         setEditedTitle(subitem.title);
       }
+    } else {
+      onDelete(subitem.id);
     }
     setIsEditing(false);
     if (isInitialNewSubitemEdit) {
@@ -206,15 +208,19 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
           />
         ) : (
           <span
-            className={cn("block text-sm", subitem.completed ? "line-through text-muted-foreground" : "")}
+            className={cn("block text-sm cursor-pointer min-h-[20px]", subitem.completed ? "line-through text-muted-foreground" : "")}
             title={subitem.title}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartEdit();
+            }}
           >
             {subitem.title}
           </span>
         )}
       </div>
 
-      <div className={cn("flex items-center space-x-1 flex-shrink-0 transition-opacity duration-150", (menuIsVisible && !isEditing) ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+      <div className={cn("flex items-center space-x-1 flex-shrink-0 transition-opacity duration-150", (menuIsVisible && !isEditing && subitem.title) ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
         {isEditing ? (
           <>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleUpdateTitle();}} aria-label="Save subitem title">

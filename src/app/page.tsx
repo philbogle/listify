@@ -260,7 +260,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col items-center p-4 sm:p-8">
+      <div className="flex flex-col items-center p-4 sm:p-8">
         {!firebaseReady && !isLoading && (
           <div className="w-full max-w-2xl mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md flex items-start" role="alert">
             <AlertTriangle className="h-5 w-5 mr-3 mt-0.5" />
@@ -300,10 +300,17 @@ export default function Home() {
                     </div>
                     </div>
                 ))
-            ) : (
+            ) : currentUser ? (
                 <div className="space-y-4">
                     {renderActiveLists()}
                 </div>
+            ) : (
+              <UserSignInPrompt
+                currentUser={currentUser}
+                firebaseReady={firebaseReady}
+                isLoading={isLoading}
+                onSignIn={handleSignIn}
+              />
             )}
           </section>
 
