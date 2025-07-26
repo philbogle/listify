@@ -125,7 +125,7 @@ export const addListToFirebase = async (listData: Omit<List, "id" | "createdAt">
   const docData: any = {
     title: listData.title,
     completed: listData.completed,
-    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })),
+    subtasks: listData.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed, isHeader: !!si.isHeader })),
     createdAt: serverTimestamp(),
     userId: userId,
     shareId: null,
@@ -156,7 +156,8 @@ const mapDocToList = (docSnap: DocumentData): List => {
     subitems: (data.subtasks || []).map((st: any) => ({
       id: st.id || crypto.randomUUID(),
       title: st.title,
-      completed: st.completed
+      completed: st.completed,
+      isHeader: !!st.isHeader,
     })),
     userId: data.userId,
     shareId: data.shareId || null,
@@ -241,7 +242,7 @@ export const updateListInFirebase = async (listId: string, updates: Partial<List
 
   const firebaseUpdates: any = { ...updates };
   if (updates.subitems !== undefined) {
-    firebaseUpdates.subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
+    firebaseUpdates.subtasks = updates.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed, isHeader: !!si.isHeader }));
     delete firebaseUpdates.subitems;
   }
 
@@ -267,7 +268,7 @@ export const deleteListFromFirebase = async (listId: string): Promise<void> => {
 export const updateSubitemsInFirebase = async (listId: string, subitems: Subitem[]): Promise<void> => {
   const currentDb = getDb();
   const listRef = doc(currentDb, LISTS_COLLECTION, listId);
-  const subtasksForFirebase = subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed }));
+  const subtasksForFirebase = subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed, isHeader: !!si.isHeader }));
   await updateDoc(listRef, { subtasks: subtasksForFirebase });
 };
 

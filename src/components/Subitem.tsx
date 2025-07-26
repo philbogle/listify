@@ -4,7 +4,7 @@
 import type { FC } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea"; // Changed from Input
+import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Save, X, MoreVertical, Edit3, CheckCircle2, Circle } from "lucide-react";
 import type { Subitem } from "@/types/list";
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -37,7 +37,7 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'; // Reset height to allow shrinking
       const scrollHeight = textareaRef.current.scrollHeight;
-      const oneLineVisualHeight = 32; 
+      const oneLineVisualHeight = 32;
 
       if (scrollHeight > oneLineVisualHeight) {
         textareaRef.current.style.height = `${scrollHeight}px`;
@@ -58,19 +58,18 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
-      if (isInitialNewSubitemEdit || editedTitle === "Untitled Item") {
+      if (isInitialNewSubitemEdit || editedTitle === "Untitled Item" || editedTitle === "New Section") {
         textareaRef.current.select();
       }
-      adjustTextareaHeight(); 
+      adjustTextareaHeight();
     }
   }, [isEditing, isInitialNewSubitemEdit, editedTitle, adjustTextareaHeight]);
-  
+
   useEffect(() => {
     if (isEditing) {
       adjustTextareaHeight();
     }
   }, [editedTitle, isEditing, adjustTextareaHeight]);
-
 
   const handleStartEdit = () => {
     setEditedTitle(subitem.title);
@@ -82,45 +81,90 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
     const trimmedTitle = editedTitle.trim();
     if (trimmedTitle && trimmedTitle !== subitem.title) {
       onUpdateTitle(subitem.id, trimmedTitle);
-    } else if (!trimmedTitle) { 
-      if (isInitialNewSubitemEdit) { 
+    } else if (!trimmedTitle) {
+      if (isInitialNewSubitemEdit) {
         onDelete(subitem.id);
       } else {
-        setEditedTitle(subitem.title); 
+        setEditedTitle(subitem.title);
       }
     }
     setIsEditing(false);
     if (isInitialNewSubitemEdit) {
       setIsInitialNewSubitemEdit(false);
-      if (onInitialEditDone) {
-        onInitialEditDone(subitem.id);
-      }
+      onInitialEditDone?.(subitem.id);
     }
   };
 
   const handleCancelEdit = () => {
-    if (isInitialNewSubitemEdit && (editedTitle.trim() === "" || editedTitle === "Untitled Item")) {
-      onDelete(subitem.id); 
+    if (isInitialNewSubitemEdit && (editedTitle.trim() === "" || editedTitle === "Untitled Item" || editedTitle === "New Section")) {
+      onDelete(subitem.id);
     } else {
       setEditedTitle(subitem.title);
     }
     setIsEditing(false);
     if (isInitialNewSubitemEdit) {
       setIsInitialNewSubitemEdit(false);
-      if (onInitialEditDone) {
-        onInitialEditDone(subitem.id);
-      }
+      onInitialEditDone?.(subitem.id);
     }
   };
-
 
   const handleRowClick = (e: React.MouseEvent) => {
     if (isEditing) return;
     if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
-        return;
+      return;
     }
-    setMenuIsVisible(true);
+    handleStartEdit();
   };
+  
+  if (subitem.isHeader) {
+    return (
+      <div
+        className="flex items-center space-x-3 py-2 px-1 rounded-md hover:bg-secondary/50 transition-colors group cursor-pointer"
+        onClick={handleStartEdit}
+      >
+        <div className="w-5 flex-shrink-0"></div> {/* Spacer to align with checkbox */}
+        <div className="flex-grow min-w-0">
+          {isEditing ? (
+            <Textarea
+              ref={textareaRef}
+              value={editedTitle}
+              onChange={(e) => setEditedTitle(e.target.value)}
+              rows={1}
+              className="w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-semibold leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[32px]"
+              onBlur={handleUpdateTitle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleUpdateTitle(); }
+                if (e.key === 'Escape') { handleCancelEdit(); }
+                e.stopPropagation();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onInput={adjustTextareaHeight}
+            />
+          ) : (
+             <span className="block text-sm font-semibold text-card-foreground" title={subitem.title}>
+              {subitem.title}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isEditing ? (
+             <>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleUpdateTitle();}} aria-label="Save section title">
+                <Save className="h-4 w-4 text-green-600" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleCancelEdit();}} aria-label="Cancel editing section title">
+                <X className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => {e.stopPropagation(); onDelete(subitem.id);}} aria-label="Delete section header">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -144,21 +188,21 @@ const SubitemComponent: FC<SubitemProps> = ({ subitem, onToggleComplete, onDelet
             ref={textareaRef}
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
-            rows={1} 
+            rows={1}
             className="w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-2.5 py-1.5 text-sm leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[32px]"
             onBlur={handleUpdateTitle}
-            onKeyDown={(e) => { 
+            onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                handleUpdateTitle(); 
+                handleUpdateTitle();
               }
               if (e.key === 'Escape') {
-                handleCancelEdit(); 
+                handleCancelEdit();
               }
-              e.stopPropagation(); 
+              e.stopPropagation();
             }}
             onClick={(e) => e.stopPropagation()}
-            onInput={adjustTextareaHeight} 
+            onInput={adjustTextareaHeight}
           />
         ) : (
           <span

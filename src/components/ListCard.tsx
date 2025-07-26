@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Trash2, CheckCircle2, Circle, ClipboardCopy, ScanLine, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off, ListOrdered } from "lucide-react";
+import { Plus, Save, X, MoreVertical, Loader2, Sparkles, Trash2, CheckCircle2, Circle, ClipboardCopy, ScanLine, Share2, Link as LinkIcon, Copy as CopyIcon, Link2Off, ListOrdered, Heading2 } from "lucide-react";
 import SubitemComponent from "./Subitem";
 import {
   Dialog,
@@ -103,16 +103,18 @@ const ListCard: FC<ListCardProps> = ({
   const handleToggleListComplete = (completed: boolean) => {
     onUpdateList(list.id, { completed });
   };
-
-  const handleAddNewSubitemInEditMode = () => {
+  
+  const handleAddNewSubitem = (isHeader: boolean) => {
     const newSubitem: Subitem = {
       id: crypto.randomUUID(),
-      title: "Untitled Item",
+      title: isHeader ? "New Section" : "Untitled Item",
       completed: false,
+      isHeader,
     };
     onManageSubitems(list.id, [...list.subitems, newSubitem]);
     setSubitemToFocusId(newSubitem.id);
   };
+
 
   const handleSubitemInitialEditDone = (subitemId: string) => {
     if (subitemId === subitemToFocusId) {
@@ -414,6 +416,13 @@ const ListCard: FC<ListCardProps> = ({
                     {list.completed ? "Mark as Active" : "Mark as Complete"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleAddNewSubitem(false)} disabled={list.completed || isAutosorting}>
+                      <Plus className="mr-2 h-4 w-4" /> Add Item
+                  </DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => handleAddNewSubitem(true)} disabled={list.completed || isAutosorting}>
+                      <Heading2 className="mr-2 h-4 w-4" /> Add Section Header
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleCopyListContent} disabled={isAutosorting}>
                     <ClipboardCopy className="mr-2 h-4 w-4" />
                     Copy List
@@ -450,7 +459,7 @@ const ListCard: FC<ListCardProps> = ({
                     ) : (
                       <ListOrdered className="mr-2 h-4 w-4" />
                     )}
-                    Autosort Items
+                    Autosort & Group
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -505,7 +514,7 @@ const ListCard: FC<ListCardProps> = ({
         {!list.completed && (
           <CardFooter className="pt-2 pb-4 border-t">
             <div className="flex w-full space-x-2">
-              <Button onClick={handleAddNewSubitemInEditMode} variant="outline" size="sm" className="flex-1" aria-label="Add new item" disabled={isAutosorting}>
+              <Button onClick={() => handleAddNewSubitem(false)} variant="outline" size="sm" className="flex-1" aria-label="Add new item" disabled={isAutosorting}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
               </Button>

@@ -19,7 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "firebase/auth";
 import type { Unsubscribe } from "firebase/firestore";
-import { autosortListItems as autosortListItemsFlow, type AutosortListItemsInput } from "@/ai/flows/autosortListItemsFlow";
+import { autosortAndGroupListItems, type AutosortAndGroupListItemsInput } from "@/ai/flows/autosortAndGroupListItemsFlow";
 
 const LOCAL_STORAGE_ACTIVE_LISTS_KEY_PREFIX = "listify_active_lists_";
 const LOCAL_STORAGE_COMPLETED_LISTS_KEY_PREFIX = "listify_completed_lists_";
@@ -409,29 +409,31 @@ export const useLists = () => {
       toast({ title: "List not found", description: "Could not find the list to autosort.", variant: "destructive" });
       return;
     }
-    if (listToSort.subitems.length < 2) {
-      toast({ title: "Not enough items", description: "Need at least two items to autosort.", variant: "default" });
+    const itemsOnly = listToSort.subitems.filter(si => !si.isHeader);
+    if (itemsOnly.length < 2) {
+      toast({ title: "Not enough items", description: "Need at least two items (not including headers) to autosort.", variant: "default" });
       return;
     }
-
-    const originalSubitems = [...listToSort.subitems]; // Keep a copy for potential revert
-
+  
+    const originalSubitems = [...listToSort.subitems];
+  
     try {
-      const input: AutosortListItemsInput = {
+      const input: AutosortAndGroupListItemsInput = {
         listTitle: listToSort.title,
-        subitems: listToSort.subitems.map(si => ({ id: si.id, title: si.title, completed: si.completed })),
+        subitems: itemsOnly.map(si => ({ id: si.id, title: si.title, completed: si.completed, isHeader: false })),
       };
-      const result = await autosortListItemsFlow(input);
-
+      
+      const result = await autosortAndGroupListItems(input);
+  
       if (result && result.sortedSubitems) {
-        // The AI flow returns SubitemForSort[], map them back to Subitem[]
         const newSortedSubitems: Subitem[] = result.sortedSubitems.map(si => ({
           id: si.id,
           title: si.title,
           completed: si.completed,
+          isHeader: si.isHeader,
         }));
         await manageSubitems(listId, newSortedSubitems);
-        toast({ title: "List Autosorted!", description: `Items in "${listToSort.title}" have been reordered.` });
+        toast({ title: "List Autosorted!", description: `Items in "${listToSort.title}" have been grouped and reordered.` });
       } else {
         toast({ title: "Autosort Failed", description: "AI could not reorder the items.", variant: "destructive" });
       }
@@ -444,7 +446,6 @@ export const useLists = () => {
         errorMsg = `AI processing error: ${error.message.substring(0,100)}${error.message.length > 100 ? '...' : ''}`;
       }
       toast({ title: "AI Error", description: errorMsg, variant: "destructive" });
-      // Revert to original order on error
       await manageSubitems(listId, originalSubitems);
     }
   };

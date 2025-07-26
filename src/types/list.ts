@@ -3,6 +3,7 @@ export interface Subitem {
   id: string;
   title: string;
   completed: boolean;
+  isHeader?: boolean; // Added to distinguish section headers
 }
 
 export interface List {
@@ -14,4 +15,3 @@ export interface List {
   userId?: string; // Added for user-specific data
   shareId?: string | null; // Unique ID for public sharing
 }
-
