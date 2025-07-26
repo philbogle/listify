@@ -300,7 +300,7 @@ export default function Home() {
                     </div>
                     </div>
                 ))
-            ) : currentUser ? (
+            ) : currentUser || !firebaseReady ? (
                 <div className="space-y-4">
                     {renderActiveLists()}
                 </div>
@@ -318,12 +318,6 @@ export default function Home() {
               {renderCompletedListSection()}
           </section>
 
-          <UserSignInPrompt
-            currentUser={currentUser}
-            firebaseReady={firebaseReady}
-            isLoading={isLoading}
-            onSignIn={handleSignIn}
-          />
         </main>
         
         <footer className="w-full max-w-2xl mt-16 text-center text-xs text-muted-foreground">
