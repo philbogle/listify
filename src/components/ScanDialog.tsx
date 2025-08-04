@@ -250,6 +250,7 @@ export default function ScanDialog({
                 id: crypto.randomUUID(),
                 title: si.title.trim(),
                 completed: false,
+                isHeader: !!si.isHeader,
               }));
 
             if (newSubitemsToAdd.length > 0) {
@@ -277,6 +278,7 @@ export default function ScanDialog({
                   id: crypto.randomUUID(),
                   title: si.title.trim(),
                   completed: false,
+                  isHeader: !!si.isHeader,
                 }));
 
               if (subitemsToAdd.length > 0) {

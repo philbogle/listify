@@ -179,6 +179,7 @@ export default function UploadImageDialog({
                 id: crypto.randomUUID(),
                 title: si.title.trim(),
                 completed: false,
+                isHeader: !!si.isHeader,
               }));
 
             if (subitemsToAdd.length > 0) {
