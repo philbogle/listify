@@ -22,7 +22,6 @@ export type ExtractListFromImageInput = z.infer<typeof ExtractListFromImageInput
 
 const ExtractedSubitemSchema = z.object({
   title: z.string().describe("The title of an extracted subitem or an identified object."),
-  isHeader: z.boolean().describe("Whether this item is a section header.").default(false),
 });
 
 const ExtractListFromImageOutputSchema = z.object({ // Renamed schema
@@ -51,16 +50,13 @@ const prompt = ai.definePrompt({
     *   First, carefully analyze the provided image to determine if it contains a handwritten list.
     *   If a handwritten list is clearly identifiable:
         *   Generate a 'parentListTitle' that is concise and descriptive of the list's content (e.g., "Grocery Run for Weekend", "Meeting Action Items", "Home Renovation Todos").
-        *   Extract each distinct handwritten item.
-        *   **Identify any text that serves as a section header (e.g., it is underlined, larger, or followed by a colon). For these headers, set 'isHeader' to true.**
-        *   For regular list items, set 'isHeader' to false.
-        *   Return these as 'extractedSubitems'.
+        *   Extract each distinct handwritten item and return these as 'extractedSubitems'.
 
 2.  **Secondary Task: Object Identification (If No Handwritten List)**
     *   If, and only if, you do not find a clear handwritten list in the image:
         *   Attempt to identify distinct objects or elements visible in the image.
         *   Generate a 'parentListTitle' that describes the scene or the collection of objects (e.g., "Objects in Living Room", "Items on Desk", "Identified Items from Image").
-        *   List the names of these identified objects as 'extractedSubitems', each with a 'title' and 'isHeader' set to false. Aim for 3-7 items if possible.
+        *   List the names of these identified objects as 'extractedSubitems', each with a 'title'. Aim for 3-7 items if possible.
 
 **General Guidelines:**
 *   If the image is entirely blank, unrecognizable, or contains no discernible handwritten list or identifiable objects, use a 'parentListTitle' like "Unrecognized Image Content" or "No actionable content found" and an empty 'extractedSubitems' array.
